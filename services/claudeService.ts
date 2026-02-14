@@ -1,5 +1,25 @@
 import { Message, AnalysisData } from '../types';
 
+function parseAnalysis(fullText: string, onChunk: (chunk: string) => void, onAnalysis: (analysis: AnalysisData) => void) {
+  const analysisMatch = fullText.match(/\[ANALYSIS\](.*?)\[\/ANALYSIS\]/s);
+  const displayText = analysisMatch
+    ? fullText.substring(0, fullText.indexOf('[ANALYSIS]')).trim()
+    : fullText.trim();
+
+  onChunk(displayText);
+
+  if (analysisMatch?.[1]) {
+    try {
+      const analysis: AnalysisData = JSON.parse(analysisMatch[1]);
+      onAnalysis(analysis);
+    } catch (e) {
+      console.error('Analysis JSON parse error', e);
+    }
+  }
+
+  return displayText;
+}
+
 export const chatWithClaudeStream = async (
   messages: Message[],
   onChunk: (chunk: string) => void,
@@ -22,9 +42,20 @@ export const chatWithClaudeStream = async (
   });
 
   if (!response.ok) {
-    throw new Error(`Server error: ${response.status}`);
+    const errData = await response.json().catch(() => ({}));
+    throw new Error(errData.error || `Server error: ${response.status}`);
   }
 
+  const contentType = response.headers.get('content-type') || '';
+
+  // JSON response (Vercel production)
+  if (contentType.includes('application/json')) {
+    const data = await response.json();
+    if (data.error) throw new Error(data.error);
+    return parseAnalysis(data.text, onChunk, onAnalysis);
+  }
+
+  // SSE streaming response (local dev)
   const reader = response.body!.getReader();
   const decoder = new TextDecoder();
   let fullText = '';
@@ -49,15 +80,11 @@ export const chatWithClaudeStream = async (
         if (parsed.type === 'text') {
           fullText += parsed.text;
 
-          // Check if [ANALYSIS] tag has appeared
           const analysisTagStart = fullText.indexOf('[ANALYSIS]');
-
           let safeEnd: number;
           if (analysisTagStart !== -1) {
-            // Tag found - only show text before it
             safeEnd = analysisTagStart;
           } else {
-            // Tag not found yet - hold back last 12 chars in case tag is partially received
             safeEnd = Math.max(0, fullText.length - 12);
           }
 
@@ -75,7 +102,7 @@ export const chatWithClaudeStream = async (
     }
   }
 
-  // Final flush: send any remaining safe text
+  // Final flush
   const analysisMatch = fullText.match(/\[ANALYSIS\](.*?)\[\/ANALYSIS\]/s);
   const finalEnd = analysisMatch
     ? fullText.indexOf('[ANALYSIS]')
@@ -85,7 +112,6 @@ export const chatWithClaudeStream = async (
     onChunk(fullText.substring(lastSentIndex, finalEnd));
   }
 
-  // Parse and emit analysis data
   if (analysisMatch?.[1]) {
     try {
       const analysis: AnalysisData = JSON.parse(analysisMatch[1]);
