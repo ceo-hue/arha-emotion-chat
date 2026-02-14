@@ -6,9 +6,9 @@ import { generateArhaVideo } from './services/geminiService';
 import { GoogleGenAI, Modality } from '@google/genai';
 import { ARHA_SYSTEM_PROMPT } from './constants';
 import { 
-  Send, Heart, Image as ImageIcon, 
+  Send, Heart, Image as ImageIcon,
   Mic, RotateCcw, LayoutDashboard,
-  Menu, Video, X, History, ChevronRight, Database
+  Menu, Video, X, History, ChevronRight, Database, Trash2
 } from 'lucide-react';
 import EmotionalDashboard from './components/EmotionalDashboard';
 import GlassSidebar from './components/GlassSidebar';
@@ -124,6 +124,15 @@ const App: React.FC = () => {
     localStorage.removeItem(AUTOSAVE_KEY);
   };
 
+  const handleDeleteHistory = (e: React.MouseEvent, sessionId: string) => {
+    e.stopPropagation();
+    setHistory(prev => prev.filter(s => s.id !== sessionId));
+  };
+
+  const handleClearAllHistory = () => {
+    setHistory([]);
+  };
+
   const handleSend = async () => {
     if ((!input.trim() && !selectedMedia) || isLoading) return;
     setShowMenu(false); setShowHistory(false);
@@ -222,15 +231,23 @@ const App: React.FC = () => {
             {history.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-48 text-white/20"><History size={28} className="mb-4 opacity-10" /><p className="text-[10px] uppercase font-bold tracking-widest">Empty</p></div>
             ) : (
-              history.map((s) => (
-                <div key={s.id} onClick={() => { setMessages(s.messages); setShowHistory(false); }} className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-emerald-500/40 hover:bg-white/10 hover:translate-x-1 transition-all cursor-pointer group">
-                  <h4 className="text-[13px] font-bold text-white/90 truncate mb-1">{s.title}</h4>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[9px] text-white/30 uppercase font-black">{new Date(s.timestamp).toLocaleDateString()}</span>
-                    <ChevronRight size={12} className="text-white/20 group-hover:text-emerald-400" />
+              <>
+                {history.map((s) => (
+                  <div key={s.id} onClick={() => { setMessages(s.messages); setShowHistory(false); }} className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-emerald-500/40 hover:bg-white/10 hover:translate-x-1 transition-all cursor-pointer group relative">
+                    <button onClick={(e) => handleDeleteHistory(e, s.id)} className="absolute top-3 right-3 w-7 h-7 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 hover:bg-red-500/20 text-white/30 hover:text-red-400 transition-all" title="삭제">
+                      <Trash2 size={13} />
+                    </button>
+                    <h4 className="text-[13px] font-bold text-white/90 truncate mb-1 pr-8">{s.title}</h4>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] text-white/30 uppercase font-black">{new Date(s.timestamp).toLocaleDateString()}</span>
+                      <ChevronRight size={12} className="text-white/20 group-hover:text-emerald-400" />
+                    </div>
                   </div>
-                </div>
-              ))
+                ))}
+                <button onClick={handleClearAllHistory} className="w-full mt-2 py-2.5 rounded-xl border border-white/10 hover:border-red-500/30 hover:bg-red-500/10 text-white/30 hover:text-red-400 text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all">
+                  <Trash2 size={12} /> Clear All
+                </button>
+              </>
             )}
           </div>
         </GlassSidebar>
