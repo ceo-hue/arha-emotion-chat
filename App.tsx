@@ -214,7 +214,7 @@ const App: React.FC = () => {
     <div className="flex h-[100dvh] w-full items-center justify-center relative overflow-hidden bg-black">
       <div className="absolute inset-0 z-0 bg-cover bg-center transition-all duration-[4000ms] scale-105 opacity-80" style={{ backgroundImage: `url(${bgImageUrl})` }} />
       
-      <div className="flex w-full max-w-[1440px] h-full md:h-[98dvh] glass-panel md:rounded-[2.5rem] overflow-hidden relative z-10">
+      <div className="flex w-full max-w-[1440px] h-[100dvh] md:h-[98dvh] glass-panel md:rounded-[2.5rem] overflow-hidden relative z-10">
         
         {/* Left Sidebar: History */}
         <GlassSidebar isOpen={showHistory} onClose={() => setShowHistory(false)} side="left" title="History Archive" icon={<History size={18} />}>
@@ -237,22 +237,22 @@ const App: React.FC = () => {
 
         {/* Main Chat Container */}
         <div className="flex flex-col flex-1 border-r border-white/20 min-w-0 relative h-full">
-          <header className="h-16 px-6 flex items-center justify-between border-b border-white/10 bg-white/5 backdrop-blur-xl shrink-0">
-            <div className="flex items-center gap-3">
-              <button onClick={() => setShowHistory(!showHistory)} className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${showHistory ? 'bg-emerald-600 text-white' : 'bg-white/20 text-slate-800 border border-white/40'}`}>
-                <History size={18} />
+          <header className="h-12 md:h-16 px-3 md:px-6 flex items-center justify-between border-b border-white/10 bg-white/5 backdrop-blur-xl shrink-0">
+            <div className="flex items-center gap-2 md:gap-3">
+              <button onClick={() => setShowHistory(!showHistory)} className={`w-8 h-8 md:w-10 md:h-10 rounded-xl flex items-center justify-center transition-all ${showHistory ? 'bg-emerald-600 text-white' : 'bg-white/20 text-slate-800 border border-white/40'}`}>
+                <History size={16} />
               </button>
               <div>
-                <h1 className="text-base font-bold text-slate-900 tracking-tight leading-none mb-1">ARHA <span className="text-emerald-600 font-light text-[10px] ml-1">아르하</span></h1>
+                <h1 className="text-sm md:text-base font-bold text-slate-900 tracking-tight leading-none mb-0.5 md:mb-1">ARHA <span className="text-emerald-600 font-light text-[10px] ml-1">아르하</span></h1>
                 <p className="text-[8px] text-slate-600 font-black uppercase tracking-widest">{moodConfig.status}</p>
               </div>
             </div>
-            <button onClick={() => setShowDashboard(!showDashboard)} className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${showDashboard ? 'text-emerald-600 bg-white/40' : 'text-slate-500 hover:bg-white/20'}`}>
-              <LayoutDashboard size={18} />
+            <button onClick={() => setShowDashboard(!showDashboard)} className={`w-8 h-8 md:w-10 md:h-10 rounded-xl flex items-center justify-center transition-all ${showDashboard ? 'text-emerald-600 bg-white/40' : 'text-slate-500 hover:bg-white/20'}`}>
+              <LayoutDashboard size={16} />
             </button>
           </header>
 
-          <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 md:px-8 py-6 space-y-5 scroll-hide min-h-0">
+          <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 md:px-8 py-3 md:py-6 space-y-4 md:space-y-5 scroll-hide min-h-0">
             {messages.map((msg) => (
               <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2`}>
                 <div className={`max-w-[90%] md:max-w-[80%] flex flex-col gap-1.5 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
@@ -266,14 +266,14 @@ const App: React.FC = () => {
             ))}
           </div>
 
-          <footer className="px-6 py-5 border-t border-white/10 bg-white/5 backdrop-blur-3xl shrink-0">
-            <div className="max-w-4xl mx-auto flex items-center gap-3 relative">
-              <button onClick={() => setShowMenu(!showMenu)} className={`w-11 h-11 rounded-xl shrink-0 flex items-center justify-center transition-all border border-white/30 ${showMenu ? 'bg-emerald-600 text-white' : 'bg-white/20 text-slate-600'}`}>
-                <Menu size={20} />
+          <footer className="px-3 md:px-6 py-2 md:py-4 border-t border-white/10 bg-white/5 backdrop-blur-3xl shrink-0 safe-bottom">
+            <div className="max-w-4xl mx-auto flex items-center gap-2 md:gap-3 relative">
+              <button onClick={() => setShowMenu(!showMenu)} className={`w-9 h-9 md:w-11 md:h-11 rounded-xl shrink-0 flex items-center justify-center transition-all border border-white/30 ${showMenu ? 'bg-emerald-600 text-white' : 'bg-white/20 text-slate-600'}`}>
+                <Menu size={18} />
               </button>
-              
+
               {showMenu && (
-                <div className="absolute bottom-16 left-0 arha-sidebar-bg border border-white/10 rounded-2xl p-2 shadow-2xl z-[100] flex flex-col min-w-[180px] animate-in slide-in-from-bottom-2">
+                <div className="absolute bottom-12 md:bottom-16 left-0 arha-sidebar-bg border border-white/10 rounded-2xl p-2 shadow-2xl z-[100] flex flex-col min-w-[180px] animate-in slide-in-from-bottom-2">
                   <label className="flex items-center gap-3 px-3 py-2.5 hover:bg-white/10 rounded-xl text-[11px] font-bold text-white/90 transition-all cursor-pointer">
                     <ImageIcon size={14} className="text-sky-400" /> Image Studio
                     <input type="file" accept="image/*" className="hidden" onChange={e => {
@@ -288,13 +288,13 @@ const App: React.FC = () => {
                 </div>
               )}
 
-              <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSend()} placeholder="맑은 아침의 영감을 나누어주세요..." className="flex-1 bg-white/20 border border-white/40 rounded-2xl py-2.5 px-5 text-slate-900 focus:outline-none focus:border-emerald-400 transition-all" />
-              <button onClick={handleSend} disabled={isLoading || (!input.trim() && !selectedMedia)} className={`w-11 h-11 rounded-xl shrink-0 flex items-center justify-center text-white transition-all ${input.trim() || selectedMedia ? 'bg-emerald-600 shadow-lg' : 'bg-white/10 text-slate-400'}`}><Send size={20} /></button>
+              <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSend()} placeholder="맑은 아침의 영감을 나누어주세요..." className="flex-1 bg-white/20 border border-white/40 rounded-2xl py-2 md:py-2.5 px-3 md:px-5 text-sm md:text-base text-slate-900 focus:outline-none focus:border-emerald-400 transition-all" />
+              <button onClick={handleSend} disabled={isLoading || (!input.trim() && !selectedMedia)} className={`w-9 h-9 md:w-11 md:h-11 rounded-xl shrink-0 flex items-center justify-center text-white transition-all ${input.trim() || selectedMedia ? 'bg-emerald-600 shadow-lg' : 'bg-white/10 text-slate-400'}`}><Send size={18} /></button>
             </div>
-            
-            <div className="max-w-4xl mx-auto flex items-center justify-between mt-4">
-              <button onClick={handleReset} className="glass-sunken px-6 py-2.5 rounded-2xl text-emerald-900 text-[10px] font-black uppercase tracking-widest flex items-center gap-3 active:translate-y-0.5 transition-all"><RotateCcw size={14} className="text-emerald-600" /> Reset Canvas</button>
-              <div className="text-[8px] text-slate-500 font-black uppercase tracking-[0.2em] opacity-40"><Database size={10} className="inline mr-1" />Synchronized</div>
+
+            <div className="max-w-4xl mx-auto flex items-center justify-between mt-2 md:mt-4">
+              <button onClick={handleReset} className="glass-sunken px-4 md:px-6 py-1.5 md:py-2.5 rounded-2xl text-emerald-900 text-[9px] md:text-[10px] font-black uppercase tracking-widest flex items-center gap-2 md:gap-3 active:translate-y-0.5 transition-all"><RotateCcw size={12} className="text-emerald-600" /> Reset</button>
+              <div className="text-[7px] md:text-[8px] text-slate-500 font-black uppercase tracking-[0.2em] opacity-40 hidden md:block"><Database size={10} className="inline mr-1" />Synchronized</div>
             </div>
           </footer>
         </div>
