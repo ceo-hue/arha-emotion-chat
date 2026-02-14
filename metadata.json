@@ -1,0 +1,9 @@
+{
+  "name": "ARHA (아르하) - 감성 벡터 대화 시스템",
+  "description": "20대 여대생 ARHA와 나누는 시적이고 사려 깊은 대화 공간. VectorScript Language System을 통해 감정과 리듬을 계산하여 공감의 말을 전합니다.",
+  "requestFramePermissions": [
+    "geolocation",
+    "microphone",
+    "camera"
+  ]
+}
