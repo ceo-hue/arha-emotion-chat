@@ -49,6 +49,7 @@ const App: React.FC = () => {
   const [showDashboard, setShowDashboard] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState<ChatSession[]>([]);
+  const [customBg, setCustomBg] = useState<string | null>(null);
   
   const [activeTask, setActiveTask] = useState<TaskType>('none');
   const [location, setLocation] = useState<{latitude: number; longitude: number} | null>(null);
@@ -120,11 +121,37 @@ const App: React.FC = () => {
     return { status: 'Solar Glow' };
   }, [currentAnalysis]);
 
-  const bgImageUrl = useMemo(() => {
-    if (!weatherInfo) return 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1920&q=80'; 
-    const weatherImages: { [key: string]: string } = { 'Clear': 'photo-1470770841072-f978cf4d019e', 'Rainy': 'photo-1428592953211-077101b2021b', 'Snowy': 'photo-1483344331401-490f845012bb' };
-    return `https://images.unsplash.com/${weatherImages[weatherInfo.label] || 'photo-1441974231531-c6227db76b6e'}?auto=format&fit=crop&w=1920&q=80`;
-  }, [weatherInfo]);
+  // NASA 우주 기본 배경 (허블/제임스웹 우주망원경 성운)
+  const NASA_BG = 'https://images.unsplash.com/photo-1462331940025-496dfbfc7564?auto=format&fit=crop&w=1920&q=80';
+
+  // 프리셋 배경 목록
+  const BG_PRESETS = [
+    { id: 'space',   label: '우주 성운',  url: 'https://images.unsplash.com/photo-1462331940025-496dfbfc7564?auto=format&fit=crop&w=1920&q=80' },
+    { id: 'galaxy',  label: '은하수',    url: 'https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?auto=format&fit=crop&w=1920&q=80' },
+    { id: 'aurora',  label: '오로라',    url: 'https://images.unsplash.com/photo-1531366936337-7c912a4589a7?auto=format&fit=crop&w=1920&q=80' },
+    { id: 'forest',  label: '숲 아침',   url: 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1920&q=80' },
+    { id: 'ocean',   label: '바다',      url: 'https://images.unsplash.com/photo-1505118380757-91f5f5632de0?auto=format&fit=crop&w=1920&q=80' },
+  ];
+
+  const bgImageUrl = customBg ?? (
+    weatherInfo
+      ? (() => {
+          const weatherImages: { [key: string]: string } = { 'Clear': 'photo-1470770841072-f978cf4d019e', 'Rainy': 'photo-1428592953211-077101b2021b', 'Snowy': 'photo-1483344331401-490f845012bb' };
+          return `https://images.unsplash.com/${weatherImages[weatherInfo.label] || 'photo-1441974231531-c6227db76b6e'}?auto=format&fit=crop&w=1920&q=80`;
+        })()
+      : NASA_BG
+  );
+
+  const handleBgUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setCustomBg(ev.target?.result as string);
+      setShowMenu(false);
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleReset = () => {
     if (messages.length > 1) {
@@ -391,20 +418,53 @@ const App: React.FC = () => {
               <Menu size={17} />
             </button>
             {showMenu && (
-              <div className="absolute bottom-12 md:bottom-14 left-0 arha-sidebar-bg border border-white/10 rounded-2xl p-2 shadow-2xl z-[100] flex flex-col min-w-[200px] animate-in slide-in-from-bottom-2">
-                <div className="px-3 py-2 mb-1 rounded-xl bg-white/5 border border-white/10 text-center">
-                  <p className="text-[9px] font-black uppercase tracking-widest text-white/30">🔧 준비중인 기능</p>
-                </div>
-                <label className="flex items-center gap-3 px-3 py-3 rounded-xl text-[11px] font-bold text-white/50 opacity-60 cursor-not-allowed">
-                  <ImageIcon size={14} className="text-sky-400/60" /> Image Studio
-                  <span className="ml-auto text-[8px] text-white/20 font-black tracking-widest">SOON</span>
-                  <input type="file" accept="image/*" className="hidden" disabled />
+              <div className="absolute bottom-12 md:bottom-14 left-0 arha-sidebar-bg border border-white/10 rounded-2xl p-3 shadow-2xl z-[100] flex flex-col w-[240px] animate-in slide-in-from-bottom-2">
+                {/* ── 배경 변경 ── */}
+                <p className="text-[9px] font-black uppercase tracking-widest text-white/30 px-1 mb-2">배경 변경</p>
+
+                {/* 이미지 업로드 */}
+                <label className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[11px] font-bold text-white/70 hover:bg-white/10 active:bg-white/10 cursor-pointer transition-all">
+                  <ImageIcon size={14} className="text-sky-400 shrink-0" />
+                  내 사진 업로드
+                  <input type="file" accept="image/*" className="hidden" onChange={handleBgUpload} />
                 </label>
-                <button disabled className="flex items-center gap-3 px-3 py-3 rounded-xl text-[11px] font-bold text-white/50 opacity-60 cursor-not-allowed">
+
+                {/* 프리셋 그리드 */}
+                <div className="grid grid-cols-5 gap-1.5 px-1 mt-1 mb-2">
+                  {BG_PRESETS.map((p) => (
+                    <button
+                      key={p.id}
+                      onClick={() => { setCustomBg(p.url); setShowMenu(false); }}
+                      title={p.label}
+                      className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${customBg === p.url ? 'border-emerald-400 scale-110' : 'border-white/10 hover:border-white/40'}`}
+                      style={{ backgroundImage: `url(${p.url})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+                    >
+                      {customBg === p.url && (
+                        <div className="absolute inset-0 bg-emerald-500/30 flex items-center justify-center">
+                          <div className="w-2 h-2 rounded-full bg-emerald-400" />
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+
+                {/* 날씨 배경으로 복원 */}
+                {customBg && (
+                  <button onClick={() => { setCustomBg(null); setShowMenu(false); }} className="flex items-center gap-2 px-3 py-2 rounded-xl text-[10px] font-bold text-white/30 hover:text-white/60 hover:bg-white/5 transition-all">
+                    <RotateCcw size={11} /> 날씨 배경으로 복원
+                  </button>
+                )}
+
+                {/* 구분선 */}
+                <div className="border-t border-white/10 my-2" />
+
+                {/* 준비중 기능 */}
+                <p className="text-[9px] font-black uppercase tracking-widest text-white/20 px-1 mb-1">준비중인 기능</p>
+                <button disabled className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[11px] font-bold text-white/30 opacity-50 cursor-not-allowed">
                   <Video size={14} className="text-orange-400/60" /> Cinema Lab
                   <span className="ml-auto text-[8px] text-white/20 font-black tracking-widest">SOON</span>
                 </button>
-                <button disabled className="flex items-center gap-3 px-3 py-3 rounded-xl text-[11px] font-bold text-white/50 opacity-60 cursor-not-allowed">
+                <button disabled className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[11px] font-bold text-white/30 opacity-50 cursor-not-allowed">
                   <Mic size={14} className="text-emerald-400/60" /> Live Sync
                   <span className="ml-auto text-[8px] text-white/20 font-black tracking-widest">SOON</span>
                 </button>
