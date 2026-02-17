@@ -61,6 +61,7 @@ const App: React.FC = () => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const liveSessionRef = useRef<any>(null);
   const nextStartTimeRef = useRef(0);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const savedHistory = localStorage.getItem(HISTORY_KEY);
@@ -98,6 +99,18 @@ const App: React.FC = () => {
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages]);
+
+  // 햄버거 메뉴 외부 클릭 시 닫기
+  useEffect(() => {
+    if (!showMenu) return;
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setShowMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showMenu]);
 
   const moodConfig = useMemo(() => {
     if (!currentAnalysis) return { status: 'Pure Morning' };
@@ -339,7 +352,7 @@ const App: React.FC = () => {
         {/* 헤더 */}
         <header className="h-12 md:h-16 px-4 md:px-6 flex items-center shrink-0 relative">
           <button
-            onClick={() => { setShowHistory(!showHistory); if (!showHistory) setShowDashboard(false); }}
+            onClick={() => setShowHistory(!showHistory)}
             className={`w-9 h-9 md:w-10 md:h-10 rounded-xl flex items-center justify-center transition-all active:scale-95 ${showHistory ? btnActive : btnIdle}`}
           >
             <History size={16} />
@@ -349,7 +362,7 @@ const App: React.FC = () => {
             <p className="text-[8px] text-slate-600 font-black uppercase tracking-widest">Pure Morning</p>
           </div>
           <button
-            onClick={() => { setShowDashboard(!showDashboard); if (!showDashboard) setShowHistory(false); }}
+            onClick={() => setShowDashboard(!showDashboard)}
             className={`ml-auto w-9 h-9 md:w-10 md:h-10 rounded-xl flex items-center justify-center transition-all active:scale-95 ${showDashboard ? btnActive : btnIdle}`}
           >
             <LayoutDashboard size={16} />
@@ -373,7 +386,7 @@ const App: React.FC = () => {
 
         {/* 푸터 */}
         <footer className="px-3 md:px-6 py-2 md:py-4 shrink-0 safe-bottom">
-          <div className="flex items-center gap-2 md:gap-3 relative">
+          <div className="flex items-center gap-2 md:gap-3 relative" ref={menuRef}>
             <button onClick={() => setShowMenu(!showMenu)} className={`w-9 h-9 md:w-11 md:h-11 rounded-xl shrink-0 flex items-center justify-center transition-all active:scale-95 ${showMenu ? btnActive : btnIdle}`}>
               <Menu size={17} />
             </button>
@@ -403,7 +416,7 @@ const App: React.FC = () => {
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
                 placeholder="맑은 아침의 영감을 나누어주세요..."
-                className="w-full bg-white/20 border border-white/40 rounded-2xl py-2.5 pl-3 md:pl-5 pr-12 text-[14px] md:text-base text-slate-900 placeholder:text-slate-500/70 focus:outline-none focus:border-emerald-400 transition-all"
+                className="w-full h-9 md:h-11 bg-white/20 border border-white/40 rounded-2xl py-0 pl-3 md:pl-5 pr-12 text-[14px] md:text-base text-slate-900 placeholder:text-slate-500/70 focus:outline-none focus:border-emerald-400 transition-all"
               />
               <button onClick={handleSend} disabled={isLoading || (!input.trim() && !selectedMedia)} className={`absolute right-2 w-8 h-8 rounded-xl flex items-center justify-center text-white transition-all active:scale-95 ${input.trim() || selectedMedia ? 'bg-emerald-600 shadow-lg' : 'bg-white/10 text-slate-400'}`}>
                 <Send size={15} />
