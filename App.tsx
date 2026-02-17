@@ -11,7 +11,6 @@ import {
   Menu, Video, X, History, ChevronRight, Database, Trash2
 } from 'lucide-react';
 import EmotionalDashboard from './components/EmotionalDashboard';
-import GlassSidebar from './components/GlassSidebar';
 
 // Audio Helpers
 function decode(base64: string) {
@@ -135,7 +134,7 @@ const App: React.FC = () => {
 
   const handleSend = async () => {
     if ((!input.trim() && !selectedMedia) || isLoading) return;
-    setShowMenu(false); setShowHistory(false);
+    setShowMenu(false);
     const userMsg: Message = { id: Date.now().toString(), role: 'user', content: input, timestamp: Date.now(), media: selectedMedia ? { type: selectedMedia.type, mimeType: selectedMedia.file.type, data: selectedMedia.base64, url: URL.createObjectURL(selectedMedia.file) } : undefined };
     setMessages(prev => [...prev, userMsg]);
     setInput(''); setSelectedMedia(null); setIsLoading(true); setIsAnalyzing(true);
@@ -219,107 +218,202 @@ const App: React.FC = () => {
     } catch (err) {}
   };
 
+  // 사이드바 너비 상수, max-w-3xl = 768px → 절반 384px
+  const SIDEBAR_W = 280;
+  const CARD_HALF = 384; // max-w-3xl(768px) / 2
+
+  // 뷰포트 너비 추적 (사이드바 오버레이 vs 고정 패널 분기)
+  const [viewW, setViewW] = useState(window.innerWidth);
+  useEffect(() => {
+    const onResize = () => setViewW(window.innerWidth);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  // 사이드바 공간이 부족한 경우 (카드 절반 × 2 + 사이드바 너비가 화면 밖)
+  // 모바일/태블릿: < 1280px → 오버레이 모드 (카드 위에 전체 슬라이드)
+  const isOverlayMode = viewW < 1280;
+
+  // 공통 버튼 스타일
+  const btnActive = 'bg-emerald-600 text-white';
+  const btnIdle = 'bg-white/20 text-slate-800 border border-white/40';
+
+  // 사이드바 공통 스타일 빌더
+  const sidebarStyle = (show: boolean, side: 'left' | 'right'): React.CSSProperties => {
+    if (isOverlayMode) {
+      // 오버레이 모드: 카드 앞에 슬라이드로 등장
+      return {
+        [side]: 0,
+        width: `${SIDEBAR_W}px`,
+        transform: show ? 'translateX(0)' : (side === 'left' ? 'translateX(-100%)' : 'translateX(100%)'),
+      };
+    }
+    // 데스크탑: 카드 옆에 페이드
+    return {
+      [side === 'left' ? 'right' : 'left']: `calc(50% + ${CARD_HALF}px)`,
+      width: `${SIDEBAR_W}px`,
+      opacity: show ? 1 : 0,
+      pointerEvents: show ? 'auto' : 'none',
+    };
+  };
+
+  const sidebarCls = (side: 'left' | 'right') =>
+    `fixed top-0 h-[100dvh] md:h-[98dvh] md:top-[1dvh] flex flex-col arha-sidebar-bg shadow-2xl overflow-hidden md:rounded-[2.5rem] ${
+      isOverlayMode
+        ? `z-[60] transition-transform duration-300 ${side === 'left' ? 'border-r' : 'border-l'} border-white/10`
+        : `z-[5] transition-opacity duration-300 ${side === 'left' ? 'border-r' : 'border-l'} border-white/10`
+    }`;
+
   return (
     <div className="flex h-[100dvh] w-full items-center justify-center relative overflow-hidden bg-black">
+      {/* 전체 배경 */}
       <div className="absolute inset-0 z-0 bg-cover bg-center transition-all duration-[4000ms] scale-105 opacity-80" style={{ backgroundImage: `url(${bgImageUrl})` }} />
-      
-      <div className="flex w-full max-w-[1440px] h-[100dvh] md:h-[98dvh] glass-panel md:rounded-[2.5rem] overflow-hidden relative z-10">
-        
-        {/* Left Sidebar: History */}
-        <GlassSidebar isOpen={showHistory} onClose={() => setShowHistory(false)} side="left" title="History Archive" icon={<History size={18} />}>
-          <div className="flex-1 overflow-y-auto p-5 space-y-4 scroll-hide h-full">
-            {history.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-48 text-white/20"><History size={28} className="mb-4 opacity-10" /><p className="text-[10px] uppercase font-bold tracking-widest">Empty</p></div>
-            ) : (
-              <>
-                {history.map((s) => (
-                  <div key={s.id} onClick={() => { setMessages(s.messages); setShowHistory(false); }} className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-emerald-500/40 hover:bg-white/10 hover:translate-x-1 transition-all cursor-pointer group relative">
-                    <button onClick={(e) => handleDeleteHistory(e, s.id)} className="absolute top-3 right-3 w-7 h-7 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 hover:bg-red-500/20 text-white/30 hover:text-red-400 transition-all" title="삭제">
-                      <Trash2 size={13} />
-                    </button>
-                    <h4 className="text-[13px] font-bold text-white/90 truncate mb-1 pr-8">{s.title}</h4>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[9px] text-white/30 uppercase font-black">{new Date(s.timestamp).toLocaleDateString()}</span>
-                      <ChevronRight size={12} className="text-white/20 group-hover:text-emerald-400" />
-                    </div>
-                  </div>
-                ))}
-                <button onClick={handleClearAllHistory} className="w-full mt-2 py-2.5 rounded-xl border border-white/10 hover:border-red-500/30 hover:bg-red-500/10 text-white/30 hover:text-red-400 text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all">
-                  <Trash2 size={12} /> Clear All
-                </button>
-              </>
-            )}
-          </div>
-        </GlassSidebar>
 
-        {/* Main Chat Container */}
-        <div className="flex flex-col flex-1 border-r border-white/20 min-w-0 relative h-full">
-          <header className="h-12 md:h-16 px-3 md:px-6 flex items-center justify-between border-b border-white/10 bg-white/5 backdrop-blur-xl shrink-0">
-            <div className="flex items-center gap-2 md:gap-3">
-              <button onClick={() => setShowHistory(!showHistory)} className={`w-8 h-8 md:w-10 md:h-10 rounded-xl flex items-center justify-center transition-all ${showHistory ? 'bg-emerald-600 text-white' : 'bg-white/20 text-slate-800 border border-white/40'}`}>
-                <History size={16} />
+      {/* ── 오버레이 모드: 사이드바 열릴 때 배경 딤 ── */}
+      {isOverlayMode && (showHistory || showDashboard) && (
+        <div
+          className="fixed inset-0 z-[55] bg-black/50 backdrop-blur-sm"
+          onClick={() => { setShowHistory(false); setShowDashboard(false); }}
+        />
+      )}
+
+      {/* ── 왼쪽 사이드바: History Archive ── */}
+      <aside style={sidebarStyle(showHistory, 'left')} className={sidebarCls('left')}>
+        <header className="h-12 md:h-16 px-4 md:px-5 border-b border-white/10 bg-white/5 backdrop-blur-xl flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-3 text-emerald-400">
+            <History size={18} />
+            <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-white/90 whitespace-nowrap">History Archive</h3>
+          </div>
+          <button onClick={() => setShowHistory(false)} className="w-8 h-8 md:w-9 md:h-9 rounded-xl flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 active:bg-white/20 transition-all shrink-0">
+            <X size={18} />
+          </button>
+        </header>
+        <div className="flex-1 overflow-y-auto p-4 md:p-5 space-y-3 md:space-y-4 scroll-hide">
+          {history.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-48 text-white/20">
+              <History size={28} className="mb-4 opacity-10" />
+              <p className="text-[10px] uppercase font-bold tracking-widest">Empty</p>
+            </div>
+          ) : (
+            <>
+              {history.map((s) => (
+                <div key={s.id} onClick={() => { setMessages(s.messages); setShowHistory(false); }} className="p-3 md:p-4 rounded-2xl bg-white/5 border border-white/10 active:border-emerald-500/40 active:bg-white/10 hover:border-emerald-500/40 hover:bg-white/10 transition-all cursor-pointer group relative">
+                  {/* 삭제 버튼: 모바일은 항상 표시, 데스크탑은 hover시 */}
+                  <button onClick={(e) => handleDeleteHistory(e, s.id)} className="absolute top-2.5 right-2.5 w-7 h-7 rounded-lg flex items-center justify-center opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:bg-red-500/20 active:bg-red-500/20 text-white/30 hover:text-red-400 transition-all" title="삭제">
+                    <Trash2 size={13} />
+                  </button>
+                  <h4 className="text-[13px] font-bold text-white/90 truncate mb-1 pr-8">{s.title}</h4>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[9px] text-white/30 uppercase font-black">{new Date(s.timestamp).toLocaleDateString()}</span>
+                    <ChevronRight size={12} className="text-white/20 group-hover:text-emerald-400" />
+                  </div>
+                </div>
+              ))}
+              <button onClick={handleClearAllHistory} className="w-full mt-2 py-3 rounded-xl border border-white/10 hover:border-red-500/30 hover:bg-red-500/10 active:bg-red-500/10 text-white/30 hover:text-red-400 text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all">
+                <Trash2 size={12} /> Clear All
               </button>
-              <div>
-                <h1 className="text-sm md:text-base font-bold text-slate-900 tracking-tight leading-none mb-0.5 md:mb-1">ARHA <span className="text-emerald-600 font-light text-[10px] ml-1">아르하</span></h1>
-                <p className="text-[8px] text-slate-600 font-black uppercase tracking-widest">{moodConfig.status}</p>
+            </>
+          )}
+        </div>
+      </aside>
+
+      {/* ── 오른쪽 사이드바: Emotional Prism ── */}
+      <aside style={sidebarStyle(showDashboard, 'right')} className={sidebarCls('right')}>
+        <header className="h-12 md:h-16 px-4 md:px-5 border-b border-white/10 bg-white/5 backdrop-blur-xl flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-3 text-emerald-400">
+            <Heart size={18} />
+            <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-white/90 whitespace-nowrap">Emotional Prism</h3>
+          </div>
+          <button onClick={() => setShowDashboard(false)} className="w-8 h-8 md:w-9 md:h-9 rounded-xl flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 active:bg-white/20 transition-all shrink-0">
+            <X size={18} />
+          </button>
+        </header>
+        <div className="flex-1 overflow-hidden">
+          <EmotionalDashboard analysis={currentAnalysis} moodColor="text-emerald-600" allHistory={history} isAnalyzing={isAnalyzing} onClose={() => setShowDashboard(false)} />
+        </div>
+      </aside>
+
+      {/* ── 중앙 글라스 카드 — 항상 정중앙 고정 ── */}
+      <div className="relative z-10 w-full max-w-3xl h-[100dvh] md:h-[98dvh] glass-panel md:rounded-[2.5rem] overflow-hidden flex flex-col">
+
+        {/* 헤더 */}
+        <header className="h-12 md:h-16 px-4 md:px-6 flex items-center shrink-0 relative">
+          <button
+            onClick={() => { setShowHistory(!showHistory); if (!showHistory) setShowDashboard(false); }}
+            className={`w-9 h-9 md:w-10 md:h-10 rounded-xl flex items-center justify-center transition-all active:scale-95 ${showHistory ? btnActive : btnIdle}`}
+          >
+            <History size={16} />
+          </button>
+          <div className="absolute left-1/2 -translate-x-1/2 text-center pointer-events-none">
+            <h1 className="text-sm md:text-base font-bold text-slate-900 tracking-tight leading-none">ARHA</h1>
+            <p className="text-[8px] text-slate-600 font-black uppercase tracking-widest">Pure Morning</p>
+          </div>
+          <button
+            onClick={() => { setShowDashboard(!showDashboard); if (!showDashboard) setShowHistory(false); }}
+            className={`ml-auto w-9 h-9 md:w-10 md:h-10 rounded-xl flex items-center justify-center transition-all active:scale-95 ${showDashboard ? btnActive : btnIdle}`}
+          >
+            <LayoutDashboard size={16} />
+          </button>
+        </header>
+
+        {/* 메시지 영역 */}
+        <div ref={scrollRef} className="flex-1 overflow-y-auto py-3 md:py-6 px-4 md:px-6 space-y-4 md:space-y-5 scroll-hide min-h-0">
+          {messages.map((msg) => (
+            <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2`}>
+              <div className={`max-w-[88%] md:max-w-[80%] flex flex-col gap-1.5 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                <div className={`px-4 md:px-5 py-2.5 md:py-3 rounded-2xl text-[14px] md:text-[15px] shadow-sm ${msg.role === 'user' ? 'chat-bubble-user' : 'chat-bubble-ai'}`}>
+                  <div className="whitespace-pre-wrap">{msg.content}</div>
+                  {msg.media?.url && <div className="mt-3 rounded-xl overflow-hidden border border-white/20">{msg.media.type === 'image' ? <img src={msg.media.url} alt="Uploaded" /> : <video src={msg.media.url} controls />}</div>}
+                </div>
+                <span className="text-[8px] text-slate-500 font-bold opacity-60 uppercase">{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
               </div>
             </div>
-            <button onClick={() => setShowDashboard(!showDashboard)} className={`w-8 h-8 md:w-10 md:h-10 rounded-xl flex items-center justify-center transition-all ${showDashboard ? 'text-emerald-600 bg-white/40' : 'text-slate-500 hover:bg-white/20'}`}>
-              <LayoutDashboard size={16} />
-            </button>
-          </header>
-
-          <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 md:px-8 py-3 md:py-6 space-y-4 md:space-y-5 scroll-hide min-h-0">
-            {messages.map((msg) => (
-              <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2`}>
-                <div className={`max-w-[90%] md:max-w-[80%] flex flex-col gap-1.5 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-                  <div className={`px-5 py-3 rounded-2xl text-[14px] md:text-[15px] shadow-sm ${msg.role === 'user' ? 'chat-bubble-user' : 'chat-bubble-ai'}`}>
-                    <div className="whitespace-pre-wrap">{msg.content}</div>
-                    {msg.media?.url && <div className="mt-3 rounded-xl overflow-hidden border border-white/20">{msg.media.type === 'image' ? <img src={msg.media.url} alt="Uploaded" /> : <video src={msg.media.url} controls />}</div>}
-                  </div>
-                  <span className="text-[8px] text-slate-500 font-bold opacity-60 uppercase">{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <footer className="px-3 md:px-6 py-2 md:py-4 border-t border-white/10 bg-white/5 backdrop-blur-3xl shrink-0 safe-bottom">
-            <div className="max-w-4xl mx-auto flex items-center gap-2 md:gap-3 relative">
-              <button onClick={() => setShowMenu(!showMenu)} className={`w-9 h-9 md:w-11 md:h-11 rounded-xl shrink-0 flex items-center justify-center transition-all border border-white/30 ${showMenu ? 'bg-emerald-600 text-white' : 'bg-white/20 text-slate-600'}`}>
-                <Menu size={18} />
-              </button>
-
-              {showMenu && (
-                <div className="absolute bottom-12 md:bottom-16 left-0 arha-sidebar-bg border border-white/10 rounded-2xl p-2 shadow-2xl z-[100] flex flex-col min-w-[180px] animate-in slide-in-from-bottom-2">
-                  <label className="flex items-center gap-3 px-3 py-2.5 hover:bg-white/10 rounded-xl text-[11px] font-bold text-white/90 transition-all cursor-pointer">
-                    <ImageIcon size={14} className="text-sky-400" /> Image Studio
-                    <input type="file" accept="image/*" className="hidden" onChange={e => {
-                      const reader = new FileReader();
-                      reader.onloadend = () => setSelectedMedia({ file: e.target.files![0], type: 'image', base64: (reader.result as string).split(',')[1] });
-                      reader.readAsDataURL(e.target.files![0]);
-                      setShowMenu(false);
-                    }} />
-                  </label>
-                  <button onClick={handleGenerateVideo} className="flex items-center gap-3 px-3 py-2.5 hover:bg-white/10 rounded-xl text-[11px] font-bold text-white/90"><Video size={14} className="text-orange-400" /> Cinema Lab</button>
-                  <button onClick={startLiveVoice} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-[11px] font-bold ${isLiveActive ? 'bg-emerald-500/30 text-emerald-300' : 'text-white/90 hover:bg-white/10'}`}><Mic size={14} className={isLiveActive ? 'animate-pulse' : 'text-emerald-400'} /> Live Sync</button>
-                </div>
-              )}
-
-              <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSend()} placeholder="맑은 아침의 영감을 나누어주세요..." className="flex-1 bg-white/20 border border-white/40 rounded-2xl py-2 md:py-2.5 px-3 md:px-5 text-sm md:text-base text-slate-900 focus:outline-none focus:border-emerald-400 transition-all" />
-              <button onClick={handleSend} disabled={isLoading || (!input.trim() && !selectedMedia)} className={`w-9 h-9 md:w-11 md:h-11 rounded-xl shrink-0 flex items-center justify-center text-white transition-all ${input.trim() || selectedMedia ? 'bg-emerald-600 shadow-lg' : 'bg-white/10 text-slate-400'}`}><Send size={18} /></button>
-            </div>
-
-            <div className="max-w-4xl mx-auto flex items-center justify-between mt-2 md:mt-4">
-              <button onClick={handleReset} className="glass-sunken px-4 md:px-6 py-1.5 md:py-2.5 rounded-2xl text-emerald-900 text-[9px] md:text-[10px] font-black uppercase tracking-widest flex items-center gap-2 md:gap-3 active:translate-y-0.5 transition-all"><RotateCcw size={12} className="text-emerald-600" /> Reset</button>
-              <div className="text-[7px] md:text-[8px] text-slate-500 font-black uppercase tracking-[0.2em] opacity-40 hidden md:block"><Database size={10} className="inline mr-1" />Synchronized</div>
-            </div>
-          </footer>
+          ))}
         </div>
 
-        {/* Right Sidebar: Prism */}
-        <GlassSidebar isOpen={showDashboard} onClose={() => setShowDashboard(false)} side="right" title="Emotional Prism" icon={<Heart size={18} />}>
-          <EmotionalDashboard analysis={currentAnalysis} moodColor="text-emerald-600" allHistory={history} isAnalyzing={isAnalyzing} onClose={() => setShowDashboard(false)} />
-        </GlassSidebar>
+        {/* 푸터 */}
+        <footer className="px-3 md:px-6 py-2 md:py-4 shrink-0 safe-bottom">
+          <div className="flex items-center gap-2 md:gap-3 relative">
+            <button onClick={() => setShowMenu(!showMenu)} className={`w-9 h-9 md:w-11 md:h-11 rounded-xl shrink-0 flex items-center justify-center transition-all active:scale-95 ${showMenu ? btnActive : btnIdle}`}>
+              <Menu size={17} />
+            </button>
+            {showMenu && (
+              <div className="absolute bottom-12 md:bottom-14 left-0 arha-sidebar-bg border border-white/10 rounded-2xl p-2 shadow-2xl z-[100] flex flex-col min-w-[200px] animate-in slide-in-from-bottom-2">
+                <div className="px-3 py-2 mb-1 rounded-xl bg-white/5 border border-white/10 text-center">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-white/30">🔧 준비중인 기능</p>
+                </div>
+                <label className="flex items-center gap-3 px-3 py-3 rounded-xl text-[11px] font-bold text-white/50 opacity-60 cursor-not-allowed">
+                  <ImageIcon size={14} className="text-sky-400/60" /> Image Studio
+                  <span className="ml-auto text-[8px] text-white/20 font-black tracking-widest">SOON</span>
+                  <input type="file" accept="image/*" className="hidden" disabled />
+                </label>
+                <button disabled className="flex items-center gap-3 px-3 py-3 rounded-xl text-[11px] font-bold text-white/50 opacity-60 cursor-not-allowed">
+                  <Video size={14} className="text-orange-400/60" /> Cinema Lab
+                  <span className="ml-auto text-[8px] text-white/20 font-black tracking-widest">SOON</span>
+                </button>
+                <button disabled className="flex items-center gap-3 px-3 py-3 rounded-xl text-[11px] font-bold text-white/50 opacity-60 cursor-not-allowed">
+                  <Mic size={14} className="text-emerald-400/60" /> Live Sync
+                  <span className="ml-auto text-[8px] text-white/20 font-black tracking-widest">SOON</span>
+                </button>
+              </div>
+            )}
+            <div className="flex-1 relative flex items-center">
+              <input
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
+                placeholder="맑은 아침의 영감을 나누어주세요..."
+                className="w-full bg-white/20 border border-white/40 rounded-2xl py-2.5 pl-3 md:pl-5 pr-12 text-[14px] md:text-base text-slate-900 placeholder:text-slate-500/70 focus:outline-none focus:border-emerald-400 transition-all"
+              />
+              <button onClick={handleSend} disabled={isLoading || (!input.trim() && !selectedMedia)} className={`absolute right-2 w-8 h-8 rounded-xl flex items-center justify-center text-white transition-all active:scale-95 ${input.trim() || selectedMedia ? 'bg-emerald-600 shadow-lg' : 'bg-white/10 text-slate-400'}`}>
+                <Send size={15} />
+              </button>
+            </div>
+            <button onClick={handleReset} className={`shrink-0 w-9 h-9 md:w-11 md:h-11 rounded-xl flex items-center justify-center transition-all active:scale-95 active:translate-y-0.5 ${btnIdle}`}>
+              <RotateCcw size={15} />
+            </button>
+          </div>
+        </footer>
       </div>
     </div>
   );
