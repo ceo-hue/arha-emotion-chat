@@ -24,6 +24,7 @@ export const chatWithClaudeStream = async (
   messages: Message[],
   onChunk: (chunk: string) => void,
   onAnalysis: (analysis: AnalysisData) => void,
+  personaPrompt?: string,
 ) => {
   const payload = messages.map(msg => ({
     role: msg.role,
@@ -38,7 +39,7 @@ export const chatWithClaudeStream = async (
   const response = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages: payload }),
+    body: JSON.stringify({ messages: payload, personaPrompt }),
   });
 
   if (!response.ok) {

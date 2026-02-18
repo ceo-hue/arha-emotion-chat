@@ -36,7 +36,10 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { messages } = req.body;
+  const { messages, personaPrompt } = req.body;
+  const finalSystemPrompt = personaPrompt
+    ? `${SYSTEM_PROMPT}\n\n${personaPrompt}`
+    : SYSTEM_PROMPT;
 
   try {
     const claudeMessages = messages.map(msg => {
@@ -73,7 +76,7 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 4096,
-        system: SYSTEM_PROMPT,
+        system: finalSystemPrompt,
         messages: claudeMessages,
       }),
     });

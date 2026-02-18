@@ -67,7 +67,50 @@
             border: 1px solid rgba(255, 255, 255, 0.15);
         }
 
-        .scroll-hide::-webkit-scrollbar { width: 0px; background: transparent; }
+        /* 스크롤바 완전 숨김 — 모든 브라우저 */
+        .scroll-hide { scrollbar-width: none; -ms-overflow-style: none; }
+        .scroll-hide::-webkit-scrollbar { display: none; width: 0; height: 0; background: transparent; }
+
+        /* textarea 기본 스크롤바도 숨김 */
+        textarea { scrollbar-width: none; -ms-overflow-style: none; }
+        textarea::-webkit-scrollbar { display: none; }
+
+        /* 페르소나 textarea 리사이즈 핸들 — 날카로운 삼각 엣지 */
+        .persona-textarea {
+            resize: vertical;
+        }
+        .persona-textarea::-webkit-resizer {
+            background:
+                /* 날카로운 삼각형: 오른쪽 하단 꼭짓점 기준 solid fill */
+                linear-gradient(
+                    135deg,
+                    transparent 45%,
+                    rgba(139, 92, 246, 0.9) 45%
+                );
+            border-radius: 0 0 6px 0;
+        }
+
+        /* 리사이즈 핸들 래퍼 — 삼각 오버레이 효과 */
+        .persona-textarea-wrap {
+            position: relative;
+        }
+        .persona-textarea-wrap::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: 14px;
+            height: 14px;
+            background: linear-gradient(
+                135deg,
+                transparent 40%,
+                rgba(139, 92, 246, 0.85) 40%,
+                rgba(16, 185, 129, 0.7) 100%
+            );
+            border-radius: 0 0 6px 0;
+            pointer-events: none;
+            clip-path: polygon(100% 0, 100% 100%, 0 100%);
+        }
 
         .ease-out-expo { transition-timing-function: cubic-bezier(0.19, 1, 0.22, 1); }
 

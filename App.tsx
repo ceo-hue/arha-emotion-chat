@@ -50,7 +50,17 @@ const App: React.FC = () => {
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState<ChatSession[]>([]);
   const [customBg, setCustomBg] = useState<string | null>(null);
-  
+
+  // ── 페르소나 설정 ──
+  const PERSONA_KEY = 'arha_persona_v1';
+  const emptyPersona = { character: '', age: '', job: '', personality: '', values: '' };
+  const [personaConfig, setPersonaConfig] = useState<typeof emptyPersona>(() => {
+    try { const s = localStorage.getItem(PERSONA_KEY); return s ? JSON.parse(s) : emptyPersona; } catch { return emptyPersona; }
+  });
+  const [personaDraft, setPersonaDraft] = useState(personaConfig);
+  const [showPersonaPanel, setShowPersonaPanel] = useState(false);
+  const [personaSaved, setPersonaSaved] = useState(false);
+
   const [activeTask, setActiveTask] = useState<TaskType>('none');
   const [location, setLocation] = useState<{latitude: number; longitude: number} | null>(null);
   const [weatherInfo, setWeatherInfo] = useState<{ temp: number; code: number; label: string } | null>(null);
@@ -171,6 +181,36 @@ const App: React.FC = () => {
     reader.readAsDataURL(file);
   };
 
+  // ── 페르소나 저장 핸들러 ──
+  const handlePersonaSave = () => {
+    setPersonaConfig(personaDraft);
+    localStorage.setItem(PERSONA_KEY, JSON.stringify(personaDraft));
+    setPersonaSaved(true);
+    setTimeout(() => setPersonaSaved(false), 2000);
+  };
+
+  const handlePersonaReset = () => {
+    setPersonaDraft(emptyPersona);
+    setPersonaConfig(emptyPersona);
+    localStorage.removeItem(PERSONA_KEY);
+  };
+
+  // 페르소나 프롬프트 생성 (비어있으면 null)
+  const buildPersonaPrompt = (): string | null => {
+    const { character, age, job, personality, values } = personaConfig;
+    if (!character && !age && !job && !personality && !values) return null;
+    return [
+      '### 사용자 정의 페르소나 레이어 (User Persona Override)',
+      '아래 설정을 최우선으로 반영하여 대화 톤, 어휘, 감성 벡터를 재구성하라:',
+      character  && `- 캐릭터: ${character}`,
+      age        && `- 나이: ${age}`,
+      job        && `- 직업: ${job}`,
+      personality && `- 성격: ${personality}`,
+      values     && `- 가치관: ${values}`,
+      '위 페르소나에 맞게 말투, 공감 방식, 은유 선택, 감정 밀도를 조정하라. 단, VectorScript 분석 JSON은 반드시 유지한다.',
+    ].filter(Boolean).join('\n');
+  };
+
   const handleReset = () => {
     if (messages.length > 1) {
       const session: ChatSession = { id: Date.now().toString(), title: messages.filter(m => m.role === 'user')[0]?.content.substring(0, 20) || "Conversation", messages: [...messages], timestamp: Date.now(), lastAnalysis: currentAnalysis || undefined };
@@ -201,12 +241,14 @@ const App: React.FC = () => {
 
     try {
       let currentContent = '';
-      await chatWithClaudeStream([...messages, userMsg],
+      await chatWithClaudeStream(
+        [...messages, userMsg],
         (chunk) => {
           currentContent += chunk;
           setMessages(prev => prev.map(m => m.id === assistantMsgId ? { ...m, content: currentContent } : m));
         },
         (analysis) => { setCurrentAnalysis(analysis); setIsAnalyzing(false); },
+        buildPersonaPrompt() ?? undefined,
       );
     } catch (error) { setIsAnalyzing(false); } finally { setIsLoading(false); }
   };
@@ -384,20 +426,104 @@ const App: React.FC = () => {
         </div>
       </aside>
 
-      {/* ── 오른쪽 사이드바: Emotional Prism ── */}
+      {/* ── 오른쪽 사이드바: Emotional Prism + Persona ── */}
       <aside style={sidebarStyle(showDashboard, 'right')} className={sidebarCls('right')}>
+        {/* 헤더 */}
         <header className="h-12 md:h-16 px-4 md:px-5 border-b border-white/10 bg-white/5 backdrop-blur-xl flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3 text-emerald-400">
-            <Heart size={18} />
-            <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-white/90 whitespace-nowrap">Emotional Prism</h3>
+          <div className="flex items-center gap-2">
+            {/* 탭 전환 버튼 */}
+            <button
+              onClick={() => setShowPersonaPanel(false)}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${!showPersonaPanel ? 'bg-emerald-500/20 text-emerald-300' : 'text-white/30 hover:text-white/60'}`}
+            >
+              <Heart size={13} /> Prism
+            </button>
+            <button
+              onClick={() => setShowPersonaPanel(true)}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${showPersonaPanel ? 'bg-violet-500/20 text-violet-300' : 'text-white/30 hover:text-white/60'}`}
+            >
+              <Database size={13} /> Persona
+              {/* 페르소나 활성 표시 dot */}
+              {(personaConfig.character || personaConfig.personality) && (
+                <span className="w-1.5 h-1.5 rounded-full bg-violet-400 shrink-0" />
+              )}
+            </button>
           </div>
-          <button onClick={() => setShowDashboard(false)} className="w-8 h-8 md:w-9 md:h-9 rounded-xl flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 active:bg-white/20 transition-all shrink-0">
+          <button onClick={() => setShowDashboard(false)} className="w-8 h-8 rounded-xl flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 active:bg-white/20 transition-all shrink-0">
             <X size={18} />
           </button>
         </header>
-        <div className="flex-1 overflow-hidden">
-          <EmotionalDashboard analysis={currentAnalysis} moodColor="text-emerald-600" allHistory={history} isAnalyzing={isAnalyzing} onClose={() => setShowDashboard(false)} />
-        </div>
+
+        {/* Emotional Prism 탭 */}
+        {!showPersonaPanel && (
+          <div className="flex-1 overflow-hidden">
+            <EmotionalDashboard analysis={currentAnalysis} moodColor="text-emerald-600" allHistory={history} isAnalyzing={isAnalyzing} onClose={() => setShowDashboard(false)} />
+          </div>
+        )}
+
+        {/* Persona 설정 탭 */}
+        {showPersonaPanel && (
+          <div className="flex-1 overflow-y-auto px-3 pt-3 pb-3 space-y-2 scroll-hide">
+            {/* 안내 */}
+            <div className="px-3 py-2 rounded-lg bg-violet-500/10 border border-violet-500/20">
+              <p className="text-xs text-violet-300/70 font-bold leading-snug">
+                ARHA 대화 성격 커스터마이징 · 설정 후 다음 대화부터 적용
+              </p>
+            </div>
+
+            {/* 입력 필드 */}
+            {([
+              { key: 'character', label: '캐릭터', placeholder: '예) 따뜻한 누나, 냉철한 멘토, 철학자 친구...' },
+              { key: 'age',       label: '나이',   placeholder: '예) 20대 초반, 30대, 나이를 초월한 존재...' },
+              { key: 'job',       label: '직업',   placeholder: '예) 작가, 심리상담사, 우주비행사, 음악가...' },
+              { key: 'personality', label: '성격', placeholder: '예) 따뜻하고 직관적, 논리적이고 솔직, 몽환적이고 시적...' },
+              { key: 'values',    label: '가치관', placeholder: '예) 자유와 창조를 최우선, 관계와 공감을 중시...' },
+            ] as const).map(({ key, label, placeholder }) => (
+              <div key={key} className="flex flex-col gap-1">
+                <label className="text-xs font-black uppercase tracking-wider text-white/50 px-0.5">{label}</label>
+                <div className="persona-textarea-wrap">
+                  <textarea
+                    value={personaDraft[key]}
+                    onChange={e => setPersonaDraft(prev => ({ ...prev, [key]: e.target.value }))}
+                    placeholder={placeholder}
+                    rows={1}
+                    style={{ minHeight: '2.25rem', maxHeight: '9rem', resize: 'vertical' }}
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white/80 placeholder:text-white/25 focus:outline-none focus:border-violet-400/60 transition-all leading-snug persona-textarea"
+                  />
+                </div>
+              </div>
+            ))}
+
+            {/* 버튼 영역 */}
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={handlePersonaSave}
+                className={`flex-1 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${personaSaved ? 'bg-emerald-500 text-white' : 'bg-violet-500/30 text-violet-300 hover:bg-violet-500/50 active:bg-violet-500/50'}`}
+              >
+                {personaSaved ? '✓ 적용됨' : '설정 적용'}
+              </button>
+              <button
+                onClick={handlePersonaReset}
+                className="px-3 py-2 rounded-xl font-black text-white/20 hover:text-red-400 hover:bg-red-500/10 active:bg-red-500/10 transition-all"
+                title="초기화"
+              >
+                <RotateCcw size={13} />
+              </button>
+            </div>
+
+            {/* 현재 적용된 페르소나 미리보기 */}
+            {(personaConfig.character || personaConfig.personality) && (
+              <div className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 space-y-1">
+                <p className="text-[10px] font-black uppercase tracking-widest text-white/25 mb-1">현재 적용됨</p>
+                {personaConfig.character   && <p className="text-xs text-white/60 leading-snug"><span className="text-white/30 mr-1">캐릭터</span>{personaConfig.character}</p>}
+                {personaConfig.age         && <p className="text-xs text-white/60 leading-snug"><span className="text-white/30 mr-1">나이</span>{personaConfig.age}</p>}
+                {personaConfig.job         && <p className="text-xs text-white/60 leading-snug"><span className="text-white/30 mr-1">직업</span>{personaConfig.job}</p>}
+                {personaConfig.personality && <p className="text-xs text-white/60 leading-snug"><span className="text-white/30 mr-1">성격</span>{personaConfig.personality}</p>}
+                {personaConfig.values      && <p className="text-xs text-white/60 leading-snug"><span className="text-white/30 mr-1">가치관</span>{personaConfig.values}</p>}
+              </div>
+            )}
+          </div>
+        )}
       </aside>
 
       {/* ── 중앙 글라스 카드 — 항상 정중앙 고정 ── */}
@@ -505,7 +631,7 @@ const App: React.FC = () => {
                 placeholder="맑은 아침의 영감을 나누어주세요..."
                 className="w-full h-9 md:h-11 bg-white/20 border border-white/40 rounded-2xl py-0 pl-3 md:pl-5 pr-12 text-[14px] md:text-base text-slate-900 placeholder:text-slate-500/70 focus:outline-none focus:border-emerald-400 transition-all"
               />
-              <button onClick={handleSend} disabled={isLoading || (!input.trim() && !selectedMedia)} className={`absolute right-2 w-8 h-8 rounded-xl flex items-center justify-center text-white transition-all active:scale-95 ${input.trim() || selectedMedia ? 'bg-emerald-600 shadow-lg' : 'bg-white/10 text-slate-400'}`}>
+              <button onClick={handleSend} disabled={isLoading || (!input.trim() && !selectedMedia)} className={`absolute right-2 w-8 h-8 flex items-center justify-center transition-all active:scale-95 ${input.trim() || selectedMedia ? 'text-emerald-500' : 'text-slate-400/40'}`}>
                 <Send size={15} />
               </button>
             </div>
