@@ -75,34 +75,26 @@
         textarea { scrollbar-width: none; -ms-overflow-style: none; }
         textarea::-webkit-scrollbar { display: none; }
 
-        /* 페르소나 textarea 리사이즈 핸들 — 브라우저 기본 resizer 숨기고 ::after 하나만 사용 */
+        /* 페르소나 textarea — 브라우저 resizer 숨기고 background로 삼각형 직접 그리기 */
         .persona-textarea {
             resize: vertical;
+            /* 오른쪽 하단 모서리에 삼각형을 background-image로 직접 렌더 */
+            background-image: linear-gradient(
+                135deg,
+                transparent calc(100% - 10px),
+                rgba(139, 92, 246, 0.85) calc(100% - 10px),
+                rgba(16, 185, 129, 0.7) 100%
+            );
+            background-size: 10px 10px;
+            background-position: right 0 bottom 0;
+            background-repeat: no-repeat;
+            background-origin: border-box;
         }
         .persona-textarea::-webkit-resizer {
             display: none;
         }
-
-        /* 래퍼 ::after 로 삼각 엣지 하나만 표시 */
         .persona-textarea-wrap {
             position: relative;
-        }
-        .persona-textarea-wrap::after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            right: 0;
-            width: 14px;
-            height: 14px;
-            background: linear-gradient(
-                135deg,
-                transparent 40%,
-                rgba(139, 92, 246, 0.85) 40%,
-                rgba(16, 185, 129, 0.7) 100%
-            );
-            border-radius: 0 0 6px 0;
-            pointer-events: none;
-            clip-path: polygon(100% 0, 100% 100%, 0 100%);
         }
 
         .ease-out-expo { transition-timing-function: cubic-bezier(0.19, 1, 0.22, 1); }

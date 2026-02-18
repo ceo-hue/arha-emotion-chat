@@ -486,9 +486,9 @@ const App: React.FC = () => {
                     value={personaDraft[key]}
                     onChange={e => setPersonaDraft(prev => ({ ...prev, [key]: e.target.value }))}
                     placeholder={placeholder}
-                    rows={1}
-                    style={{ minHeight: '2.25rem', maxHeight: '9rem', resize: 'vertical' }}
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white/80 placeholder:text-white/25 focus:outline-none focus:border-violet-400/60 transition-all leading-snug persona-textarea"
+                    rows={2}
+                    style={{ minHeight: '3.5rem', maxHeight: '9rem', resize: 'vertical', backgroundColor: 'rgba(255,255,255,0.05)' }}
+                    className="w-full border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white/80 placeholder:text-white/25 focus:outline-none focus:border-violet-400/60 transition-all leading-snug persona-textarea"
                   />
                 </div>
               </div>
