@@ -75,22 +75,15 @@
         textarea { scrollbar-width: none; -ms-overflow-style: none; }
         textarea::-webkit-scrollbar { display: none; }
 
-        /* 페르소나 textarea 리사이즈 핸들 — 날카로운 삼각 엣지 */
+        /* 페르소나 textarea 리사이즈 핸들 — 브라우저 기본 resizer 숨기고 ::after 하나만 사용 */
         .persona-textarea {
             resize: vertical;
         }
         .persona-textarea::-webkit-resizer {
-            background:
-                /* 날카로운 삼각형: 오른쪽 하단 꼭짓점 기준 solid fill */
-                linear-gradient(
-                    135deg,
-                    transparent 45%,
-                    rgba(139, 92, 246, 0.9) 45%
-                );
-            border-radius: 0 0 6px 0;
+            display: none;
         }
 
-        /* 리사이즈 핸들 래퍼 — 삼각 오버레이 효과 */
+        /* 래퍼 ::after 로 삼각 엣지 하나만 표시 */
         .persona-textarea-wrap {
             position: relative;
         }
