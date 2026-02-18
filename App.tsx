@@ -5,12 +5,21 @@ import { chatWithClaudeStream } from './services/claudeService';
 import { generateArhaVideo } from './services/geminiService';
 import { GoogleGenAI, Modality } from '@google/genai';
 import { ARHA_SYSTEM_PROMPT } from './constants';
-import { 
+import {
   Send, Heart, Image as ImageIcon,
   Mic, RotateCcw, LayoutDashboard,
   Menu, Video, X, History, ChevronRight, Database, Trash2
 } from 'lucide-react';
 import EmotionalDashboard from './components/EmotionalDashboard';
+import { useAuth } from './contexts/AuthContext';
+import LoginScreen from './components/LoginScreen';
+import ProfileSection from './components/ProfileSection';
+import {
+  savePersona, loadPersona,
+  saveAutosave, loadAutosave,
+  addSession, loadSessions, deleteSession, clearAllSessions,
+} from './services/firestoreService';
+import { migrateLocalStorageToFirestore } from './services/migrationService';
 
 // Audio Helpers
 function decode(base64: string) {
@@ -35,10 +44,9 @@ async function decodeAudioData(data: Uint8Array, ctx: AudioContext, sampleRate: 
   return buffer;
 }
 
-const HISTORY_KEY = 'arha_chat_history_v1';
-const AUTOSAVE_KEY = 'arha_autosave_current';
-
 const App: React.FC = () => {
+  const { user, loading, signOut: firebaseSignOut } = useAuth();
+
   const [messages, setMessages] = useState<Message[]>([
     { id: '1', role: 'assistant', content: '좋은 아침이에요. 맑은 공기 속에 우리만의 깨끗한 시간을 채워볼까요?', timestamp: Date.now() }
   ]);
@@ -52,12 +60,9 @@ const App: React.FC = () => {
   const [customBg, setCustomBg] = useState<string | null>(null);
 
   // ── 페르소나 설정 ──
-  const PERSONA_KEY = 'arha_persona_v1';
   const emptyPersona = { character: '', age: '', job: '', personality: '', values: '' };
-  const [personaConfig, setPersonaConfig] = useState<typeof emptyPersona>(() => {
-    try { const s = localStorage.getItem(PERSONA_KEY); return s ? JSON.parse(s) : emptyPersona; } catch { return emptyPersona; }
-  });
-  const [personaDraft, setPersonaDraft] = useState(personaConfig);
+  const [personaConfig, setPersonaConfig] = useState(emptyPersona);
+  const [personaDraft, setPersonaDraft] = useState(emptyPersona);
   const [showPersonaPanel, setShowPersonaPanel] = useState(false);
   const [personaSaved, setPersonaSaved] = useState(false);
 
@@ -93,37 +98,51 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const savedHistory = localStorage.getItem(HISTORY_KEY);
-    if (savedHistory) setHistory(JSON.parse(savedHistory));
+    if (!user) return;
 
-    const autosave = localStorage.getItem(AUTOSAVE_KEY);
-    if (autosave) {
-      const { messages: m, analysis: a } = JSON.parse(autosave);
-      setMessages(m);
-      setCurrentAnalysis(a);
-    }
+    const init = async () => {
+      // 최초 로그인 시 localStorage → Firestore 1회 마이그레이션
+      await migrateLocalStorageToFirestore(user);
 
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
+      // 페르소나 로드
+      const persona = await loadPersona(user.uid);
+      if (persona) {
+        setPersonaConfig(persona);
+        setPersonaDraft(persona);
+      }
+
+      // 자동저장 로드
+      const autosave = await loadAutosave(user.uid);
+      if (autosave) {
+        setMessages(autosave.messages);
+        setCurrentAnalysis(autosave.analysis);
+      }
+
+      // 히스토리 로드
+      const sessions = await loadSessions(user.uid);
+      setHistory(sessions);
+
+      // 위치 / 날씨
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition((pos) => {
           const coords = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
           setLocation(coords);
           fetchWeather(coords.latitude, coords.longitude);
-        }
-      );
-    }
-    if (window.innerWidth >= 1200) setShowDashboard(true);
-  }, []);
+        });
+      }
+      if (window.innerWidth >= 1200) setShowDashboard(true);
+    };
+
+    init();
+  }, [user]);
 
   useEffect(() => {
-    if (messages.length > 1) {
-      localStorage.setItem(AUTOSAVE_KEY, JSON.stringify({ messages, analysis: currentAnalysis }));
-    }
-  }, [messages, currentAnalysis]);
-
-  useEffect(() => {
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
-  }, [history]);
+    if (!user || messages.length <= 1) return;
+    const timer = setTimeout(() => {
+      saveAutosave(user.uid, messages, currentAnalysis);
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [messages, currentAnalysis, user]);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
@@ -184,7 +203,7 @@ const App: React.FC = () => {
   // ── 페르소나 저장 핸들러 ──
   const handlePersonaSave = () => {
     setPersonaConfig(personaDraft);
-    localStorage.setItem(PERSONA_KEY, JSON.stringify(personaDraft));
+    if (user) savePersona(user.uid, personaDraft);
     setPersonaSaved(true);
     setTimeout(() => setPersonaSaved(false), 2000);
   };
@@ -192,7 +211,7 @@ const App: React.FC = () => {
   const handlePersonaReset = () => {
     setPersonaDraft(emptyPersona);
     setPersonaConfig(emptyPersona);
-    localStorage.removeItem(PERSONA_KEY);
+    if (user) savePersona(user.uid, emptyPersona);
   };
 
   // 페르소나 프롬프트 생성 (비어있으면 null)
@@ -213,21 +232,29 @@ const App: React.FC = () => {
 
   const handleReset = () => {
     if (messages.length > 1) {
-      const session: ChatSession = { id: Date.now().toString(), title: messages.filter(m => m.role === 'user')[0]?.content.substring(0, 20) || "Conversation", messages: [...messages], timestamp: Date.now(), lastAnalysis: currentAnalysis || undefined };
+      const session: ChatSession = {
+        id: Date.now().toString(),
+        title: messages.filter(m => m.role === 'user')[0]?.content.substring(0, 20) || "Conversation",
+        messages: [...messages],
+        timestamp: Date.now(),
+        lastAnalysis: currentAnalysis || undefined,
+      };
       setHistory(prev => [session, ...prev]);
+      if (user) addSession(user.uid, session);
     }
     setMessages([{ id: '1', role: 'assistant', content: '공간을 다시 맑게 정돈했어요.', timestamp: Date.now() }]);
     setCurrentAnalysis(null);
-    localStorage.removeItem(AUTOSAVE_KEY);
   };
 
   const handleDeleteHistory = (e: React.MouseEvent, sessionId: string) => {
     e.stopPropagation();
     setHistory(prev => prev.filter(s => s.id !== sessionId));
+    if (user) deleteSession(user.uid, sessionId);
   };
 
   const handleClearAllHistory = () => {
     setHistory([]);
+    if (user) clearAllSessions(user.uid);
   };
 
   const handleSend = async () => {
@@ -369,6 +396,24 @@ const App: React.FC = () => {
   const cardStyle: React.CSSProperties = isMobile
     ? { position: 'fixed', top: vvOffsetTop, left: 0, right: 0, height: vvHeight, zIndex: 10 }
     : {};
+
+  // ── Firebase 인증 상태 로딩 중 ──
+  if (loading) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-black" style={{ height: '100dvh' }}>
+        <div
+          className="absolute inset-0 bg-cover bg-center opacity-70"
+          style={{ backgroundImage: `url(${NASA_BG})`, transform: 'scale(1.05)' }}
+        />
+        <div className="relative z-10 w-10 h-10 border-2 border-white/20 border-t-emerald-400 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // ── 미로그인: 로그인 화면 ──
+  if (!user) {
+    return <LoginScreen />;
+  }
 
   return (
     <div
@@ -621,6 +666,15 @@ const App: React.FC = () => {
                   <Mic size={14} className="text-emerald-400/60" /> Live Sync
                   <span className="ml-auto text-[8px] text-white/20 font-black tracking-widest">SOON</span>
                 </button>
+
+                {/* 구분선 */}
+                <div className="border-t border-white/10 my-2" />
+
+                {/* 프로필 / 로그아웃 */}
+                <ProfileSection
+                  user={user}
+                  onSignOut={async () => { setShowMenu(false); await firebaseSignOut(); }}
+                />
               </div>
             )}
             <div className="flex-1 relative flex items-center">
