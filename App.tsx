@@ -64,6 +64,24 @@ const App: React.FC = () => {
   const nextStartTimeRef = useRef(0);
   const menuRef = useRef<HTMLDivElement>(null);
 
+  // ── visualViewport: 키보드 올라와도 레이아웃 고정 ──
+  const [vvHeight, setVvHeight] = useState<number>(() => window.visualViewport?.height ?? window.innerHeight);
+  const [vvOffsetTop, setVvOffsetTop] = useState<number>(0);
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const update = () => {
+      setVvHeight(vv.height);
+      setVvOffsetTop(vv.offsetTop);
+    };
+    vv.addEventListener('resize', update);
+    vv.addEventListener('scroll', update);
+    return () => {
+      vv.removeEventListener('resize', update);
+      vv.removeEventListener('scroll', update);
+    };
+  }, []);
+
   useEffect(() => {
     const savedHistory = localStorage.getItem(HISTORY_KEY);
     if (savedHistory) setHistory(JSON.parse(savedHistory));
@@ -304,8 +322,17 @@ const App: React.FC = () => {
         : `z-[5] transition-opacity duration-300 ${side === 'left' ? 'border-r' : 'border-l'} border-white/10`
     }`;
 
+  // 모바일: visualViewport 기준으로 카드 고정 (키보드 올라와도 상단 헤더 안 잘림)
+  const isMobile = viewW < 768;
+  const cardStyle: React.CSSProperties = isMobile
+    ? { position: 'fixed', top: vvOffsetTop, left: 0, right: 0, height: vvHeight, zIndex: 10 }
+    : {};
+
   return (
-    <div className="flex h-[100dvh] w-full items-center justify-center relative overflow-hidden bg-black">
+    <div
+      className="flex w-full items-center justify-center relative overflow-hidden bg-black"
+      style={{ height: isMobile ? vvHeight : '100dvh', top: isMobile ? vvOffsetTop : undefined, position: isMobile ? 'fixed' : 'relative' }}
+    >
       {/* 전체 배경 */}
       <div className="absolute inset-0 z-0 bg-cover bg-center transition-all duration-[4000ms] scale-105 opacity-80" style={{ backgroundImage: `url(${bgImageUrl})` }} />
 
@@ -374,7 +401,7 @@ const App: React.FC = () => {
       </aside>
 
       {/* ── 중앙 글라스 카드 — 항상 정중앙 고정 ── */}
-      <div className="relative z-10 w-full max-w-3xl h-[100dvh] md:h-[98dvh] glass-panel md:rounded-[2.5rem] overflow-hidden flex flex-col">
+      <div style={cardStyle} className={`${isMobile ? '' : 'relative z-10'} w-full max-w-3xl ${isMobile ? '' : 'md:h-[98dvh]'} glass-panel md:rounded-[2.5rem] overflow-hidden flex flex-col`}>
 
         {/* 헤더 */}
         <header className="h-12 md:h-16 px-4 md:px-6 flex items-center shrink-0 relative">
