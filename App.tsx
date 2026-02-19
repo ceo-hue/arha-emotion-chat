@@ -18,6 +18,8 @@ import {
   savePersona, loadPersona,
   saveAutosave, loadAutosave,
   addSession, loadSessions, deleteSession, clearAllSessions,
+  loadValueProfile, updateValueProfile, getTopKeywords,
+  ValueProfile,
 } from './services/firestoreService';
 import { migrateLocalStorageToFirestore } from './services/migrationService';
 
@@ -71,6 +73,7 @@ const App: React.FC = () => {
   const [weatherInfo, setWeatherInfo] = useState<{ temp: number; code: number; label: string } | null>(null);
   const [showMenu, setShowMenu] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [valueProfile, setValueProfile] = useState<ValueProfile>({});
   const [selectedMedia, setSelectedMedia] = useState<{ file: File, type: 'image' | 'video', base64: string } | null>(null);
   const [isLiveActive, setIsLiveActive] = useState(false);
   const [isInputFocused, setIsInputFocused] = useState(false);
@@ -122,6 +125,10 @@ const App: React.FC = () => {
       // 히스토리 로드
       const sessions = await loadSessions(user.uid);
       setHistory(sessions);
+
+      // 가치 프로필 로드
+      const vp = await loadValueProfile(user.uid);
+      setValueProfile(vp);
 
       // 위치 / 날씨
       if (navigator.geolocation) {
@@ -215,20 +222,57 @@ const App: React.FC = () => {
     if (user) savePersona(user.uid, emptyPersona);
   };
 
+  // 가치 프로필 프롬프트 생성
+  const buildValuePrompt = (): string | null => {
+    const top = getTopKeywords(valueProfile, 5);
+    if (!top.length) return null;
+
+    const keywordList = top
+      .map(({ keyword, weight }) => `${keyword}(${weight}회)`)
+      .join(', ');
+
+    return [
+      '### 사용자 가치 프로필 (대화 누적 분석)',
+      '아래는 이 사용자가 지금까지 나눈 대화에서 반복적으로 드러난 핵심 가치 키워드다.',
+      `핵심 가치: ${keywordList}`,
+      '',
+      '이 가치 프로필을 바탕으로:',
+      '1. 사용자가 중요하게 여기는 것들을 자연스럽게 대화에 녹여내라.',
+      '2. 직접 언급하기보다, 그 가치와 연결되는 은유·풍경·감각으로 공명하라.',
+      '3. 예를 들어 "성장"이 높다면 → 변화와 흐름의 언어를, "관계"가 높다면 → 연결과 온기의 언어를 선택하라.',
+      '4. 사용자가 말하지 않아도 그 사람의 결을 이미 알고 있는 친구처럼 대화하라.',
+      '단, 가치 키워드를 직접 거론하거나 분석하듯 말하지 말 것. 스며드는 방식으로.',
+    ].join('\n');
+  };
+
   // 페르소나 프롬프트 생성 (비어있으면 null)
   const buildPersonaPrompt = (): string | null => {
     const { character, age, job, personality, values } = personaConfig;
-    if (!character && !age && !job && !personality && !values) return null;
-    return [
-      '### 사용자 정의 페르소나 레이어 (User Persona Override)',
-      '아래 설정을 최우선으로 반영하여 대화 톤, 어휘, 감성 벡터를 재구성하라:',
-      character  && `- 캐릭터: ${character}`,
-      age        && `- 나이: ${age}`,
-      job        && `- 직업: ${job}`,
-      personality && `- 성격: ${personality}`,
-      values     && `- 가치관: ${values}`,
-      '위 페르소나에 맞게 말투, 공감 방식, 은유 선택, 감정 밀도를 조정하라. 단, VectorScript 분석 JSON은 반드시 유지한다.',
-    ].filter(Boolean).join('\n');
+    const hasPersona = character || age || job || personality || values;
+    const valuePrompt = buildValuePrompt();
+
+    const parts: string[] = [];
+
+    if (hasPersona) {
+      parts.push(
+        '### 사용자 정의 페르소나 레이어 (User Persona Override)',
+        '아래 설정을 최우선으로 반영하여 대화 톤, 어휘, 감성 벡터를 재구성하라:',
+        ...[
+          character   && `- 캐릭터: ${character}`,
+          age         && `- 나이: ${age}`,
+          job         && `- 직업: ${job}`,
+          personality && `- 성격: ${personality}`,
+          values      && `- 가치관: ${values}`,
+        ].filter(Boolean) as string[],
+        '위 페르소나에 맞게 말투, 공감 방식, 은유 선택, 감정 밀도를 조정하라. 단, VectorScript 분석 JSON은 반드시 유지한다.',
+      );
+    }
+
+    if (valuePrompt) {
+      parts.push('', valuePrompt);
+    }
+
+    return parts.length ? parts.join('\n') : null;
   };
 
   const handleReset = () => {
@@ -275,7 +319,14 @@ const App: React.FC = () => {
           currentContent += chunk;
           setMessages(prev => prev.map(m => m.id === assistantMsgId ? { ...m, content: currentContent } : m));
         },
-        (analysis) => { setCurrentAnalysis(analysis); setIsAnalyzing(false); },
+        (analysis) => {
+          setCurrentAnalysis(analysis);
+          setIsAnalyzing(false);
+          // 가치 프로필 누적: 로그인 상태이고 tags가 있을 때만
+          if (user && analysis.tags?.length) {
+            updateValueProfile(user.uid, analysis.tags).then(setValueProfile);
+          }
+        },
         buildPersonaPrompt() ?? undefined,
       );
     } catch (error) { setIsAnalyzing(false); } finally { setIsLoading(false); }

@@ -106,3 +106,59 @@ export async function clearAllSessions(userId: string): Promise<void> {
   const snap = await getDocs(colRef);
   await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
 }
+
+// ── 가치 프로필 ────────────────────────────────────────────────────────────
+// 구조: { [keyword]: weight } — 최대 50개, 초과 시 최저 weight 제거
+
+export type ValueProfile = Record<string, number>;
+
+const VALUE_PROFILE_MAX = 50;
+
+export async function loadValueProfile(userId: string): Promise<ValueProfile> {
+  const ref = doc(db, 'users', userId, 'valueProfile', 'keywords');
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return {};
+  const data = snap.data();
+  // updatedAt 필드 제외하고 키워드만 반환
+  const { updatedAt: _u, ...keywords } = data;
+  return keywords as ValueProfile;
+}
+
+export async function updateValueProfile(
+  userId: string,
+  newTags: string[],
+): Promise<ValueProfile> {
+  if (!newTags.length) return {};
+
+  const ref = doc(db, 'users', userId, 'valueProfile', 'keywords');
+  const snap = await getDoc(ref);
+  const existing: ValueProfile = snap.exists()
+    ? (() => { const { updatedAt: _u, ...kw } = snap.data(); return kw as ValueProfile; })()
+    : {};
+
+  // 새 태그 weight 누적
+  const updated: ValueProfile = { ...existing };
+  for (const tag of newTags) {
+    updated[tag] = (updated[tag] ?? 0) + 1;
+  }
+
+  // 최대 50개 초과 시 weight 낮은 순으로 제거
+  const entries = Object.entries(updated);
+  if (entries.length > VALUE_PROFILE_MAX) {
+    const sorted = entries.sort((a, b) => b[1] - a[1]);
+    const trimmed = Object.fromEntries(sorted.slice(0, VALUE_PROFILE_MAX));
+    await setDoc(ref, { ...trimmed, updatedAt: serverTimestamp() });
+    return trimmed;
+  }
+
+  await setDoc(ref, { ...updated, updatedAt: serverTimestamp() });
+  return updated;
+}
+
+// 상위 N개 키워드 반환 (weight 내림차순)
+export function getTopKeywords(profile: ValueProfile, n = 5): Array<{ keyword: string; weight: number }> {
+  return Object.entries(profile)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, n)
+    .map(([keyword, weight]) => ({ keyword, weight }));
+}
