@@ -162,12 +162,12 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { messages, personaPrompt } = req.body;
+  const { messages, personaPrompt, userMode } = req.body;
 
-  // µ_Router: 마지막 사용자 메시지 기준으로 모드 결정
+  // µ_Router: user-selected mode takes priority; fall back to auto-detection
   const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')?.content ?? '';
-  const muMode = detectMode(lastUserMsg);
-  console.log(`🔀 µ_Router: ${muMode} (msg: "${lastUserMsg.slice(0, 40)}")`);
+  const muMode = userMode || detectMode(lastUserMsg);
+  console.log(`🔀 µ_Router: ${muMode} ${userMode ? '(user-selected)' : `(auto: "${lastUserMsg.slice(0, 40)}")`}`);
 
   const finalSystemPrompt = buildSystemPrompt(muMode, personaPrompt);
 

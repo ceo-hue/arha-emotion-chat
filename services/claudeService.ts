@@ -61,6 +61,7 @@ export const chatWithClaudeStream = async (
   personaPrompt?: string,
   onArtifact?: (artifact: ArtifactContent) => void,
   onMuMode?: (mode: string) => void,
+  userMode?: string,
 ) => {
   const payload = messages.map(msg => ({
     role: msg.role,
@@ -75,7 +76,7 @@ export const chatWithClaudeStream = async (
   const response = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages: payload, personaPrompt }),
+    body: JSON.stringify({ messages: payload, personaPrompt, userMode }),
   });
 
   if (!response.ok) {

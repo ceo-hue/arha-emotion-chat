@@ -485,10 +485,12 @@ ANALYSIS JSON must be maintained`,
     },
   ] as const;
 
-  // ── artifact / muMode 상태 ──
+  // ── artifact / mode 상태 ──
   const [currentArtifact, setCurrentArtifact] = useState<ArtifactContent | null>(null);
   const [showArtifact, setShowArtifact] = useState(false);
-  const [currentMuMode, setCurrentMuMode] = useState<MuMode>('A_MODE');
+  // selectedMode: user-controlled (replaces auto-detected currentMuMode)
+  const [selectedMode, setSelectedMode] = useState<MuMode>('A_MODE');
+  const [showModePanel, setShowModePanel] = useState(false);
 
   // ── 인터넷(Tavily) 연결 상태 ──
   const [internetStatus, setInternetStatus] = useState<'checking' | 'online' | 'offline'>('checking');
@@ -740,10 +742,9 @@ ANALYSIS JSON must be maintained`,
           setCurrentArtifact(artifact);
           setShowArtifact(true);
         },
-        // onMuMode: 현재 모드 업데이트
-        (mode) => {
-          setCurrentMuMode(mode as MuMode);
-        },
+        // onMuMode: user-selected mode, no override needed
+        () => {},
+        selectedMode,
       );
     } catch (error) { setIsAnalyzing(false); } finally { setIsLoading(false); }
   };
@@ -1040,7 +1041,10 @@ ANALYSIS JSON must be maintained`,
       </aside>
 
       {/* ── 중앙 글라스 카드 — 항상 정중앙 고정 ── */}
-      <div style={cardStyle} className={`${isMobile ? '' : 'relative z-10'} w-full max-w-3xl ${isMobile ? '' : 'md:h-[98dvh]'} glass-panel md:rounded-[2.5rem] overflow-hidden flex flex-col`}>
+      <div style={cardStyle} className={`${isMobile ? '' : 'relative z-10'} w-full max-w-3xl ${isMobile ? '' : 'md:h-[98dvh]'} glass-panel md:rounded-[2.5rem] overflow-hidden flex flex-col transition-shadow duration-500 ${
+          selectedMode === 'P_MODE' ? 'ring-1 ring-violet-400/25 shadow-violet-500/10' :
+          selectedMode === 'H_MODE' ? 'ring-1 ring-sky-400/25 shadow-sky-500/10' : ''
+        }`}>
 
         {/* 헤더 */}
         <header className="h-12 md:h-16 px-4 md:px-6 flex items-center shrink-0 relative">
@@ -1053,17 +1057,17 @@ ANALYSIS JSON must be maintained`,
           <div className="absolute left-1/2 -translate-x-1/2 text-center pointer-events-none">
             <h1 className="text-sm md:text-base font-bold text-slate-900 tracking-tight leading-none">ARHA</h1>
             <div className="flex items-center justify-center gap-1">
-              {currentMuMode === 'P_MODE' && (
+              {selectedMode === 'P_MODE' && (
                 <span className="flex items-center gap-0.5 text-[7px] font-black uppercase tracking-widest text-violet-600">
                   <Cpu size={7} /> P_MODE
                 </span>
               )}
-              {currentMuMode === 'H_MODE' && (
-                <span className="flex items-center gap-0.5 text-[7px] font-black uppercase tracking-widest text-emerald-700">
+              {selectedMode === 'H_MODE' && (
+                <span className="flex items-center gap-0.5 text-[7px] font-black uppercase tracking-widest text-sky-600">
                   <Layers size={7} /> H_MODE
                 </span>
               )}
-              {currentMuMode === 'A_MODE' && (
+              {selectedMode === 'A_MODE' && (
                 <span className="flex items-center gap-0.5 text-[7px] font-black uppercase tracking-widest text-slate-500">
                   <Sparkles size={7} /> A_MODE
                 </span>
@@ -1115,6 +1119,71 @@ ANALYSIS JSON must be maintained`,
               </div>
             </div>
           ))}
+        </div>
+
+        {/* ── 모드 네비게이션 바 ── */}
+        <div className="px-2 md:px-4 shrink-0 relative">
+          {/* 모드 선택 패널 */}
+          {showModePanel && (
+            <div className="absolute bottom-full left-0 right-0 mb-1.5 arha-sidebar-bg border border-white/10 rounded-2xl p-3 shadow-2xl z-[50] animate-in slide-in-from-bottom-2">
+              <p className="text-[9px] font-black uppercase tracking-widest text-white/30 px-0.5 mb-2.5">모드 선택</p>
+              <div className="grid grid-cols-3 gap-2">
+                {([
+                  { mode: 'A_MODE' as MuMode, icon: Sparkles, label: '감성', desc: '공감 · 시', color: 'from-emerald-500/10 to-teal-500/10 border-emerald-400/20', activeRing: 'ring-emerald-400/50', iconColor: 'text-emerald-400' },
+                  { mode: 'H_MODE' as MuMode, icon: Layers, label: '하이브리드', desc: '논리 + 감성', color: 'from-sky-500/10 to-indigo-500/10 border-sky-400/20', activeRing: 'ring-sky-400/50', iconColor: 'text-sky-400' },
+                  { mode: 'P_MODE' as MuMode, icon: Cpu, label: '분석', desc: '코드 · 아티팩트', color: 'from-violet-500/10 to-purple-500/10 border-violet-400/20', activeRing: 'ring-violet-400/50', iconColor: 'text-violet-400' },
+                ] as const).map(({ mode, icon: Icon, label, desc, color, activeRing, iconColor }) => {
+                  const isActive = selectedMode === mode;
+                  return (
+                    <button
+                      key={mode}
+                      onClick={() => { setSelectedMode(mode); setShowModePanel(false); }}
+                      className={`flex flex-col items-center gap-1 py-3 px-2 rounded-xl border bg-gradient-to-br text-center transition-all active:scale-95 ${color} ${isActive ? `ring-1 ${activeRing} opacity-100` : 'opacity-50 hover:opacity-80'}`}
+                    >
+                      <Icon size={15} className={isActive ? iconColor : 'text-white/50'} />
+                      <span className="text-[10px] font-black tracking-wide text-white/80">{label}</span>
+                      <span className="text-[8px] text-white/40 leading-tight">{desc}</span>
+                      {isActive && <span className="w-1 h-1 rounded-full bg-white/60 mt-0.5" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* 네비게이션 탭 */}
+          <div className="flex items-center gap-1 py-1 border-t border-white/8">
+            {/* 🔮 프리즘 — Emotional Dashboard */}
+            <button
+              onClick={() => { setShowDashboard(true); setShowPersonaPanel(false); setShowModePanel(false); }}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${showDashboard && !showPersonaPanel ? 'bg-emerald-500/20 text-emerald-300' : 'text-white/30 hover:text-white/60 hover:bg-white/5'}`}
+            >
+              <span className="text-xs">🔮</span>프리즘
+            </button>
+
+            {/* ✨ 페르소나 */}
+            <button
+              onClick={() => { setShowDashboard(true); setShowPersonaPanel(true); setShowModePanel(false); }}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${showDashboard && showPersonaPanel ? 'bg-violet-500/20 text-violet-300' : 'text-white/30 hover:text-white/60 hover:bg-white/5'}`}
+            >
+              <span className="text-xs">{personaConfig.emoji || '✨'}</span>페르소나
+            </button>
+
+            {/* 모드 */}
+            <button
+              onClick={() => { setShowModePanel(!showModePanel); if (!showModePanel) setShowDashboard(false); }}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${
+                showModePanel
+                  ? selectedMode === 'A_MODE' ? 'bg-emerald-500/20 text-emerald-300'
+                  : selectedMode === 'H_MODE' ? 'bg-sky-500/20 text-sky-300'
+                  : 'bg-violet-500/20 text-violet-300'
+                : 'text-white/30 hover:text-white/60 hover:bg-white/5'
+              }`}
+            >
+              {selectedMode === 'A_MODE' ? <Sparkles size={11} /> : selectedMode === 'H_MODE' ? <Layers size={11} /> : <Cpu size={11} />}
+              모드
+            </button>
+          </div>
         </div>
 
         {/* 푸터 */}
@@ -1206,10 +1275,18 @@ ANALYSIS JSON must be maintained`,
                 value={input}
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
-                placeholder="맑은 아침의 영감을 나누어주세요..."
-                className="w-full h-9 md:h-11 bg-white/20 border border-white/40 rounded-2xl py-0 pl-3 md:pl-5 pr-12 text-[14px] md:text-base text-slate-900 placeholder:text-slate-500/70 focus:outline-none focus:border-emerald-400 transition-all"
+                placeholder={
+                  selectedMode === 'P_MODE' ? '분석하거나 만들어볼 것을 알려주세요...' :
+                  selectedMode === 'H_MODE' ? '논리와 감성 사이를 질문해봐요...' :
+                  '맑은 아침의 영감을 나누어주세요...'
+                }
+                className={`w-full h-9 md:h-11 bg-white/20 border border-white/40 rounded-2xl py-0 pl-3 md:pl-5 pr-12 text-[14px] md:text-base text-slate-900 placeholder:text-slate-500/70 focus:outline-none transition-all ${
+                  selectedMode === 'P_MODE' ? 'focus:border-violet-400' :
+                  selectedMode === 'H_MODE' ? 'focus:border-sky-400' :
+                  'focus:border-emerald-400'
+                }`}
               />
-              <button onClick={handleSend} disabled={isLoading || (!input.trim() && !selectedMedia)} className={`absolute right-2 w-8 h-8 flex items-center justify-center transition-all active:scale-95 ${input.trim() || selectedMedia ? 'text-emerald-500' : 'text-slate-400/40'}`}>
+              <button onClick={handleSend} disabled={isLoading || (!input.trim() && !selectedMedia)} className={`absolute right-2 w-8 h-8 flex items-center justify-center transition-all active:scale-95 ${input.trim() || selectedMedia ? (selectedMode === 'P_MODE' ? 'text-violet-500' : selectedMode === 'H_MODE' ? 'text-sky-500' : 'text-emerald-500') : 'text-slate-400/40'}`}>
                 <Send size={15} />
               </button>
             </div>
