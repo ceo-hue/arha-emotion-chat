@@ -15,11 +15,11 @@ import { Message, ChatSession, AnalysisData } from '../types';
 // ── 타입 ──────────────────────────────────────────────────────────────────
 
 export type PersonaConfig = {
-  character: string;
-  age: string;
-  job: string;
-  personality: string;
-  values: string;
+  id: string;
+  label: string;
+  emoji: string;
+  description: string;
+  tonePrompt: string;
 };
 
 // ── 공통 유틸 ─────────────────────────────────────────────────────────────
@@ -45,11 +45,11 @@ export async function loadPersona(userId: string): Promise<PersonaConfig | null>
   if (!snap.exists()) return null;
   const d = snap.data();
   return {
-    character:   d.character   ?? '',
-    age:         d.age         ?? '',
-    job:         d.job         ?? '',
-    personality: d.personality ?? '',
-    values:      d.values      ?? '',
+    id:          d.id          ?? '',
+    label:       d.label       ?? '',
+    emoji:       d.emoji       ?? '',
+    description: d.description ?? '',
+    tonePrompt:  d.tonePrompt  ?? '',
   };
 }
 
