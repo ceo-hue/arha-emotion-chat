@@ -958,25 +958,29 @@ ANALYSIS JSON must be maintained`,
             {/* 프리즘 탭 */}
             <button
               onClick={() => setSidebarTab('prism')}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${sidebarTab === 'prism' ? 'bg-emerald-500/20 text-emerald-300' : 'text-white/30 hover:text-white/60'}`}
+              title="Prism"
+              className={`relative w-8 h-8 flex items-center justify-center rounded-lg transition-all ${sidebarTab === 'prism' ? 'bg-emerald-500/20 text-emerald-300' : 'text-white/30 hover:text-white/60 hover:bg-white/5'}`}
             >
-              <Heart size={13} /> Prism
+              <Heart size={14} />
             </button>
             {/* 페르소나 탭 */}
             <button
               onClick={() => setSidebarTab('persona')}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${sidebarTab === 'persona' ? 'bg-violet-500/20 text-violet-300' : 'text-white/30 hover:text-white/60'}`}
+              title="Persona"
+              className={`relative w-8 h-8 flex items-center justify-center rounded-lg transition-all ${sidebarTab === 'persona' ? 'bg-violet-500/20 text-violet-300' : 'text-white/30 hover:text-white/60 hover:bg-white/5'}`}
             >
-              <Database size={13} /> Persona
-              {personaConfig.id && <span className="w-1.5 h-1.5 rounded-full bg-violet-400 shrink-0" />}
+              <Database size={14} />
+              {personaConfig.id && personaConfig.id !== 'arha' && (
+                <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-violet-400" />
+              )}
             </button>
             {/* 모드 탭 */}
             <button
               onClick={() => setSidebarTab('mode')}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${sidebarTab === 'mode' ? (selectedMode === 'P_MODE' ? 'bg-violet-500/20 text-violet-300' : selectedMode === 'H_MODE' ? 'bg-sky-500/20 text-sky-300' : 'bg-emerald-500/20 text-emerald-300') : 'text-white/30 hover:text-white/60'}`}
+              title="Mode"
+              className={`relative w-8 h-8 flex items-center justify-center rounded-lg transition-all ${sidebarTab === 'mode' ? (selectedMode === 'P_MODE' ? 'bg-violet-500/20 text-violet-300' : selectedMode === 'H_MODE' ? 'bg-sky-500/20 text-sky-300' : 'bg-emerald-500/20 text-emerald-300') : 'text-white/30 hover:text-white/60 hover:bg-white/5'}`}
             >
-              {selectedMode === 'A_MODE' ? <Sparkles size={13} /> : selectedMode === 'H_MODE' ? <Layers size={13} /> : <Cpu size={13} />}
-              모드
+              {selectedMode === 'A_MODE' ? <Sparkles size={14} /> : selectedMode === 'H_MODE' ? <Layers size={14} /> : <Cpu size={14} />}
             </button>
           </div>
           <button onClick={() => setShowDashboard(false)} className="w-8 h-8 rounded-xl flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 active:bg-white/20 transition-all shrink-0">
