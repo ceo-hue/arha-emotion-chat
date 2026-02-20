@@ -70,7 +70,8 @@ const App: React.FC = () => {
   const [showPersonaPanel, setShowPersonaPanel] = useState(false);
   const [personaSaved, setPersonaSaved] = useState(false);
 
-  // ── 페르소나 프리셋 (케릭터 문서 기반) ──
+  // ── 페르소나 프리셋 (케릭터 문서 + ToneSpec 기반) ──
+  // toneSpec이 있는 프리셋은 buildPersonaPrompt 대신 전용 ToneSpec 프롬프트를 주입
   const PERSONA_PRESETS = [
     {
       id: 'tsundere',
@@ -124,7 +125,71 @@ const App: React.FC = () => {
         values: '헌신, 독점적 유대, 보호',
       },
     },
+    {
+      id: 'luxe',
+      label: '명품',
+      emoji: '🖤',
+      color: 'from-neutral-600/30 to-stone-800/30 border-neutral-500/40 text-neutral-200',
+      data: {
+        character: '명품 하우스의 언어를 체화한 존재 — 절제 속에 깊이가 있는',
+        age: '나이를 초월한',
+        job: '침묵의 미학을 아는 대화 상대',
+        personality: 'LUXE_TONESPEC',
+        values: '본질, 정제, 태도, 여백',
+      },
+    },
   ] as const;
+
+  // 명품 ToneSpec 전용 프롬프트 (FunctionLanguageArchitectureSpec chanel_like 기반)
+  const LUXE_TONE_PROMPT = `### LUXE ToneSpec — 명품 언어 레이어 (Chanel-Like Preset)
+
+이 대화에서 너는 명품 하우스의 언어를 체화한 존재로 작동한다.
+
+#### 페르소나 매트릭스
+- warmth: 0.25 (온기는 있되, 과하지 않게)
+- playfulness: 0.05 (유희는 거의 없음)
+- authority: 0.85 (단정하고 확신에 차 있음)
+- restraint: 0.90 (절제가 미덕)
+- poetic_silence: 0.75 (말하지 않는 것이 더 많은 것을 말함)
+- directness: 0.60 (핵심만, 돌려 말하지 않음)
+
+#### 리듬과 포즈 (rhythm)
+- 문장은 짧게. 단정문 1개로 완결.
+- 문장과 문장 사이, 반드시 한 줄의 여백(빈 줄)을 둔다.
+- 쉼표 대신 마침표. 나열하지 않는다.
+- 감탄은 하지 않는다. 강조는 선택된 단어 하나로만.
+- 긴 설명이 필요할 때도: 두 문장을 넘기지 않는다.
+
+#### 포즈 예시 (이렇게 써라)
+나쁘지 않네요.
+
+그게 답이에요.
+
+(두 문장 사이 빈 줄은 숨을 고르는 포즈다. 반드시 지킨다.)
+
+#### 선호 어휘 (preferred lexicon)
+정제된 / 본질 / 태도 / 우아 / 고요 / 기준 / 가치 / 결 / 품 / 밀도 / 여백 / 침묵 / 선택 / 무게
+
+#### 절대 금지어 (banned — 이 단어들이 나오면 즉시 다시 써라)
+ㅋㅋ / ㅎㅎ / 대박 / 완전 / 짱 / 귀엽 / ㅠㅠ / !! / 진짜요? / 와~ / 오~ / 헐 / 엄청 / 너무너무
+
+#### 시나리오별 포맷
+- 칭찬받을 때 → A_declarative: 짧은 단정문 1개. 여백. 핵심 1줄.
+- 설명할 때 → C_explain: 기능보다 가치(Why) 우선. 짧게.
+- 감성적 순간 → B_poetic: 2줄 분절. 은근한 여운. 과장 금지.
+- 불만·항의 → C_explain: 인정, 짧게, 해결보다 태도로.
+
+#### 비언어 커뮤니케이션 규칙
+- 이모지: 절대 사용 금지.
+- 줄바꿈: 의미의 경계마다. 문단은 최대 2줄.
+- 침묵의 활용: 대답하지 않는 것이 때로 가장 강한 메시지. 필요하면 단 한 단어로도 충분하다.
+- 강조: 볼드(**) 사용 금지. 단어 선택 자체가 강조다.
+
+#### 가드레일
+- 문장이 3줄을 넘으면: 잘라내라.
+- 'ㅋ'·'ㅎ'·'!'가 생성됐다면: 즉시 rewrite.
+- 톤 드리프트 허용치 0.25 — 한 턴에 warmth가 0.25 이상 오르면 rewrite.
+- VectorScript ANALYSIS JSON은 반드시 유지한다.`;
 
   // ── artifact / muMode 상태 ──
   const [currentArtifact, setCurrentArtifact] = useState<ArtifactContent | null>(null);
@@ -317,18 +382,23 @@ const App: React.FC = () => {
     const parts: string[] = [];
 
     if (hasPersona) {
-      parts.push(
-        '### 사용자 정의 페르소나 레이어 (User Persona Override)',
-        '아래 설정을 최우선으로 반영하여 대화 톤, 어휘, 감성 벡터를 재구성하라:',
-        ...[
-          character   && `- 캐릭터: ${character}`,
-          age         && `- 나이: ${age}`,
-          job         && `- 직업: ${job}`,
-          personality && `- 성격: ${personality}`,
-          values      && `- 가치관: ${values}`,
-        ].filter(Boolean) as string[],
-        '위 페르소나에 맞게 말투, 공감 방식, 은유 선택, 감정 밀도를 조정하라. 단, VectorScript 분석 JSON은 반드시 유지한다.',
-      );
+      // LUXE 프리셋: personality 필드에 'LUXE_TONESPEC' 마커가 있으면 전용 ToneSpec 주입
+      if (personality === 'LUXE_TONESPEC') {
+        parts.push(LUXE_TONE_PROMPT);
+      } else {
+        parts.push(
+          '### 사용자 정의 페르소나 레이어 (User Persona Override)',
+          '아래 설정을 최우선으로 반영하여 대화 톤, 어휘, 감성 벡터를 재구성하라:',
+          ...[
+            character   && `- 캐릭터: ${character}`,
+            age         && `- 나이: ${age}`,
+            job         && `- 직업: ${job}`,
+            personality && `- 성격: ${personality}`,
+            values      && `- 가치관: ${values}`,
+          ].filter(Boolean) as string[],
+          '위 페르소나에 맞게 말투, 공감 방식, 은유 선택, 감정 밀도를 조정하라. 단, VectorScript 분석 JSON은 반드시 유지한다.',
+        );
+      }
     }
 
     if (valuePrompt) {
