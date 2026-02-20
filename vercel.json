@@ -5,10 +5,14 @@
   "functions": {
     "api/chat.js": {
       "maxDuration": 60
+    },
+    "api/internet-status.js": {
+      "maxDuration": 10
     }
   },
   "rewrites": [
     { "source": "/api/chat", "destination": "/api/chat" },
+    { "source": "/api/internet-status", "destination": "/api/internet-status" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
