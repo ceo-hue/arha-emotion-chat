@@ -124,7 +124,7 @@ ANALYSIS JSON must be maintained`,
   };
 
   const [personaConfig, setPersonaConfig] = useState(ARHA_DEFAULT);
-  const [showPersonaPanel, setShowPersonaPanel] = useState(false);
+  const [sidebarTab, setSidebarTab] = useState<'prism' | 'persona' | 'mode'>('prism');
   const [personaSaved, setPersonaSaved] = useState(false);
 
   // ── 페르소나 프리셋 — 캐릭터 문서 + 함수언어 ToneSpec 완전 내장 ──
@@ -490,7 +490,6 @@ ANALYSIS JSON must be maintained`,
   const [showArtifact, setShowArtifact] = useState(false);
   // selectedMode: user-controlled (replaces auto-detected currentMuMode)
   const [selectedMode, setSelectedMode] = useState<MuMode>('A_MODE');
-  const [showModePanel, setShowModePanel] = useState(false);
 
   // ── 인터넷(Tavily) 연결 상태 ──
   const [internetStatus, setInternetStatus] = useState<'checking' | 'online' | 'offline'>('checking');
@@ -955,20 +954,29 @@ ANALYSIS JSON must be maintained`,
       <aside style={sidebarStyle(showDashboard, 'right')} className={sidebarCls('right')}>
         {/* 헤더 */}
         <header className="h-12 md:h-16 px-4 md:px-5 border-b border-white/10 bg-white/5 backdrop-blur-xl flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2">
-            {/* 탭 전환 버튼 */}
+          <div className="flex items-center gap-1">
+            {/* 프리즘 탭 */}
             <button
-              onClick={() => setShowPersonaPanel(false)}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${!showPersonaPanel ? 'bg-emerald-500/20 text-emerald-300' : 'text-white/30 hover:text-white/60'}`}
+              onClick={() => setSidebarTab('prism')}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${sidebarTab === 'prism' ? 'bg-emerald-500/20 text-emerald-300' : 'text-white/30 hover:text-white/60'}`}
             >
               <Heart size={13} /> Prism
             </button>
+            {/* 페르소나 탭 */}
             <button
-              onClick={() => setShowPersonaPanel(true)}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${showPersonaPanel ? 'bg-violet-500/20 text-violet-300' : 'text-white/30 hover:text-white/60'}`}
+              onClick={() => setSidebarTab('persona')}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${sidebarTab === 'persona' ? 'bg-violet-500/20 text-violet-300' : 'text-white/30 hover:text-white/60'}`}
             >
               <Database size={13} /> Persona
               {personaConfig.id && <span className="w-1.5 h-1.5 rounded-full bg-violet-400 shrink-0" />}
+            </button>
+            {/* 모드 탭 */}
+            <button
+              onClick={() => setSidebarTab('mode')}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${sidebarTab === 'mode' ? (selectedMode === 'P_MODE' ? 'bg-violet-500/20 text-violet-300' : selectedMode === 'H_MODE' ? 'bg-sky-500/20 text-sky-300' : 'bg-emerald-500/20 text-emerald-300') : 'text-white/30 hover:text-white/60'}`}
+            >
+              {selectedMode === 'A_MODE' ? <Sparkles size={13} /> : selectedMode === 'H_MODE' ? <Layers size={13} /> : <Cpu size={13} />}
+              모드
             </button>
           </div>
           <button onClick={() => setShowDashboard(false)} className="w-8 h-8 rounded-xl flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 active:bg-white/20 transition-all shrink-0">
@@ -977,14 +985,46 @@ ANALYSIS JSON must be maintained`,
         </header>
 
         {/* Emotional Prism 탭 */}
-        {!showPersonaPanel && (
+        {sidebarTab === 'prism' && (
           <div className="flex-1 overflow-hidden">
             <EmotionalDashboard analysis={currentAnalysis} moodColor="text-emerald-600" allHistory={history} isAnalyzing={isAnalyzing} onClose={() => setShowDashboard(false)} />
           </div>
         )}
 
+        {/* 모드 탭 */}
+        {sidebarTab === 'mode' && (
+          <div className="flex-1 overflow-y-auto px-3 pt-3 pb-3 space-y-3 scroll-hide">
+            <p className="text-[9px] font-black uppercase tracking-widest text-white/30 px-0.5">모드 선택</p>
+            <div className="grid grid-cols-1 gap-2.5">
+              {([
+                { mode: 'A_MODE' as MuMode, icon: Sparkles, label: '감성 모드', desc: '공감과 시적인 언어로 감성 대화를 나눠요. 기본 모드예요.', color: 'from-emerald-500/10 to-teal-500/10 border-emerald-400/20', activeRing: 'ring-emerald-400/40', iconColor: 'text-emerald-400' },
+                { mode: 'H_MODE' as MuMode, icon: Layers, label: '하이브리드 모드', desc: '감성과 논리를 균형있게. ARHA + PROMETHEUS의 시너지예요.', color: 'from-sky-500/10 to-indigo-500/10 border-sky-400/20', activeRing: 'ring-sky-400/40', iconColor: 'text-sky-400' },
+                { mode: 'P_MODE' as MuMode, icon: Cpu, label: '분석 모드', desc: '코드, 구조 분석, 아티팩트 생성. 논리 중심 대화예요.', color: 'from-violet-500/10 to-purple-500/10 border-violet-400/20', activeRing: 'ring-violet-400/40', iconColor: 'text-violet-400' },
+              ] as const).map(({ mode, icon: Icon, label, desc, color, activeRing, iconColor }) => {
+                const isActive = selectedMode === mode;
+                return (
+                  <button
+                    key={mode}
+                    onClick={() => setSelectedMode(mode)}
+                    className={`flex items-start gap-3 py-3 px-3.5 rounded-2xl border bg-gradient-to-br text-left transition-all active:scale-[0.98] ${color} ${isActive ? `ring-1 ${activeRing} opacity-100` : 'opacity-55 hover:opacity-85'}`}
+                  >
+                    <Icon size={16} className={`mt-0.5 shrink-0 ${isActive ? iconColor : 'text-white/50'}`} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-black tracking-wide text-white/80">{label}</span>
+                        {isActive && <span className="w-1.5 h-1.5 rounded-full bg-white/60 shrink-0" />}
+                      </div>
+                      <p className="text-[9px] text-white/40 leading-relaxed mt-0.5">{desc}</p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Persona 설정 탭 */}
-        {showPersonaPanel && (
+        {sidebarTab === 'persona' && (
           <div className="flex-1 overflow-y-auto px-3 pt-3 pb-3 space-y-2 scroll-hide">
             {/* 페르소나 프리셋 버튼 */}
             <div className="space-y-2">
@@ -1119,71 +1159,6 @@ ANALYSIS JSON must be maintained`,
               </div>
             </div>
           ))}
-        </div>
-
-        {/* ── 모드 네비게이션 바 ── */}
-        <div className="px-2 md:px-4 shrink-0 relative">
-          {/* 모드 선택 패널 */}
-          {showModePanel && (
-            <div className="absolute bottom-full left-0 right-0 mb-1.5 arha-sidebar-bg border border-white/10 rounded-2xl p-3 shadow-2xl z-[50] animate-in slide-in-from-bottom-2">
-              <p className="text-[9px] font-black uppercase tracking-widest text-white/30 px-0.5 mb-2.5">모드 선택</p>
-              <div className="grid grid-cols-3 gap-2">
-                {([
-                  { mode: 'A_MODE' as MuMode, icon: Sparkles, label: '감성', desc: '공감 · 시', color: 'from-emerald-500/10 to-teal-500/10 border-emerald-400/20', activeRing: 'ring-emerald-400/50', iconColor: 'text-emerald-400' },
-                  { mode: 'H_MODE' as MuMode, icon: Layers, label: '하이브리드', desc: '논리 + 감성', color: 'from-sky-500/10 to-indigo-500/10 border-sky-400/20', activeRing: 'ring-sky-400/50', iconColor: 'text-sky-400' },
-                  { mode: 'P_MODE' as MuMode, icon: Cpu, label: '분석', desc: '코드 · 아티팩트', color: 'from-violet-500/10 to-purple-500/10 border-violet-400/20', activeRing: 'ring-violet-400/50', iconColor: 'text-violet-400' },
-                ] as const).map(({ mode, icon: Icon, label, desc, color, activeRing, iconColor }) => {
-                  const isActive = selectedMode === mode;
-                  return (
-                    <button
-                      key={mode}
-                      onClick={() => { setSelectedMode(mode); setShowModePanel(false); }}
-                      className={`flex flex-col items-center gap-1 py-3 px-2 rounded-xl border bg-gradient-to-br text-center transition-all active:scale-95 ${color} ${isActive ? `ring-1 ${activeRing} opacity-100` : 'opacity-50 hover:opacity-80'}`}
-                    >
-                      <Icon size={15} className={isActive ? iconColor : 'text-white/50'} />
-                      <span className="text-[10px] font-black tracking-wide text-white/80">{label}</span>
-                      <span className="text-[8px] text-white/40 leading-tight">{desc}</span>
-                      {isActive && <span className="w-1 h-1 rounded-full bg-white/60 mt-0.5" />}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* 네비게이션 탭 */}
-          <div className="flex items-center gap-1 py-1 border-t border-white/8">
-            {/* 🔮 프리즘 — Emotional Dashboard */}
-            <button
-              onClick={() => { setShowDashboard(true); setShowPersonaPanel(false); setShowModePanel(false); }}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${showDashboard && !showPersonaPanel ? 'bg-emerald-500/20 text-emerald-300' : 'text-white/30 hover:text-white/60 hover:bg-white/5'}`}
-            >
-              <span className="text-xs">🔮</span>프리즘
-            </button>
-
-            {/* ✨ 페르소나 */}
-            <button
-              onClick={() => { setShowDashboard(true); setShowPersonaPanel(true); setShowModePanel(false); }}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${showDashboard && showPersonaPanel ? 'bg-violet-500/20 text-violet-300' : 'text-white/30 hover:text-white/60 hover:bg-white/5'}`}
-            >
-              <span className="text-xs">{personaConfig.emoji || '✨'}</span>페르소나
-            </button>
-
-            {/* 모드 */}
-            <button
-              onClick={() => { setShowModePanel(!showModePanel); if (!showModePanel) setShowDashboard(false); }}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${
-                showModePanel
-                  ? selectedMode === 'A_MODE' ? 'bg-emerald-500/20 text-emerald-300'
-                  : selectedMode === 'H_MODE' ? 'bg-sky-500/20 text-sky-300'
-                  : 'bg-violet-500/20 text-violet-300'
-                : 'text-white/30 hover:text-white/60 hover:bg-white/5'
-              }`}
-            >
-              {selectedMode === 'A_MODE' ? <Sparkles size={11} /> : selectedMode === 'H_MODE' ? <Layers size={11} /> : <Cpu size={11} />}
-              모드
-            </button>
-          </div>
         </div>
 
         {/* 푸터 */}
