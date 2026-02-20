@@ -1,30 +1,66 @@
-import { Message, AnalysisData } from '../types';
+import { Message, AnalysisData, ArtifactContent } from '../types';
 
-function parseAnalysis(fullText: string, onChunk: (chunk: string) => void, onAnalysis: (analysis: AnalysisData) => void) {
-  const analysisMatch = fullText.match(/\[ANALYSIS\](.*?)\[\/ANALYSIS\]/s);
-  const displayText = analysisMatch
-    ? fullText.substring(0, fullText.indexOf('[ANALYSIS]')).trim()
-    : fullText.trim();
+export type ChatCallbacks = {
+  onChunk: (chunk: string) => void;
+  onAnalysis: (analysis: AnalysisData) => void;
+  onArtifact?: (artifact: ArtifactContent) => void;
+  onMuMode?: (mode: string) => void;
+};
 
-  onChunk(displayText);
+function parseArtifact(text: string): ArtifactContent | null {
+  const match = text.match(/\[ARTIFACT\](.*?)\[\/ARTIFACT\]/s);
+  if (!match) return null;
+  try {
+    return JSON.parse(match[1]) as ArtifactContent;
+  } catch {
+    return null;
+  }
+}
 
-  if (analysisMatch?.[1]) {
+function parseFullResponse(
+  fullText: string,
+  callbacks: ChatCallbacks,
+  muMode?: string,
+) {
+  // artifact 제거 후 display text
+  let displayText = fullText.replace(/\[ARTIFACT\].*?\[\/ARTIFACT\]/s, '').trim();
+
+  // analysis 제거
+  const analysisMatch = displayText.match(/\[ANALYSIS\](.*?)\[\/ANALYSIS\]/s);
+  if (analysisMatch) {
+    displayText = displayText.substring(0, displayText.indexOf('[ANALYSIS]')).trim();
     try {
       const analysis: AnalysisData = JSON.parse(analysisMatch[1]);
-      onAnalysis(analysis);
+      if (muMode) analysis.mu_mode = muMode as AnalysisData['mu_mode'];
+      callbacks.onAnalysis(analysis);
     } catch (e) {
       console.error('Analysis JSON parse error', e);
     }
   }
 
+  callbacks.onChunk(displayText);
+
+  // artifact 콜백
+  const artifact = parseArtifact(fullText);
+  if (artifact && callbacks.onArtifact) {
+    callbacks.onArtifact(artifact);
+  }
+
+  if (muMode && callbacks.onMuMode) {
+    callbacks.onMuMode(muMode);
+  }
+
   return displayText;
 }
 
+// 하위 호환: 기존 시그니처 유지
 export const chatWithClaudeStream = async (
   messages: Message[],
   onChunk: (chunk: string) => void,
   onAnalysis: (analysis: AnalysisData) => void,
   personaPrompt?: string,
+  onArtifact?: (artifact: ArtifactContent) => void,
+  onMuMode?: (mode: string) => void,
 ) => {
   const payload = messages.map(msg => ({
     role: msg.role,
@@ -53,7 +89,7 @@ export const chatWithClaudeStream = async (
   if (contentType.includes('application/json')) {
     const data = await response.json();
     if (data.error) throw new Error(data.error);
-    return parseAnalysis(data.text, onChunk, onAnalysis);
+    return parseFullResponse(data.text, { onChunk, onAnalysis, onArtifact, onMuMode }, data.muMode);
   }
 
   // SSE streaming response (local dev)
@@ -82,9 +118,11 @@ export const chatWithClaudeStream = async (
           fullText += parsed.text;
 
           const analysisTagStart = fullText.indexOf('[ANALYSIS]');
+          const artifactTagStart = fullText.indexOf('[ARTIFACT]');
           let safeEnd: number;
-          if (analysisTagStart !== -1) {
-            safeEnd = analysisTagStart;
+          const firstSpecialTag = [analysisTagStart, artifactTagStart].filter(i => i !== -1);
+          if (firstSpecialTag.length > 0) {
+            safeEnd = Math.min(...firstSpecialTag);
           } else {
             safeEnd = Math.max(0, fullText.length - 12);
           }
@@ -103,24 +141,6 @@ export const chatWithClaudeStream = async (
     }
   }
 
-  // Final flush
-  const analysisMatch = fullText.match(/\[ANALYSIS\](.*?)\[\/ANALYSIS\]/s);
-  const finalEnd = analysisMatch
-    ? fullText.indexOf('[ANALYSIS]')
-    : fullText.length;
-
-  if (finalEnd > lastSentIndex) {
-    onChunk(fullText.substring(lastSentIndex, finalEnd));
-  }
-
-  if (analysisMatch?.[1]) {
-    try {
-      const analysis: AnalysisData = JSON.parse(analysisMatch[1]);
-      onAnalysis(analysis);
-    } catch (e) {
-      console.error('Analysis JSON parse error', e);
-    }
-  }
-
-  return fullText.substring(0, finalEnd);
+  // Final flush — SSE는 이미 onChunk로 스트리밍했으므로 onChunk 재호출 없이 analysis/artifact만 처리
+  return parseFullResponse(fullText, { onChunk: () => {}, onAnalysis, onArtifact, onMuMode });
 };

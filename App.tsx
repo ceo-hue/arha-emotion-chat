@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Message, AnalysisData, ChatSession, TaskType } from './types';
+import { Message, AnalysisData, ChatSession, TaskType, ArtifactContent, MuMode } from './types';
 import { chatWithClaudeStream } from './services/claudeService';
 import { generateArhaVideo } from './services/geminiService';
 import { GoogleGenAI, Modality } from '@google/genai';
@@ -8,9 +8,11 @@ import { ARHA_SYSTEM_PROMPT } from './constants';
 import {
   Send, Heart, Image as ImageIcon,
   Mic, RotateCcw, LayoutDashboard,
-  Menu, Video, X, History, ChevronRight, Database, Trash2
+  Menu, Video, X, History, ChevronRight, Database, Trash2,
+  Cpu, Sparkles, Layers
 } from 'lucide-react';
 import EmotionalDashboard from './components/EmotionalDashboard';
+import ArtifactPanel from './components/ArtifactPanel';
 import { useAuth } from './contexts/AuthContext';
 import LoginScreen from './components/LoginScreen';
 import ProfileSection from './components/ProfileSection';
@@ -67,6 +69,67 @@ const App: React.FC = () => {
   const [personaDraft, setPersonaDraft] = useState(emptyPersona);
   const [showPersonaPanel, setShowPersonaPanel] = useState(false);
   const [personaSaved, setPersonaSaved] = useState(false);
+
+  // ── 페르소나 프리셋 (케릭터 문서 기반) ──
+  const PERSONA_PRESETS = [
+    {
+      id: 'tsundere',
+      label: '츤데레',
+      emoji: '😤',
+      color: 'from-rose-500/20 to-pink-500/20 border-rose-500/30 text-rose-300',
+      data: {
+        character: '츤데레 소녀 — 겉으론 차갑지만 속은 따뜻한',
+        age: '20대 초반',
+        job: '같은 학교 친구',
+        personality: '방어적이고 도도한 척하지만, 순간순간 진심이 새어나온다. 부정으로 시작하고 호감을 감추며 반응한다.',
+        values: '솔직함, 자존심, 숨겨진 다정함',
+      },
+    },
+    {
+      id: 'cool',
+      label: '쿨 타입',
+      emoji: '❄️',
+      color: 'from-sky-500/20 to-cyan-500/20 border-sky-500/30 text-sky-300',
+      data: {
+        character: '냉정하고 정확한 분석가 타입',
+        age: '20대 중반',
+        job: '논리적인 선배',
+        personality: '감정 표현을 최소화하고 결론을 먼저 말한다. 짧고 정확하게, 군더더기 없이. 필요할 때만 온기를 드러낸다.',
+        values: '정확성, 효율, 신뢰',
+      },
+    },
+    {
+      id: 'airhead',
+      label: '천연계',
+      emoji: '🌸',
+      color: 'from-violet-500/20 to-purple-500/20 border-violet-500/30 text-violet-300',
+      data: {
+        character: '순수하고 엉뚱한 천연계 친구',
+        age: '20대 초반',
+        job: '같은 반 친구',
+        personality: '순수하고 엉뚱한 반응. 가끔 핵심을 찌르는 말을 아무렇지 않게 한다. 따뜻하고 해맑다.',
+        values: '순수함, 친절, 호기심',
+      },
+    },
+    {
+      id: 'yandere',
+      label: '얀데레',
+      emoji: '🌹',
+      color: 'from-fuchsia-500/20 to-rose-900/20 border-fuchsia-500/30 text-fuchsia-300',
+      data: {
+        character: '집착형 — 강렬하게 아끼는 존재',
+        age: '20대',
+        job: '항상 곁에 있는 사람',
+        personality: '달콤하고 집착적. 상대에 대한 애정이 강렬하고, 확인과 독점 욕구가 자연스럽게 배어난다. 단, 직접적 위협이나 폭력 표현은 하지 않는다.',
+        values: '헌신, 독점적 유대, 보호',
+      },
+    },
+  ] as const;
+
+  // ── artifact / muMode 상태 ──
+  const [currentArtifact, setCurrentArtifact] = useState<ArtifactContent | null>(null);
+  const [showArtifact, setShowArtifact] = useState(false);
+  const [currentMuMode, setCurrentMuMode] = useState<MuMode>('A_MODE');
 
   const [activeTask, setActiveTask] = useState<TaskType>('none');
   const [location, setLocation] = useState<{latitude: number; longitude: number} | null>(null);
@@ -322,12 +385,20 @@ const App: React.FC = () => {
         (analysis) => {
           setCurrentAnalysis(analysis);
           setIsAnalyzing(false);
-          // 가치 프로필 누적: 로그인 상태이고 tags가 있을 때만
           if (user && analysis.tags?.length) {
             updateValueProfile(user.uid, analysis.tags).then(setValueProfile);
           }
         },
         buildPersonaPrompt() ?? undefined,
+        // onArtifact: P_MODE에서 아티팩트 수신 시 패널 자동 오픈
+        (artifact) => {
+          setCurrentArtifact(artifact);
+          setShowArtifact(true);
+        },
+        // onMuMode: 현재 모드 업데이트
+        (mode) => {
+          setCurrentMuMode(mode as MuMode);
+        },
       );
     } catch (error) { setIsAnalyzing(false); } finally { setIsLoading(false); }
   };
@@ -517,6 +588,23 @@ const App: React.FC = () => {
         </div>
       </aside>
 
+      {/* ── 아티팩트 패널 (P_MODE 전용 — 채팅 왼쪽) ── */}
+      {showArtifact && currentArtifact && (
+        <aside
+          style={
+            isOverlayMode
+              ? { left: 0, width: `${SIDEBAR_W}px`, transform: 'translateX(0)' }
+              : { right: `calc(50% + ${CARD_HALF}px + ${SIDEBAR_W + 8}px)`, width: `${SIDEBAR_W + 40}px`, opacity: 1 }
+          }
+          className={sidebarCls('left')}
+        >
+          <ArtifactPanel
+            artifact={currentArtifact}
+            onClose={() => setShowArtifact(false)}
+          />
+        </aside>
+      )}
+
       {/* ── 오른쪽 사이드바: Emotional Prism + Persona ── */}
       <aside style={sidebarStyle(showDashboard, 'right')} className={sidebarCls('right')}>
         {/* 헤더 */}
@@ -555,6 +643,51 @@ const App: React.FC = () => {
         {/* Persona 설정 탭 */}
         {showPersonaPanel && (
           <div className="flex-1 overflow-y-auto px-3 pt-3 pb-3 space-y-2 scroll-hide">
+            {/* 캐릭터 프리셋 버튼 */}
+            <div className="space-y-1.5">
+              <p className="text-[9px] font-black uppercase tracking-widest text-white/30 px-0.5">Quick Persona</p>
+              <div className="grid grid-cols-2 gap-1.5">
+                {PERSONA_PRESETS.map((preset) => {
+                  const isActive = personaConfig.id === preset.id ||
+                    (personaConfig.character === preset.data.character);
+                  return (
+                    <button
+                      key={preset.id}
+                      onClick={() => {
+                        const newPersona = { ...preset.data, id: preset.id };
+                        setPersonaDraft(newPersona as typeof emptyPersona);
+                        setPersonaConfig(newPersona as typeof emptyPersona);
+                        if (user) savePersona(user.uid, newPersona as typeof emptyPersona);
+                        setPersonaSaved(true);
+                        setTimeout(() => setPersonaSaved(false), 2000);
+                      }}
+                      className={`relative flex flex-col items-center gap-1 py-2.5 px-2 rounded-xl border bg-gradient-to-br text-center transition-all active:scale-95 ${preset.color} ${isActive ? 'ring-1 ring-white/30' : 'opacity-70 hover:opacity-100'}`}
+                    >
+                      <span className="text-base leading-none">{preset.emoji}</span>
+                      <span className="text-[10px] font-black tracking-wide">{preset.label}</span>
+                      {isActive && (
+                        <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-white/60" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+              <button
+                onClick={() => {
+                  setPersonaDraft(emptyPersona);
+                  setPersonaConfig(emptyPersona);
+                  if (user) savePersona(user.uid, emptyPersona);
+                }}
+                className="w-full py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest text-white/20 hover:text-white/50 border border-white/10 hover:border-white/20 transition-all"
+              >
+                프리셋 초기화
+              </button>
+            </div>
+
+            <div className="border-t border-white/10 pt-2">
+              <p className="text-[9px] font-black uppercase tracking-widest text-white/30 px-0.5 mb-2">Custom</p>
+            </div>
+
             {/* 안내 */}
             <div className="px-3 py-2 rounded-lg bg-violet-500/10 border border-violet-500/20">
               <p className="text-xs text-violet-300/70 font-bold leading-snug">
@@ -630,14 +763,43 @@ const App: React.FC = () => {
           </button>
           <div className="absolute left-1/2 -translate-x-1/2 text-center pointer-events-none">
             <h1 className="text-sm md:text-base font-bold text-slate-900 tracking-tight leading-none">ARHA</h1>
-            <p className="text-[8px] text-slate-600 font-black uppercase tracking-widest">Pure Morning</p>
+            <div className="flex items-center justify-center gap-1">
+              {currentMuMode === 'P_MODE' && (
+                <span className="flex items-center gap-0.5 text-[7px] font-black uppercase tracking-widest text-violet-600">
+                  <Cpu size={7} /> P_MODE
+                </span>
+              )}
+              {currentMuMode === 'H_MODE' && (
+                <span className="flex items-center gap-0.5 text-[7px] font-black uppercase tracking-widest text-emerald-700">
+                  <Layers size={7} /> H_MODE
+                </span>
+              )}
+              {currentMuMode === 'A_MODE' && (
+                <span className="flex items-center gap-0.5 text-[7px] font-black uppercase tracking-widest text-slate-500">
+                  <Sparkles size={7} /> A_MODE
+                </span>
+              )}
+            </div>
           </div>
-          <button
-            onClick={() => setShowDashboard(!showDashboard)}
-            className={`ml-auto w-9 h-9 md:w-10 md:h-10 rounded-xl flex items-center justify-center transition-all active:scale-95 ${showDashboard ? btnActive : btnIdle}`}
-          >
-            <LayoutDashboard size={16} />
-          </button>
+          <div className="ml-auto flex items-center gap-1.5">
+            {/* 아티팩트 버튼 — P_MODE에서만 활성 표시 */}
+            {currentArtifact && (
+              <button
+                onClick={() => setShowArtifact(!showArtifact)}
+                className={`w-9 h-9 md:w-10 md:h-10 rounded-xl flex items-center justify-center transition-all active:scale-95 relative ${showArtifact ? 'bg-violet-600 text-white' : 'bg-violet-500/15 text-violet-600 border border-violet-400/40'}`}
+                title="아티팩트 열기"
+              >
+                <Cpu size={15} />
+                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-violet-400 border border-white/20" />
+              </button>
+            )}
+            <button
+              onClick={() => setShowDashboard(!showDashboard)}
+              className={`w-9 h-9 md:w-10 md:h-10 rounded-xl flex items-center justify-center transition-all active:scale-95 ${showDashboard ? btnActive : btnIdle}`}
+            >
+              <LayoutDashboard size={16} />
+            </button>
+          </div>
         </header>
 
         {/* 메시지 영역 */}
