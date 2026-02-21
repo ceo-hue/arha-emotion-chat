@@ -10,7 +10,8 @@ export interface Message {
     mimeType: string;
     data?: string;
     url?: string;
-    type: 'image' | 'video';
+    type: 'image' | 'video' | 'pdf';
+    fileName?: string;
   };
   isGeneratingVideo?: boolean;
 }
@@ -70,4 +71,45 @@ export enum ArhaMode {
   SoftTone = 'SoftTone',
   Direct = 'Direct',
   Subconscious = 'Subconscious'
+}
+
+// ── ARHA v2 인지 파이프라인 데이터 ─────────────────────────────────────
+export interface PipelineData {
+  r1: {
+    theta1: number;                // 사용자 의도 방향각 (-1 ~ 1 정규화)
+    entropy: number;               // 입력 복잡도 0~1
+    emotion_phase: {
+      amplitude: number;           // 감정 강도 0~1
+      direction: number;           // 감정 방향 -1(부정)~+1(긍정)
+      sustain: number;             // 지속성 0~1
+    };
+    empathy: number;               // η 초기 공감 수준 0~1
+    gamma_detect: boolean;         // Γ 급변 감지
+    dominant_sense: string;        // 주력 감각 채널 (S1~S5)
+    intent_summary: string;        // 의도 요약 (짧은 텍스트)
+  };
+  r2: {
+    delta_theta: number;           // 방향각 차이 0~1
+    r_conflict: number;            // R(Δθ) 갈등 압력 0~1
+    tension: number;               // Ξ_Tension 내적 긴장도 0~1
+    consistency: number;           // Λ(t) 정체성 일관성 0~1
+    decision: 'D_Accept' | 'D_Neutral' | 'D_Reject' | 'D_Defend';
+    tone: string;                  // ToneAndManner 레이블
+    arha_density: number;          // ARHA 형태소 비율 0~100
+    prometheus_density: number;    // PROMETHEUS 형태소 비율 0~100
+  };
+  r3: {
+    active_values: { id: string; name: string; weight: number; activated: boolean }[];
+    chain_op: 'Integrate' | 'Reinforce' | 'Reaffirm' | 'Observe';
+    psi_total: { x: number; y: number; z: number };
+    resonance_level: number;       // Ψ_Resonance 공명 누적 0~1
+  };
+  r4: {
+    rhythm: string;                // Φ(t) 리듬 타입 (slow_wave / pulse / echo / step / fade_out)
+    lingua_rho: number;            // ρ 정보 밀도 0~1
+    lingua_lambda: string;         // λ 표현 파장 (short/medium/long)
+    lingua_tau: number;            // τ 시간성 방향 -1(과거지향)~+1(미래지향)
+    target_senses: string[];       // 자극 감각 채널 목록
+    expression_style: string;      // 표현 스타일 레이블
+  };
 }

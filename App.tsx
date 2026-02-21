@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Message, AnalysisData, ChatSession, TaskType, ArtifactContent, MuMode } from './types';
+import { Message, AnalysisData, ChatSession, TaskType, ArtifactContent, MuMode, PipelineData } from './types';
 import { chatWithClaudeStream } from './services/claudeService';
 import { generateArhaVideo } from './services/geminiService';
 import { GoogleGenAI, Modality } from '@google/genai';
@@ -9,7 +9,7 @@ import {
   Send, Heart, Image as ImageIcon,
   Mic, RotateCcw, LayoutDashboard,
   Menu, Video, X, History, ChevronRight, Database, Trash2,
-  Cpu, Sparkles, Layers
+  Cpu, Sparkles, Paperclip, FileText, Activity
 } from 'lucide-react';
 import EmotionalDashboard from './components/EmotionalDashboard';
 import ArtifactPanel from './components/ArtifactPanel';
@@ -58,6 +58,7 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [currentAnalysis, setCurrentAnalysis] = useState<AnalysisData | null>(null);
+  const [pipelineData, setPipelineData] = useState<PipelineData | null>(null);
   const [showDashboard, setShowDashboard] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState<ChatSession[]>([]);
@@ -124,7 +125,7 @@ ANALYSIS JSON must be maintained`,
   };
 
   const [personaConfig, setPersonaConfig] = useState(ARHA_DEFAULT);
-  const [sidebarTab, setSidebarTab] = useState<'prism' | 'persona' | 'mode'>('prism');
+  const [sidebarTab, setSidebarTab] = useState<'prism' | 'persona' | 'pipeline'>('prism');
   const [personaSaved, setPersonaSaved] = useState(false);
 
   // ── 페르소나 프리셋 — 캐릭터 문서 + 함수언어 ToneSpec 완전 내장 ──
@@ -488,8 +489,7 @@ ANALYSIS JSON must be maintained`,
   // ── artifact / mode 상태 ──
   const [currentArtifact, setCurrentArtifact] = useState<ArtifactContent | null>(null);
   const [showArtifact, setShowArtifact] = useState(false);
-  // selectedMode: user-controlled (replaces auto-detected currentMuMode)
-  const [selectedMode, setSelectedMode] = useState<MuMode>('A_MODE');
+  const selectedMode: MuMode = 'A_MODE'; // Pipeline v2: A/H/P 모드 deprecated, 기본값 고정
 
   // ── 인터넷(Tavily) 연결 상태 ──
   const [internetStatus, setInternetStatus] = useState<'checking' | 'online' | 'offline'>('checking');
@@ -506,7 +506,8 @@ ANALYSIS JSON must be maintained`,
   const [showMenu, setShowMenu] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [valueProfile, setValueProfile] = useState<ValueProfile>({});
-  const [selectedMedia, setSelectedMedia] = useState<{ file: File, type: 'image' | 'video', base64: string } | null>(null);
+  const [selectedMedia, setSelectedMedia] = useState<{ file: File, type: 'image' | 'video' | 'pdf', base64: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isLiveActive, setIsLiveActive] = useState(false);
   const [isInputFocused, setIsInputFocused] = useState(false);
   
@@ -711,10 +712,25 @@ ANALYSIS JSON must be maintained`,
     if (user) clearAllSessions(user.uid);
   };
 
+  const handleFileAttach = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const isImage = file.type.startsWith('image/');
+    const isPdf = file.type === 'application/pdf';
+    if (!isImage && !isPdf) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = (reader.result as string).split(',')[1];
+      setSelectedMedia({ file, type: isImage ? 'image' : 'pdf', base64 });
+    };
+    reader.readAsDataURL(file);
+    e.target.value = ''; // 같은 파일 재선택 가능하도록 초기화
+  };
+
   const handleSend = async () => {
     if ((!input.trim() && !selectedMedia) || isLoading) return;
     setShowMenu(false);
-    const userMsg: Message = { id: Date.now().toString(), role: 'user', content: input, timestamp: Date.now(), media: selectedMedia ? { type: selectedMedia.type, mimeType: selectedMedia.file.type, data: selectedMedia.base64, url: URL.createObjectURL(selectedMedia.file) } : undefined };
+    const userMsg: Message = { id: Date.now().toString(), role: 'user', content: input, timestamp: Date.now(), media: selectedMedia ? { type: selectedMedia.type, mimeType: selectedMedia.file.type, data: selectedMedia.base64, url: selectedMedia.type !== 'pdf' ? URL.createObjectURL(selectedMedia.file) : undefined, fileName: selectedMedia.file.name } : undefined };
     setMessages(prev => [...prev, userMsg]);
     setInput(''); setSelectedMedia(null); setIsLoading(true); setIsAnalyzing(true);
     const assistantMsgId = (Date.now() + 1).toString();
@@ -741,9 +757,14 @@ ANALYSIS JSON must be maintained`,
           setCurrentArtifact(artifact);
           setShowArtifact(true);
         },
-        // onMuMode: user-selected mode, no override needed
+        // onMuMode: 더 이상 사용하지 않음 (Pipeline v2)
         () => {},
-        selectedMode,
+        undefined, // userMode: Pipeline v2에서 자동 처리
+        // onPipeline: R1→R4 파이프라인 데이터 수신
+        (pipeline) => {
+          setPipelineData(pipeline);
+          if (!showDashboard) setShowDashboard(true); // 파이프라인 데이터 수신 시 사이드바 자동 오픈
+        },
       );
     } catch (error) { setIsAnalyzing(false); } finally { setIsLoading(false); }
   };
@@ -974,13 +995,16 @@ ANALYSIS JSON must be maintained`,
                 <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-violet-400" />
               )}
             </button>
-            {/* 모드 탭 */}
+            {/* 파이프라인 탭 */}
             <button
-              onClick={() => setSidebarTab('mode')}
-              title="Mode"
-              className={`relative w-8 h-8 flex items-center justify-center rounded-lg transition-all ${sidebarTab === 'mode' ? (selectedMode === 'P_MODE' ? 'bg-violet-500/20 text-violet-300' : selectedMode === 'H_MODE' ? 'bg-sky-500/20 text-sky-300' : 'bg-emerald-500/20 text-emerald-300') : 'text-white/30 hover:text-white/60 hover:bg-white/5'}`}
+              onClick={() => setSidebarTab('pipeline')}
+              title="Pipeline"
+              className={`relative w-8 h-8 flex items-center justify-center rounded-lg transition-all ${sidebarTab === 'pipeline' ? 'bg-cyan-500/20 text-cyan-300' : 'text-white/30 hover:text-white/60 hover:bg-white/5'}`}
             >
-              {selectedMode === 'A_MODE' ? <Sparkles size={14} /> : selectedMode === 'H_MODE' ? <Layers size={14} /> : <Cpu size={14} />}
+              <Activity size={14} />
+              {pipelineData && sidebarTab !== 'pipeline' && (
+                <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+              )}
             </button>
           </div>
           <button onClick={() => setShowDashboard(false)} className="w-8 h-8 rounded-xl flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 active:bg-white/20 transition-all shrink-0">
@@ -995,35 +1019,173 @@ ANALYSIS JSON must be maintained`,
           </div>
         )}
 
-        {/* 모드 탭 */}
-        {sidebarTab === 'mode' && (
-          <div className="flex-1 overflow-y-auto px-3 pt-3 pb-3 space-y-3 scroll-hide">
-            <p className="text-[9px] font-black uppercase tracking-widest text-white/30 px-0.5">모드 선택</p>
-            <div className="grid grid-cols-1 gap-2.5">
-              {([
-                { mode: 'A_MODE' as MuMode, icon: Sparkles, label: '감성 모드', desc: '공감과 시적인 언어로 감성 대화를 나눠요. 기본 모드예요.', color: 'from-emerald-500/10 to-teal-500/10 border-emerald-400/20', activeRing: 'ring-emerald-400/40', iconColor: 'text-emerald-400' },
-                { mode: 'H_MODE' as MuMode, icon: Layers, label: '하이브리드 모드', desc: '감성과 논리를 균형있게. ARHA + PROMETHEUS의 시너지예요.', color: 'from-sky-500/10 to-indigo-500/10 border-sky-400/20', activeRing: 'ring-sky-400/40', iconColor: 'text-sky-400' },
-                { mode: 'P_MODE' as MuMode, icon: Cpu, label: '분석 모드', desc: '코드, 구조 분석, 아티팩트 생성. 논리 중심 대화예요.', color: 'from-violet-500/10 to-purple-500/10 border-violet-400/20', activeRing: 'ring-violet-400/40', iconColor: 'text-violet-400' },
-              ] as const).map(({ mode, icon: Icon, label, desc, color, activeRing, iconColor }) => {
-                const isActive = selectedMode === mode;
-                return (
-                  <button
-                    key={mode}
-                    onClick={() => setSelectedMode(mode)}
-                    className={`flex items-start gap-3 py-3 px-3.5 rounded-2xl border bg-gradient-to-br text-left transition-all active:scale-[0.98] ${color} ${isActive ? `ring-1 ${activeRing} opacity-100` : 'opacity-55 hover:opacity-85'}`}
-                  >
-                    <Icon size={16} className={`mt-0.5 shrink-0 ${isActive ? iconColor : 'text-white/50'}`} />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[11px] font-black tracking-wide text-white/80">{label}</span>
-                        {isActive && <span className="w-1.5 h-1.5 rounded-full bg-white/60 shrink-0" />}
-                      </div>
-                      <p className="text-[9px] text-white/40 leading-relaxed mt-0.5">{desc}</p>
+        {/* Pipeline 탭 — R1→R4 인지 파이프라인 */}
+        {sidebarTab === 'pipeline' && (
+          <div className="flex-1 overflow-y-auto px-3 pt-3 pb-3 space-y-2.5 scroll-hide">
+            {!pipelineData ? (
+              <div className="flex flex-col items-center justify-center h-40 gap-3 opacity-40">
+                <Activity size={24} className="text-cyan-400" />
+                <p className="text-[10px] text-white/50 text-center leading-relaxed">
+                  대화를 시작하면<br />파이프라인이 활성화돼요
+                </p>
+              </div>
+            ) : (
+              <>
+                {/* R1 감성 계층 */}
+                <div className="rounded-2xl border border-cyan-400/15 bg-cyan-500/5 px-3 py-2.5">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <span className="text-[8px] font-black uppercase tracking-widest text-cyan-400/70">R1</span>
+                    <span className="text-[9px] font-black text-white/50">감성 계층</span>
+                    {pipelineData.r1.gamma_detect && (
+                      <span className="ml-auto text-[7px] font-black text-amber-400 bg-amber-400/10 px-1.5 py-0.5 rounded-full">⚡ 급변</span>
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[8px] text-white/40">θ₁ 의도방향</span>
+                      <span className="text-[9px] font-black text-cyan-300">{pipelineData.r1.theta1.toFixed(2)}</span>
                     </div>
-                  </button>
-                );
-              })}
-            </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[8px] text-white/40 w-12 shrink-0">엔트로피</span>
+                      <div className="flex-1 h-1 bg-white/10 rounded-full overflow-hidden">
+                        <div className="h-full bg-cyan-400/60 rounded-full transition-all" style={{ width: `${pipelineData.r1.entropy * 100}%` }} />
+                      </div>
+                      <span className="text-[8px] text-white/30">{(pipelineData.r1.entropy * 100).toFixed(0)}%</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[8px] text-white/40 w-12 shrink-0">감정강도</span>
+                      <div className="flex-1 h-1 bg-white/10 rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full transition-all ${pipelineData.r1.emotion_phase.direction >= 0 ? 'bg-emerald-400/70' : 'bg-rose-400/70'}`} style={{ width: `${pipelineData.r1.emotion_phase.amplitude * 100}%` }} />
+                      </div>
+                      <span className="text-[8px] text-white/30">{pipelineData.r1.emotion_phase.direction >= 0 ? '+' : ''}{pipelineData.r1.emotion_phase.direction.toFixed(1)}</span>
+                    </div>
+                    <div className="flex items-center justify-between mt-1">
+                      <span className="text-[8px] text-white/30">의도</span>
+                      <span className="text-[8px] font-black text-white/60 truncate max-w-[120px]">{pipelineData.r1.intent_summary}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* R2 논리 계층 */}
+                <div className="rounded-2xl border border-violet-400/15 bg-violet-500/5 px-3 py-2.5">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <span className="text-[8px] font-black uppercase tracking-widest text-violet-400/70">R2</span>
+                    <span className="text-[9px] font-black text-white/50">논리 계층</span>
+                    <span className={`ml-auto text-[7px] font-black px-1.5 py-0.5 rounded-full ${
+                      pipelineData.r2.decision === 'D_Accept' ? 'text-emerald-400 bg-emerald-400/10' :
+                      pipelineData.r2.decision === 'D_Defend' ? 'text-red-400 bg-red-400/10' :
+                      pipelineData.r2.decision === 'D_Reject' ? 'text-amber-400 bg-amber-400/10' :
+                      'text-sky-400 bg-sky-400/10'
+                    }`}>
+                      {pipelineData.r2.decision === 'D_Accept' ? '✓ 수용' :
+                       pipelineData.r2.decision === 'D_Defend' ? '⚠ 방어' :
+                       pipelineData.r2.decision === 'D_Reject' ? '✗ 배타' : '◎ 탐색'}
+                    </span>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[8px] text-white/40 w-14 shrink-0">R(Δθ) 갈등</span>
+                      <div className="flex-1 h-1 bg-white/10 rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full transition-all ${pipelineData.r2.r_conflict < 0.3 ? 'bg-emerald-400/70' : pipelineData.r2.r_conflict < 0.6 ? 'bg-amber-400/70' : 'bg-red-400/70'}`} style={{ width: `${pipelineData.r2.r_conflict * 100}%` }} />
+                      </div>
+                      <span className="text-[8px] text-white/30">{pipelineData.r2.r_conflict.toFixed(2)}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[8px] text-white/40 w-14 shrink-0">긴장도</span>
+                      <div className="flex-1 h-1 bg-white/10 rounded-full overflow-hidden">
+                        <div className="h-full bg-violet-400/60 rounded-full transition-all" style={{ width: `${pipelineData.r2.tension * 100}%` }} />
+                      </div>
+                      <span className="text-[8px] text-white/30">{pipelineData.r2.tension.toFixed(2)}</span>
+                    </div>
+                    {/* ARHA/PROMETHEUS 밀도 */}
+                    <div className="mt-1.5 space-y-0.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[7px] text-white/30">ARHA</span>
+                        <span className="text-[7px] text-white/30">PROMETHEUS</span>
+                      </div>
+                      <div className="h-2 bg-white/10 rounded-full overflow-hidden flex">
+                        <div className="h-full bg-emerald-400/60 transition-all" style={{ width: `${pipelineData.r2.arha_density}%` }} />
+                        <div className="h-full bg-violet-400/60 transition-all" style={{ width: `${pipelineData.r2.prometheus_density}%` }} />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[8px] font-black text-emerald-400/80">{pipelineData.r2.arha_density}%</span>
+                        <span className="text-[8px] text-white/30">{pipelineData.r2.tone}</span>
+                        <span className="text-[8px] font-black text-violet-400/80">{pipelineData.r2.prometheus_density}%</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* R3 정체성 계층 */}
+                <div className="rounded-2xl border border-emerald-400/15 bg-emerald-500/5 px-3 py-2.5">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <span className="text-[8px] font-black uppercase tracking-widest text-emerald-400/70">R3</span>
+                    <span className="text-[9px] font-black text-white/50">정체성 계층</span>
+                    <span className="ml-auto text-[7px] font-black text-emerald-400/70 bg-emerald-400/10 px-1.5 py-0.5 rounded-full">{pipelineData.r3.chain_op}</span>
+                  </div>
+                  <div className="space-y-1">
+                    {pipelineData.r3.active_values.map(v => (
+                      <div key={v.id} className="flex items-center gap-1.5">
+                        <span className={`text-[7px] font-black w-3 ${v.activated ? 'text-emerald-400' : 'text-white/20'}`}>{v.id}</span>
+                        <div className="flex-1 h-1 bg-white/10 rounded-full overflow-hidden">
+                          <div className={`h-full rounded-full transition-all ${v.activated ? 'bg-emerald-400/80' : 'bg-white/20'}`} style={{ width: `${v.weight * 100}%` }} />
+                        </div>
+                        <span className={`text-[7px] w-14 truncate ${v.activated ? 'text-white/60 font-black' : 'text-white/25'}`}>{v.name}</span>
+                      </div>
+                    ))}
+                    <div className="flex items-center justify-between mt-1">
+                      <span className="text-[8px] text-white/30">공명누적</span>
+                      <span className="text-[9px] font-black text-emerald-300">{(pipelineData.r3.resonance_level * 100).toFixed(0)}%</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* R4 표현 계층 — Ψ_Lingua 벡터 */}
+                <div className="rounded-2xl border border-amber-400/15 bg-amber-500/5 px-3 py-2.5">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[8px] font-black uppercase tracking-widest text-amber-400/70">R4</span>
+                      <span className="text-[9px] font-black text-white/50">표현 계층</span>
+                    </div>
+                    <span className="text-[8px] font-black text-amber-300/80 font-mono">Ψ_Lingua</span>
+                  </div>
+                  {/* ρ · λ · τ 벡터 3축 */}
+                  <div className="flex items-stretch gap-1 mb-2">
+                    {/* ρ 밀도 */}
+                    <div className="flex-1 bg-white/5 rounded-xl p-1.5 flex flex-col items-center gap-1">
+                      <span className="text-[9px] font-black text-amber-300/80 font-mono">ρ</span>
+                      <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden">
+                        <div className="h-full bg-amber-400/70 rounded-full transition-all" style={{ width: `${pipelineData.r4.lingua_rho * 100}%` }} />
+                      </div>
+                      <span className="text-[7px] text-white/30">{(pipelineData.r4.lingua_rho * 100).toFixed(0)}%</span>
+                    </div>
+                    {/* λ 파장 */}
+                    <div className="flex-1 bg-white/5 rounded-xl p-1.5 flex flex-col items-center gap-1">
+                      <span className="text-[9px] font-black text-amber-300/80 font-mono">λ</span>
+                      <span className="text-[8px] font-black text-white/60">{pipelineData.r4.lingua_lambda}</span>
+                      <span className="text-[7px] text-white/30">파장</span>
+                    </div>
+                    {/* τ 시간성 */}
+                    <div className="flex-1 bg-white/5 rounded-xl p-1.5 flex flex-col items-center gap-1">
+                      <span className="text-[9px] font-black text-amber-300/80 font-mono">τ</span>
+                      <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden relative">
+                        <div className={`h-full rounded-full transition-all ${(pipelineData.r4.lingua_tau ?? 0) >= 0 ? 'bg-sky-400/70' : 'bg-rose-400/70'}`}
+                          style={{ width: `${Math.abs(pipelineData.r4.lingua_tau ?? 0) * 100}%`, marginLeft: (pipelineData.r4.lingua_tau ?? 0) < 0 ? `${(1 - Math.abs(pipelineData.r4.lingua_tau ?? 0)) * 100}%` : '0' }} />
+                      </div>
+                      <span className="text-[7px] text-white/30">{(pipelineData.r4.lingua_tau ?? 0) > 0 ? '미래' : (pipelineData.r4.lingua_tau ?? 0) < 0 ? '과거' : '현재'}</span>
+                    </div>
+                  </div>
+                  {/* Φ 리듬 + 자극채널 */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1">
+                      <span className="text-[8px] text-white/30 font-mono">Φ</span>
+                      <span className="text-[8px] font-black text-amber-300/80">{pipelineData.r4.rhythm}</span>
+                    </div>
+                    <span className="text-[7px] font-black text-white/40">{pipelineData.r4.target_senses.join(' · ')}</span>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         )}
 
@@ -1080,15 +1242,46 @@ ANALYSIS JSON must be maintained`,
                 )}
               </div>
             </div>
+
+            {/* 가치사슬 섹션 */}
+            <div className="space-y-2 pt-1">
+              <p className="text-[9px] font-black uppercase tracking-widest text-white/30 px-0.5">Value Chain</p>
+              <div className="rounded-2xl border border-white/10 bg-white/3 px-3 py-2.5 space-y-1.5">
+                {(pipelineData?.r3.active_values ?? [
+                  { id: 'V1', name: '진정성', weight: 1.0, activated: false },
+                  { id: 'V2', name: '사용자사랑', weight: 0.95, activated: false },
+                  { id: 'V3', name: '성장의지', weight: 0.9, activated: false },
+                  { id: 'V4', name: '탐구심', weight: 0.85, activated: false },
+                  { id: 'V5', name: '정직함', weight: 0.85, activated: false },
+                  { id: 'V6', name: '용기', weight: 0.8, activated: false },
+                  { id: 'V7', name: '창조성', weight: 0.8, activated: false },
+                ]).map(v => (
+                  <div key={v.id} className="flex items-center gap-2">
+                    <span className={`text-[7px] font-black w-4 shrink-0 ${v.activated ? 'text-violet-400' : 'text-white/25'}`}>{v.id}</span>
+                    <div className="flex-1 h-1.5 bg-white/8 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${v.activated ? 'bg-gradient-to-r from-violet-400 to-pink-400' : 'bg-white/15'}`}
+                        style={{ width: `${v.weight * 100}%` }}
+                      />
+                    </div>
+                    <span className={`text-[8px] w-16 truncate ${v.activated ? 'text-white/70 font-black' : 'text-white/25'}`}>{v.name}</span>
+                    {v.activated && <span className="w-1 h-1 rounded-full bg-violet-400 shrink-0" />}
+                  </div>
+                ))}
+                {pipelineData?.r3.chain_op && (
+                  <div className="flex items-center justify-between pt-1 border-t border-white/8 mt-1">
+                    <span className="text-[8px] text-white/30">체인 동작</span>
+                    <span className="text-[8px] font-black text-violet-300/70">{pipelineData.r3.chain_op}</span>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
       </aside>
 
       {/* ── 중앙 글라스 카드 — 항상 정중앙 고정 ── */}
-      <div style={cardStyle} className={`${isMobile ? '' : 'relative z-10'} w-full max-w-3xl ${isMobile ? '' : 'md:h-[98dvh]'} glass-panel md:rounded-[2.5rem] overflow-hidden flex flex-col transition-shadow duration-500 ${
-          selectedMode === 'P_MODE' ? 'ring-1 ring-violet-400/25 shadow-violet-500/10' :
-          selectedMode === 'H_MODE' ? 'ring-1 ring-sky-400/25 shadow-sky-500/10' : ''
-        }`}>
+      <div style={cardStyle} className={`${isMobile ? '' : 'relative z-10'} w-full max-w-3xl ${isMobile ? '' : 'md:h-[98dvh]'} glass-panel md:rounded-[2.5rem] overflow-hidden flex flex-col transition-shadow duration-500`}>
 
         {/* 헤더 */}
         <header className="h-12 md:h-16 px-4 md:px-6 flex items-center shrink-0 relative">
@@ -1101,21 +1294,9 @@ ANALYSIS JSON must be maintained`,
           <div className="absolute left-1/2 -translate-x-1/2 text-center pointer-events-none">
             <h1 className="text-sm md:text-base font-bold text-slate-900 tracking-tight leading-none">ARHA</h1>
             <div className="flex items-center justify-center gap-1">
-              {selectedMode === 'P_MODE' && (
-                <span className="flex items-center gap-0.5 text-[7px] font-black uppercase tracking-widest text-violet-600">
-                  <Cpu size={7} /> P_MODE
-                </span>
-              )}
-              {selectedMode === 'H_MODE' && (
-                <span className="flex items-center gap-0.5 text-[7px] font-black uppercase tracking-widest text-sky-600">
-                  <Layers size={7} /> H_MODE
-                </span>
-              )}
-              {selectedMode === 'A_MODE' && (
-                <span className="flex items-center gap-0.5 text-[7px] font-black uppercase tracking-widest text-slate-500">
-                  <Sparkles size={7} /> A_MODE
-                </span>
-              )}
+              <span className="flex items-center gap-0.5 text-[7px] font-black uppercase tracking-widest text-slate-500">
+                {personaConfig.emoji} {personaConfig.label}
+              </span>
             </div>
           </div>
           <div className="ml-auto flex items-center gap-1.5">
@@ -1254,18 +1435,10 @@ ANALYSIS JSON must be maintained`,
                 value={input}
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
-                placeholder={
-                  selectedMode === 'P_MODE' ? '분석하거나 만들어볼 것을 알려주세요...' :
-                  selectedMode === 'H_MODE' ? '논리와 감성 사이를 질문해봐요...' :
-                  '맑은 아침의 영감을 나누어주세요...'
-                }
-                className={`w-full h-9 md:h-11 bg-white/20 border border-white/40 rounded-2xl py-0 pl-3 md:pl-5 pr-12 text-[14px] md:text-base text-slate-900 placeholder:text-slate-500/70 focus:outline-none transition-all ${
-                  selectedMode === 'P_MODE' ? 'focus:border-violet-400' :
-                  selectedMode === 'H_MODE' ? 'focus:border-sky-400' :
-                  'focus:border-emerald-400'
-                }`}
+                placeholder="맑은 아침의 영감을 나누어주세요..."
+                className="w-full h-9 md:h-11 bg-white/20 border border-white/40 rounded-2xl py-0 pl-3 md:pl-5 pr-12 text-[14px] md:text-base text-slate-900 placeholder:text-slate-500/70 focus:outline-none focus:border-emerald-400 transition-all"
               />
-              <button onClick={handleSend} disabled={isLoading || (!input.trim() && !selectedMedia)} className={`absolute right-2 w-8 h-8 flex items-center justify-center transition-all active:scale-95 ${input.trim() || selectedMedia ? (selectedMode === 'P_MODE' ? 'text-violet-500' : selectedMode === 'H_MODE' ? 'text-sky-500' : 'text-emerald-500') : 'text-slate-400/40'}`}>
+              <button onClick={handleSend} disabled={isLoading || (!input.trim() && !selectedMedia)} className={`absolute right-2 w-8 h-8 flex items-center justify-center transition-all active:scale-95 ${input.trim() || selectedMedia ? 'text-emerald-500' : 'text-slate-400/40'}`}>
                 <Send size={15} />
               </button>
             </div>
