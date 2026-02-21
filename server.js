@@ -198,14 +198,15 @@ app.post('/api/chat', async (req, res) => {
     });
 
     let currentMessages = [...claudeMessages];
+    let gotFinalResponse = false;
 
-    // Tool use loop (최대 3회)
+    // Tool use loop (최대 5회 검색 허용)
     // - tool_use: searching 이벤트 전송 → Tavily 실행 → 루프 반복
-    // - end_turn: 최종 응답 스트리밍 후 종료
-    for (let i = 0; i < 3; i++) {
+    // - end_turn: 최종 응답 전송 후 종료
+    for (let i = 0; i < 5; i++) {
       const apiResponse = await client.messages.create({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 4096,
+        max_tokens: 8192,
         system: finalSystemPrompt,
         tools,
         messages: currentMessages,
@@ -214,8 +215,7 @@ app.post('/api/chat', async (req, res) => {
       if (apiResponse.stop_reason === 'tool_use') {
         const toolBlock = apiResponse.content.find(b => b.type === 'tool_use');
         if (toolBlock?.name === 'web_search') {
-          console.log('🔍 Web search (local):', toolBlock.input.query);
-          // 검색 중 알림 — 클라이언트에서 "검색 중..." UI 표시
+          console.log(`🔍 Web search [${i + 1}]:`, toolBlock.input.query);
           res.write(`data: ${JSON.stringify({ type: 'searching', query: toolBlock.input.query })}\n\n`);
           let searchResult;
           try { searchResult = await tavilySearch(toolBlock.input.query); }
@@ -229,13 +229,30 @@ app.post('/api/chat', async (req, res) => {
         }
       }
 
-      // 최종 응답: apiResponse 텍스트를 SSE 청크로 전송 (별도 스트리밍 API 호출 불필요)
+      // 최종 응답: SSE 청크로 전송
       const finalText = apiResponse.content.find(b => b.type === 'text')?.text ?? '';
       const CHUNK = 6;
       for (let j = 0; j < finalText.length; j += CHUNK) {
         res.write(`data: ${JSON.stringify({ type: 'text', text: finalText.slice(j, j + CHUNK) })}\n\n`);
       }
+      gotFinalResponse = true;
       break;
+    }
+
+    // 루프 소진 안전망: 검색만 하고 응답 못 받은 경우 — 도구 없이 강제 최종 응답
+    if (!gotFinalResponse) {
+      console.log('⚠️  Loop exhausted — forcing final response without tools');
+      const fallback = await client.messages.create({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 8192,
+        system: finalSystemPrompt,
+        messages: currentMessages,
+      });
+      const fallbackText = fallback.content.find(b => b.type === 'text')?.text ?? '죄송해요, 검색 결과를 정리하는 데 문제가 생겼어요.';
+      const CHUNK = 6;
+      for (let j = 0; j < fallbackText.length; j += CHUNK) {
+        res.write(`data: ${JSON.stringify({ type: 'text', text: fallbackText.slice(j, j + CHUNK) })}\n\n`);
+      }
     }
 
     res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
