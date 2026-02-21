@@ -105,7 +105,11 @@ Values for Block 2 — decision: D_Accept|D_Neutral|D_Reject|D_Defend | chain_op
 When current information, news, weather, or real-time data is needed, use the web_search tool.`;
 
 function buildSystemPrompt(muMode, personaPrompt) {
-  const parts = [CORE_PROMPT, MODE_PROMPTS[muMode] || MODE_PROMPTS.A_MODE, ANALYSIS_PROMPT];
+  const today = new Date().toLocaleDateString('ko-KR', {
+    year: 'numeric', month: 'long', day: 'numeric', weekday: 'long',
+  });
+  const dateLine = `\n> 📅 현재 날짜: ${today} — 날짜/시간 관련 질문에는 이 값을 기준으로 답하세요. 검색 없이 알 수 있습니다.\n`;
+  const parts = [CORE_PROMPT + dateLine, MODE_PROMPTS[muMode] || MODE_PROMPTS.A_MODE, ANALYSIS_PROMPT];
   if (personaPrompt) parts.push(`\n${personaPrompt}`);
   return parts.join('\n');
 }
