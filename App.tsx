@@ -984,17 +984,6 @@ ANALYSIS JSON must be maintained`,
             >
               <Heart size={14} />
             </button>
-            {/* 페르소나 탭 */}
-            <button
-              onClick={() => setSidebarTab('persona')}
-              title="Persona"
-              className={`relative w-8 h-8 flex items-center justify-center rounded-lg transition-all ${sidebarTab === 'persona' ? 'bg-violet-500/20 text-violet-300' : 'text-white/30 hover:text-white/60 hover:bg-white/5'}`}
-            >
-              <Database size={14} />
-              {personaConfig.id && personaConfig.id !== 'arha' && (
-                <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-violet-400" />
-              )}
-            </button>
             {/* 파이프라인 탭 */}
             <button
               onClick={() => setSidebarTab('pipeline')}
@@ -1004,6 +993,17 @@ ANALYSIS JSON must be maintained`,
               <Activity size={14} />
               {pipelineData && sidebarTab !== 'pipeline' && (
                 <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+              )}
+            </button>
+            {/* 페르소나 탭 */}
+            <button
+              onClick={() => setSidebarTab('persona')}
+              title="Persona"
+              className={`relative w-8 h-8 flex items-center justify-center rounded-lg transition-all ${sidebarTab === 'persona' ? 'bg-violet-500/20 text-violet-300' : 'text-white/30 hover:text-white/60 hover:bg-white/5'}`}
+            >
+              <Database size={14} />
+              {personaConfig.id && personaConfig.id !== 'arha' && (
+                <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-violet-400" />
               )}
             </button>
           </div>
