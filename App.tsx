@@ -59,6 +59,7 @@ const App: React.FC = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [currentAnalysis, setCurrentAnalysis] = useState<AnalysisData | null>(null);
   const [pipelineData, setPipelineData] = useState<PipelineData | null>(null);
+  const [searchingQuery, setSearchingQuery] = useState<string | null>(null);
   const [showDashboard, setShowDashboard] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState<ChatSession[]>([]);
@@ -763,10 +764,14 @@ ANALYSIS JSON must be maintained`,
         // onPipeline: R1→R4 파이프라인 데이터 수신
         (pipeline) => {
           setPipelineData(pipeline);
-          if (!showDashboard) setShowDashboard(true); // 파이프라인 데이터 수신 시 사이드바 자동 오픈
+          if (!showDashboard) setShowDashboard(true);
+        },
+        // onSearching: 인터넷 검색 시작 알림
+        (query) => {
+          setSearchingQuery(query);
         },
       );
-    } catch (error) { setIsAnalyzing(false); } finally { setIsLoading(false); }
+    } catch (error) { setIsAnalyzing(false); } finally { setIsLoading(false); setSearchingQuery(null); }
   };
 
   const handleGenerateVideo = async () => {
@@ -1337,7 +1342,28 @@ ANALYSIS JSON must be maintained`,
             <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2`}>
               <div className={`max-w-[88%] md:max-w-[80%] flex flex-col gap-1.5 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
                 <div className={`px-4 md:px-5 py-2.5 md:py-3 rounded-2xl text-[14px] md:text-[15px] shadow-sm ${msg.role === 'user' ? 'chat-bubble-user' : 'chat-bubble-ai'}`}>
-                  <div className="whitespace-pre-wrap">{msg.content}</div>
+                  {/* 로딩 중 빈 메시지 — 검색 중이면 검색 인디케이터, 아니면 점점점 */}
+                  {msg.role === 'assistant' && msg.content === '' && isLoading ? (
+                    searchingQuery ? (
+                      <div className="flex items-center gap-2 text-slate-400">
+                        <span className="text-sm animate-pulse">🔍</span>
+                        <span className="text-[13px]">
+                          <span className="text-white/40">「</span>
+                          <span className="text-sky-300/80 font-medium">{searchingQuery}</span>
+                          <span className="text-white/40">」</span>
+                          <span className="text-white/40"> 검색 중...</span>
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400/60 animate-bounce" style={{ animationDelay: '0ms' }} />
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400/60 animate-bounce" style={{ animationDelay: '150ms' }} />
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400/60 animate-bounce" style={{ animationDelay: '300ms' }} />
+                      </div>
+                    )
+                  ) : (
+                    <div className="whitespace-pre-wrap">{msg.content}</div>
+                  )}
                   {msg.media?.url && <div className="mt-3 rounded-xl overflow-hidden border border-white/20">{msg.media.type === 'image' ? <img src={msg.media.url} alt="Uploaded" /> : <video src={msg.media.url} controls />}</div>}
                 </div>
                 <span className="text-[8px] text-slate-500 font-bold opacity-60 uppercase">{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>

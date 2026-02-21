@@ -195,10 +195,11 @@ app.post('/api/chat', async (req, res) => {
 
     let currentMessages = [...claudeMessages];
 
-    // Tool use loop (최대 3회) — 비스트리밍으로 tool use 처리, 최종만 스트리밍
+    // Tool use loop (최대 3회)
+    // - tool_use: searching 이벤트 전송 → Tavily 실행 → 루프 반복
+    // - end_turn: 최종 응답 스트리밍 후 종료
     for (let i = 0; i < 3; i++) {
-      // 툴 사용 여부를 먼저 비스트리밍으로 확인
-      const checkResponse = await client.messages.create({
+      const apiResponse = await client.messages.create({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 4096,
         system: finalSystemPrompt,
@@ -206,37 +207,30 @@ app.post('/api/chat', async (req, res) => {
         messages: currentMessages,
       });
 
-      if (checkResponse.stop_reason === 'tool_use') {
-        const toolUseBlock = checkResponse.content.find(b => b.type === 'tool_use');
-        if (toolUseBlock?.name === 'web_search') {
-          console.log('🔍 Web search (local):', toolUseBlock.input.query);
+      if (apiResponse.stop_reason === 'tool_use') {
+        const toolBlock = apiResponse.content.find(b => b.type === 'tool_use');
+        if (toolBlock?.name === 'web_search') {
+          console.log('🔍 Web search (local):', toolBlock.input.query);
+          // 검색 중 알림 — 클라이언트에서 "검색 중..." UI 표시
+          res.write(`data: ${JSON.stringify({ type: 'searching', query: toolBlock.input.query })}\n\n`);
           let searchResult;
-          try { searchResult = await tavilySearch(toolUseBlock.input.query); }
+          try { searchResult = await tavilySearch(toolBlock.input.query); }
           catch (err) { searchResult = `검색 중 오류가 발생했습니다: ${err.message}`; }
           currentMessages = [
             ...currentMessages,
-            { role: 'assistant', content: checkResponse.content },
-            { role: 'user', content: [{ type: 'tool_result', tool_use_id: toolUseBlock.id, content: searchResult }] },
+            { role: 'assistant', content: apiResponse.content },
+            { role: 'user', content: [{ type: 'tool_result', tool_use_id: toolBlock.id, content: searchResult }] },
           ];
           continue;
         }
       }
 
-      // 최종 응답: 스트리밍으로 전달
-      const stream = client.messages.stream({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 4096,
-        system: finalSystemPrompt,
-        tools,
-        messages: currentMessages,
-      });
-
-      for await (const event of stream) {
-        if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
-          res.write(`data: ${JSON.stringify({ type: 'text', text: event.delta.text })}\n\n`);
-        }
+      // 최종 응답: apiResponse 텍스트를 SSE 청크로 전송 (별도 스트리밍 API 호출 불필요)
+      const finalText = apiResponse.content.find(b => b.type === 'text')?.text ?? '';
+      const CHUNK = 6;
+      for (let j = 0; j < finalText.length; j += CHUNK) {
+        res.write(`data: ${JSON.stringify({ type: 'text', text: finalText.slice(j, j + CHUNK) })}\n\n`);
       }
-
       break;
     }
 

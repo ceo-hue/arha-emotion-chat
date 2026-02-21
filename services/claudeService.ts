@@ -6,6 +6,7 @@ export type ChatCallbacks = {
   onPipeline?: (pipeline: PipelineData) => void;
   onArtifact?: (artifact: ArtifactContent) => void;
   onMuMode?: (mode: string) => void;
+  onSearching?: (query: string) => void;
 };
 
 function parseArtifact(text: string): ArtifactContent | null {
@@ -83,6 +84,7 @@ export const chatWithClaudeStream = async (
   onMuMode?: (mode: string) => void,
   userMode?: string,
   onPipeline?: (pipeline: PipelineData) => void,
+  onSearching?: (query: string) => void,
 ) => {
   const payload = messages.map(msg => ({
     role: msg.role,
@@ -151,6 +153,9 @@ export const chatWithClaudeStream = async (
             onChunk(fullText.substring(lastSentIndex, safeEnd));
             lastSentIndex = safeEnd;
           }
+        } else if (parsed.type === 'searching') {
+          // 인터넷 검색 시작 알림
+          if (onSearching) onSearching(parsed.query);
         } else if (parsed.type === 'error') {
           throw new Error(parsed.message);
         }
@@ -162,5 +167,5 @@ export const chatWithClaudeStream = async (
   }
 
   // Final flush
-  return parseFullResponse(fullText, { onChunk: () => {}, onAnalysis, onPipeline, onArtifact, onMuMode });
+  return parseFullResponse(fullText, { onChunk: () => {}, onAnalysis, onPipeline, onArtifact, onMuMode, onSearching });
 };
