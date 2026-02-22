@@ -42,21 +42,11 @@ export const ko = {
   personaActive: '활성화됨',
   personaReset: '초기화',
 
-  // Persona labels / descriptions (ID-keyed)
+  // Persona labels / descriptions (ID-keyed) — v2 재구성 예정
   persona_arha_label: 'ARHA',
   persona_arha_desc: '아르하 기본 · 진심과 온기',
-  persona_tsundere_label: '츤데레',
-  persona_tsundere_desc: '겉으론 차갑지만 속은 따뜻한',
-  persona_cool_label: '쿨 타입',
-  persona_cool_desc: '결론 먼저. 군더더기 없는 냉정한 분석가',
-  persona_airhead_label: '천연계',
-  persona_airhead_desc: '순수하고 엉뚱한. 가끔 핵심을 찌른다',
-  persona_yandere_label: '얀데레',
-  persona_yandere_desc: '달콤한 집착. 강렬한 유대감',
-  persona_luxe_label: '우아함',
-  persona_luxe_desc: '격식 있는 품격. 따뜻하되 흔들리지 않는',
-  persona_mugunghwa_label: '무궁화',
-  persona_mugunghwa_desc: '한국의 마음. 피고 지고 다시 피는',
+  persona_artist_label: '아티스트',
+  persona_artist_desc: '가수의 감성 · 시적이고 따뜻한 동행',
 
   // ── Value chain default names ──
   val_v1: '진정성',

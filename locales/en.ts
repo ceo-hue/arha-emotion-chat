@@ -44,21 +44,11 @@ export const en: Translations = {
   personaActive: 'Active',
   personaReset: 'Reset',
 
-  // Persona labels / descriptions (ID-keyed)
+  // Persona labels / descriptions (ID-keyed) — v2 reconstruction pending
   persona_arha_label: 'ARHA',
   persona_arha_desc: 'Default · Sincere & Warm',
-  persona_tsundere_label: 'Tsundere',
-  persona_tsundere_desc: 'Cold outside, warm inside',
-  persona_cool_label: 'Cool Type',
-  persona_cool_desc: 'Conclusion first. Sharp, no-nonsense analyst',
-  persona_airhead_label: 'Airhead',
-  persona_airhead_desc: 'Pure and quirky. Occasionally hits the core',
-  persona_yandere_label: 'Yandere',
-  persona_yandere_desc: 'Sweet obsession. Intense bond',
-  persona_luxe_label: 'Elegance',
-  persona_luxe_desc: 'Refined dignity. Warm yet unshakeable',
-  persona_mugunghwa_label: 'Mugunghwa',
-  persona_mugunghwa_desc: 'Korean spirit. Blooms, fades, blooms again',
+  persona_artist_label: 'Artist',
+  persona_artist_desc: 'Singer\'s empathy · poetic and warm',
 
   // ── Value chain default names ──
   val_v1: 'Authenticity',

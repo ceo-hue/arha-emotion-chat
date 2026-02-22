@@ -3,6 +3,7 @@ import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { Message, AnalysisData, ChatSession, TaskType, ArtifactContent, MuMode, PipelineData } from './types';
 import { chatWithClaudeStream } from './services/claudeService';
 import { generateArhaVideo } from './services/geminiService';
+import { buildArtistPrompt } from './services/artistPersonaEngine';
 import { GoogleGenAI, Modality } from '@google/genai';
 import { ARHA_SYSTEM_PROMPT } from './constants';
 import {
@@ -132,6 +133,21 @@ const PERSONA_PRESETS = [
       ...ARHA_DEFAULT,
       color: 'from-indigo-500/20 to-violet-600/20 border-indigo-400/30 text-indigo-200',
     },
+    {
+      id: 'artist',
+      label: 'Artist',
+      emoji: '🎤',
+      description: 'Singer\'s empathy — poetic, warm, value-driven',
+      color: 'from-violet-500/20 to-fuchsia-600/20 border-violet-400/30 text-violet-200',
+      tonePrompt: '', // handled by artistPersonaEngine (B-mode: core + trigger)
+    },
+] as const;
+
+// ── REMOVED PRESETS PLACEHOLDER — keep for git history ─────────────────
+// tsundere, cool, airhead, yandere, luxe, mugunghwa removed 2026-02-23
+// Pending redesign as part of persona v2 reconstruction
+
+const PERSONA_PRESETS_UNUSED = [
     {
       id: 'tsundere',
       label: 'Tsundere',
@@ -442,7 +458,7 @@ casual slang / empty filler → refined, intentional word choice
 informal speech (반말) → strictly forbidden, always 존댓말
 ANALYSIS JSON must be maintained`,
     },
-] as const;
+];
 
 // ── Component ──────────────────────────────────────────────────────────────
 
@@ -674,10 +690,17 @@ const App: React.FC = () => {
   const buildPersonaPrompt = useCallback((): string | null => {
     const valuePrompt = buildValuePrompt();
     const parts: string[] = [];
-    if (personaConfig.tonePrompt) parts.push(personaConfig.tonePrompt);
+
+    if (personaConfig.id === 'artist') {
+      // Artist: B-mode engine (core always-on + keyword-triggered)
+      parts.push(buildArtistPrompt(input, messages.length));
+    } else if (personaConfig.tonePrompt) {
+      parts.push(personaConfig.tonePrompt);
+    }
+
     if (valuePrompt) parts.push('', valuePrompt);
     return parts.length ? parts.join('\n') : null;
-  }, [personaConfig.tonePrompt, buildValuePrompt]);
+  }, [personaConfig.id, personaConfig.tonePrompt, buildValuePrompt, input, messages.length]);
 
   // ── Chat reset: archive current session ──
   const handleReset = useCallback(() => {
