@@ -6,6 +6,7 @@ export const ko = {
   videoGenerating: '영상으로 투영하고 있어요.',
   videoReady: '영상이 완성되었어요.',
   videoFailed: '영상 생성에 실패했어요.',
+  newChat: '새 채팅',
 
   // ── Search indicator ──
   searchingLabel: '검색 중...',

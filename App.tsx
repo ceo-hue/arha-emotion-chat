@@ -781,7 +781,8 @@ const App: React.FC = () => {
         // onPipeline: receive R1→R4 pipeline data
         (pipeline) => {
           setPipelineData(pipeline);
-          if (!showDashboard) setShowDashboard(true);
+          // Only auto-open dashboard on wide screens (desktop)
+          if (!showDashboard && window.innerWidth >= 1200) setShowDashboard(true);
         },
         // onSearching: show live search query indicator in chat
         (query) => {
@@ -1002,6 +1003,16 @@ const App: React.FC = () => {
             <X size={18} />
           </button>
         </header>
+
+        {/* New chat button */}
+        <div className="px-4 md:px-5 pt-3 pb-1">
+          <button
+            onClick={() => { handleReset(); setShowHistory(false); }}
+            className="w-full py-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 active:bg-emerald-500/30 text-emerald-300 text-[11px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+          >
+            <RotateCcw size={13} /> {t.newChat}
+          </button>
+        </div>
 
         <div className="flex-1 overflow-y-auto p-4 md:p-5 space-y-3 md:space-y-4 scroll-hide">
           {history.length === 0 ? (
@@ -1624,13 +1635,6 @@ const App: React.FC = () => {
               </button>
             </div>
 
-            {/* Reset / new chat */}
-            <button
-              onClick={handleReset}
-              className={`shrink-0 w-9 h-9 md:w-11 md:h-11 rounded-xl flex items-center justify-center transition-all active:scale-95 active:translate-y-0.5 ${btnIdle}`}
-            >
-              <RotateCcw size={15} />
-            </button>
           </div>
         </footer>
       </div>

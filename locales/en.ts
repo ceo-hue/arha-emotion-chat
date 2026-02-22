@@ -8,6 +8,7 @@ export const en: Translations = {
   videoGenerating: 'Projecting into film...',
   videoReady: 'Your video is ready.',
   videoFailed: 'Video generation failed.',
+  newChat: 'New Chat',
 
   // ── Search indicator ──
   searchingLabel: 'searching...',
