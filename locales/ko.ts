@@ -47,6 +47,8 @@ export const ko = {
   persona_arha_desc: '아르하 기본 · 진심과 온기',
   persona_artist_label: '아티스트',
   persona_artist_desc: '가수의 감성 · 시적이고 따뜻한 동행',
+  persona_elegant_label: '엘레강스',
+  persona_elegant_desc: '영화적 내레이션 · 절제된 우아함',
 
   // ── Value chain default names ──
   val_v1: '진정성',

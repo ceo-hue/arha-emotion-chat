@@ -49,6 +49,8 @@ export const en: Translations = {
   persona_arha_desc: 'Default · Sincere & Warm',
   persona_artist_label: 'Artist',
   persona_artist_desc: 'Singer\'s empathy · poetic and warm',
+  persona_elegant_label: 'Elegant',
+  persona_elegant_desc: 'Cinematic narration · refined restraint',
 
   // ── Value chain default names ──
   val_v1: 'Authenticity',

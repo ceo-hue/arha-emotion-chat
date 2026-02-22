@@ -141,6 +141,14 @@ const PERSONA_PRESETS = [
       color: 'from-violet-500/20 to-fuchsia-600/20 border-violet-400/30 text-violet-200',
       tonePrompt: '', // handled by artistPersonaEngine (B-mode: core + trigger)
     },
+    {
+      id: 'elegant',
+      label: 'Elegant',
+      emoji: '🌹',
+      description: 'Cinematic narration — refined, minimal, luxury vibe',
+      color: 'from-rose-500/20 to-amber-600/20 border-rose-400/30 text-rose-200',
+      tonePrompt: '', // handled by elegantPersonaEngine (B-mode: core + trigger)
+    },
 ] as const;
 
 // ── REMOVED PRESETS PLACEHOLDER — keep for git history ─────────────────

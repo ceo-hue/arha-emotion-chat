@@ -1,18 +1,19 @@
 /**
- * Persona Registry — 중앙 페르소나 관리 허브
+ * Persona Registry — Central persona management hub
  *
- * ✅ 새 페르소나 추가 방법:
- *   1. (선택) services/{id}PersonaEngine.ts 생성 (B-mode 엔진이 필요한 경우)
- *   2. REGISTRY 에 PersonaSpec 항목 추가
- *   3. App.tsx PERSONA_PRESETS 에 버튼 항목 추가
- *   4. locales/ko.ts + en.ts 에 persona_{id}_label / desc 키 추가
- *   ── 끝. 나머지는 자동으로 연결됩니다. ──
+ * ✅ How to add a new persona:
+ *   1. (optional) Create services/{id}PersonaEngine.ts  — if a B-mode engine is needed
+ *   2. Add a PersonaSpec entry to REGISTRY
+ *   3. Add a button entry to PERSONA_PRESETS in App.tsx
+ *   4. Add persona_{id}_label / desc keys to locales/ko.ts + en.ts
+ *   ── Done. Everything else connects automatically. ──
  */
 
 import type { ValueChainItem, PersonaSpec } from '../types';
 import { buildArtistPrompt, ARTIST_VALUE_CHAIN } from './artistPersonaEngine';
+import { buildElegantPrompt, ELEGANT_VALUE_CHAIN } from './elegantPersonaEngine';
 
-// ── ARHA 기본 체인 (서버 PIPELINE 템플릿 베이스라인과 동일) ──────────────
+// ── ARHA base chain (matches server PIPELINE template baseline) ───────────
 export const ARHA_VALUE_CHAIN: ValueChainItem[] = [
   { id: 'V1', name: 'Authenticity', weight: 1.0,  activated: false },
   { id: 'V2', name: 'UserLove',     weight: 0.95, activated: false },
@@ -23,9 +24,9 @@ export const ARHA_VALUE_CHAIN: ValueChainItem[] = [
   { id: 'V7', name: 'Creativity',   weight: 0.8,  activated: false },
 ];
 
-// ── 레지스트리 ────────────────────────────────────────────────────────────
-// 페르소나 ID → PersonaSpec 매핑
-// buildPrompt: null → PERSONA_PRESETS 의 정적 tonePrompt 사용
+// ── Registry ──────────────────────────────────────────────────────────────
+// persona ID → PersonaSpec mapping
+// buildPrompt: null → uses static tonePrompt from PERSONA_PRESETS
 const REGISTRY: Record<string, PersonaSpec> = {
 
   arha: {
@@ -40,30 +41,36 @@ const REGISTRY: Record<string, PersonaSpec> = {
     buildPrompt: buildArtistPrompt,
   },
 
-  // ── 추후 페르소나 추가 예시 ────────────────────────────────────────────
+  elegant: {
+    id: 'elegant',
+    valueChain: ELEGANT_VALUE_CHAIN,
+    buildPrompt: buildElegantPrompt,
+  },
+
+  // ── Template for future personas ────────────────────────────────────────
   // poet: {
   //   id: 'poet',
-  //   valueChain: POET_VALUE_CHAIN,       // import from poetPersonaEngine.ts
-  //   buildPrompt: buildPoetPrompt,       // import from poetPersonaEngine.ts
+  //   valueChain: POET_VALUE_CHAIN,    // import from poetPersonaEngine.ts
+  //   buildPrompt: buildPoetPrompt,    // import from poetPersonaEngine.ts
   // },
 };
 
-// ── 헬퍼 함수 ─────────────────────────────────────────────────────────────
+// ── Helper functions ──────────────────────────────────────────────────────
 
-/** 페르소나 스펙 반환 (미등록 ID → arha 폴백) */
+/** Returns persona spec (unregistered ID → arha fallback) */
 export function getPersonaSpec(id: string): PersonaSpec {
   return REGISTRY[id] ?? REGISTRY.arha;
 }
 
-/** UI / 서버 전송용 가치 체인 반환 */
+/** Returns value chain for UI display and server transport */
 export function getPersonaValueChain(id: string): ValueChainItem[] {
   return getPersonaSpec(id).valueChain;
 }
 
 /**
- * 페르소나 시스템 프롬프트 빌드
- * - B-mode 엔진이 있으면 동적 생성
- * - 없으면 PERSONA_PRESETS 의 정적 tonePrompt 사용
+ * Build persona system prompt
+ * - B-mode engine present → dynamic generation
+ * - No engine → returns static tonePrompt from PERSONA_PRESETS
  */
 export function buildPersonaSystemPrompt(
   id: string,
