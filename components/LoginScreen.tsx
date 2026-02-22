@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useI18n } from '../contexts/I18nContext';
 
 interface LoginScreenProps {
-  onClose?: () => void; // 모달 모드일 때 닫기 콜백
+  onClose?: () => void; // callback to close when used as a modal
 }
 
 export default function LoginScreen({ onClose }: LoginScreenProps) {
   const { signInWithGoogle } = useAuth();
+  const { t } = useI18n();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -16,27 +18,27 @@ export default function LoginScreen({ onClose }: LoginScreenProps) {
     setError(null);
     try {
       await signInWithGoogle();
-      onClose?.(); // 로그인 성공 시 모달 닫기
+      onClose?.(); // close modal on successful login
     } catch (err: any) {
       if (err.code === 'auth/popup-closed-by-user') {
         setError(null);
       } else if (err.code === 'auth/popup-blocked') {
-        setError('팝업이 차단되었어요. 브라우저 설정에서 팝업을 허용해주세요.');
+        setError(t.errPopupBlocked);
       } else if (err.code === 'auth/unauthorized-domain') {
-        setError('이 도메인은 아직 허용되지 않았어요. Firebase 설정을 확인해주세요.');
+        setError(t.errUnauthorized);
       } else {
-        setError(`로그인 실패: ${err.code ?? err.message}`);
+        setError(`${t.errLoginFailed}${err.code ?? err.message}`);
       }
     } finally {
       setIsLoading(false);
     }
   };
 
-  // 모달 모드: 배경/전체화면 없이 카드만
+  // Modal mode: card only (no full-screen overlay)
   if (onClose) {
     return (
       <div className="relative glass-panel rounded-[2.5rem] px-10 py-10 flex flex-col items-center gap-6 w-[340px] max-w-[90vw]">
-        {/* 닫기 버튼 */}
+        {/* Close button */}
         <button
           onClick={onClose}
           className="absolute top-4 right-4 w-8 h-8 rounded-xl flex items-center justify-center text-white/30 hover:text-white hover:bg-white/10 transition-all"
@@ -44,18 +46,18 @@ export default function LoginScreen({ onClose }: LoginScreenProps) {
           <X size={16} />
         </button>
 
-        {/* 로고 */}
+        {/* Logo */}
         <div className="flex flex-col items-center gap-2">
           <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-violet-500/40 to-emerald-500/40 border border-white/20 flex items-center justify-center">
             <span className="text-lg font-black text-white">A</span>
           </div>
-          <h2 className="text-lg font-bold text-white tracking-tight">ARHA 로그인</h2>
+          <h2 className="text-lg font-bold text-white tracking-tight">{t.loginTitle}</h2>
           <p className="text-[10px] text-white/30 font-black uppercase tracking-[0.2em]">
-            대화 기록 동기화
+            {t.loginSubtitle}
           </p>
         </div>
 
-        {/* Google 버튼 */}
+        {/* Google sign-in button */}
         <button
           onClick={handleGoogleSignIn}
           disabled={isLoading}
@@ -66,7 +68,7 @@ export default function LoginScreen({ onClose }: LoginScreenProps) {
           ) : (
             <GoogleSVG />
           )}
-          {isLoading ? '연결 중...' : 'Google로 계속하기'}
+          {isLoading ? t.loginConnecting : t.loginContinue}
         </button>
 
         {error && (
@@ -75,14 +77,14 @@ export default function LoginScreen({ onClose }: LoginScreenProps) {
           </p>
         )}
 
-        <p className="text-[9px] text-white/20 text-center font-bold uppercase tracking-widest leading-relaxed">
-          로그인하지 않아도 사용 가능해요<br />로그인 시 기기 간 동기화됩니다
+        <p className="text-[9px] text-white/20 text-center font-bold uppercase tracking-widest leading-relaxed whitespace-pre-line">
+          {t.loginNote}
         </p>
       </div>
     );
   }
 
-  // 전체화면 모드 (현재 미사용, 필요 시 재활성화)
+  // Full-screen mode (currently unused, can be re-enabled if needed)
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black/80 backdrop-blur-sm" style={{ height: '100dvh' }}>
       <div className="glass-panel rounded-[2.5rem] px-10 py-12 flex flex-col items-center gap-8 w-[340px] max-w-[90vw]">
@@ -99,7 +101,7 @@ export default function LoginScreen({ onClose }: LoginScreenProps) {
           className="w-full flex items-center justify-center gap-3 px-6 py-3.5 rounded-2xl bg-white/15 border border-white/30 hover:bg-white/25 active:scale-[0.98] transition-all text-white font-bold text-sm disabled:opacity-50"
         >
           {isLoading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <GoogleSVG />}
-          {isLoading ? '연결 중...' : 'Google로 계속하기'}
+          {isLoading ? t.loginConnecting : t.loginContinue}
         </button>
         {error && <p className="text-[11px] text-red-400/80 text-center">{error}</p>}
       </div>

@@ -1,6 +1,7 @@
 import React from 'react';
 import { User } from 'firebase/auth';
 import { LogOut } from 'lucide-react';
+import { useI18n } from '../contexts/I18nContext';
 
 interface ProfileSectionProps {
   user: User | null;
@@ -8,11 +9,12 @@ interface ProfileSectionProps {
 }
 
 export default function ProfileSection({ user, onSignOut }: ProfileSectionProps) {
+  const { t } = useI18n();
   if (!user) return null;
 
   return (
     <div className="px-1 py-1">
-      {/* 유저 정보 */}
+      {/* User info row */}
       <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/5 border border-white/10">
         {user.photoURL ? (
           <img
@@ -38,13 +40,13 @@ export default function ProfileSection({ user, onSignOut }: ProfileSectionProps)
         </div>
       </div>
 
-      {/* 로그아웃 */}
+      {/* Sign out button */}
       <button
         onClick={onSignOut}
         className="w-full mt-1.5 flex items-center gap-3 px-3 py-2.5 rounded-xl text-[11px] font-bold text-white/40 hover:text-red-400 hover:bg-red-500/10 active:bg-red-500/10 transition-all"
       >
         <LogOut size={13} className="shrink-0" />
-        로그아웃
+        {t.signOut}
       </button>
     </div>
   );

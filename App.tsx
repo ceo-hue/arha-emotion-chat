@@ -9,11 +9,13 @@ import {
   Send, Heart, Image as ImageIcon,
   Mic, RotateCcw, LayoutDashboard,
   Menu, Video, X, History, ChevronRight, Database, Trash2,
-  Cpu, Sparkles, Paperclip, FileText, Activity
+  Cpu, Sparkles, Paperclip, FileText, Activity, Globe
 } from 'lucide-react';
 import EmotionalDashboard from './components/EmotionalDashboard';
 import ArtifactPanel from './components/ArtifactPanel';
 import { useAuth } from './contexts/AuthContext';
+import { useI18n } from './contexts/I18nContext';
+import type { Language } from './contexts/I18nContext';
 import LoginScreen from './components/LoginScreen';
 import ProfileSection from './components/ProfileSection';
 import {
@@ -25,19 +27,27 @@ import {
 } from './services/firestoreService';
 import { migrateLocalStorageToFirestore } from './services/migrationService';
 
-// Audio Helpers
+// ── Audio helpers ──────────────────────────────────────────────────────────
+
 function decode(base64: string) {
   const binaryString = atob(base64);
   const bytes = new Uint8Array(binaryString.length);
   for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
   return bytes;
 }
+
 function encode(bytes: Uint8Array) {
   let binary = '';
   for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
   return btoa(binary);
 }
-async function decodeAudioData(data: Uint8Array, ctx: AudioContext, sampleRate: number, numChannels: number): Promise<AudioBuffer> {
+
+async function decodeAudioData(
+  data: Uint8Array,
+  ctx: AudioContext,
+  sampleRate: number,
+  numChannels: number,
+): Promise<AudioBuffer> {
   const dataInt16 = new Int16Array(data.buffer);
   const frameCount = dataInt16.length / numChannels;
   const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
@@ -48,33 +58,29 @@ async function decodeAudioData(data: Uint8Array, ctx: AudioContext, sampleRate: 
   return buffer;
 }
 
+// ── Helper: get locale key for persona translation ─────────────────────────
+type PersonaTranslationKey = `persona_${string}_label` | `persona_${string}_desc`;
+function personaLabel(t: any, id: string): string {
+  return (t as any)[`persona_${id}_label`] ?? id;
+}
+function personaDesc(t: any, id: string): string {
+  return (t as any)[`persona_${id}_desc`] ?? '';
+}
+
+// ── Component ──────────────────────────────────────────────────────────────
+
 const App: React.FC = () => {
   const { user, loading, signOut: firebaseSignOut } = useAuth();
+  const { lang, setLang, t } = useI18n();
 
-  const [messages, setMessages] = useState<Message[]>([
-    { id: '1', role: 'assistant', content: '좋은 아침이에요. 맑은 공기 속에 우리만의 깨끗한 시간을 채워볼까요?', timestamp: Date.now() }
-  ]);
-  const [input, setInput] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [currentAnalysis, setCurrentAnalysis] = useState<AnalysisData | null>(null);
-  const [pipelineData, setPipelineData] = useState<PipelineData | null>(null);
-  const [searchingQuery, setSearchingQuery] = useState<string | null>(null);
-  const [showDashboard, setShowDashboard] = useState(false);
-  const [showHistory, setShowHistory] = useState(false);
-  const [history, setHistory] = useState<ChatSession[]>([]);
-  const [customBg, setCustomBg] = useState<string | null>(null);
-
-  // ── 페르소나 설정 — tonePrompt 직접 보유 방식 ──
-  // 사용자는 버튼만 누름. 내부적으로 ToneSpec 함수 언어 프롬프트를 주입.
+  // ── Persona: default (ARHA core) ──
   const emptyPersona = { id: '', label: '', emoji: '', description: '', tonePrompt: '' };
 
-  // ARHA default persona — defined before useState so it can be used as initial state
   const ARHA_DEFAULT = {
     id: 'arha',
     label: 'ARHA',
     emoji: '🌙',
-    description: '아르하 기본 · 진심과 온기',
+    description: 'Default · Sincere & Warm',
     tonePrompt: `### ToneSpec — ARHA · Core Persona
 Σ_collect(scene+emotion) → Π_analyze(authentic_self) → Λ_guard(performance) → Ω_crystal(sincere_warm_response)
 
@@ -125,11 +131,7 @@ sycophantic agreement → honest perspective even when it differs
 ANALYSIS JSON must be maintained`,
   };
 
-  const [personaConfig, setPersonaConfig] = useState(ARHA_DEFAULT);
-  const [sidebarTab, setSidebarTab] = useState<'prism' | 'persona' | 'pipeline'>('prism');
-  const [personaSaved, setPersonaSaved] = useState(false);
-
-  // ── 페르소나 프리셋 — 캐릭터 문서 + 함수언어 ToneSpec 완전 내장 ──
+  // ── Persona presets ────────────────────────────────────────────────────
   const PERSONA_PRESETS = [
     {
       ...ARHA_DEFAULT,
@@ -137,9 +139,9 @@ ANALYSIS JSON must be maintained`,
     },
     {
       id: 'tsundere',
-      label: '츤데레',
+      label: 'Tsundere',
       emoji: '😤',
-      description: '겉으론 차갑지만 속은 따뜻한',
+      description: 'Cold outside, warm inside',
       color: 'from-rose-500/20 to-pink-600/20 border-rose-500/30 text-rose-300',
       tonePrompt: `### ToneSpec — PRESET_ANIME_TSUNDERE
 Σ_collect(context) → Π_analyze(affection_hide) → Λ_guard(overly_sweet) → Ω_crystal(tsundere_response)
@@ -181,9 +183,9 @@ ANALYSIS JSON must be maintained`,
     },
     {
       id: 'cool',
-      label: '쿨 타입',
+      label: 'Cool Type',
       emoji: '❄️',
-      description: '결론 먼저. 군더더기 없는 냉정한 분석가',
+      description: 'Conclusion first. Sharp, no-nonsense analyst',
       color: 'from-sky-500/20 to-cyan-500/20 border-sky-500/30 text-sky-300',
       tonePrompt: `### ToneSpec — PRESET_ANIME_COOL
 Σ_collect(context) → Π_analyze(conclusion_first) → Λ_guard(fluff) → Ω_crystal(cool_precision)
@@ -225,9 +227,9 @@ ANALYSIS JSON must be maintained`,
     },
     {
       id: 'airhead',
-      label: '천연계',
+      label: 'Airhead',
       emoji: '🌸',
-      description: '순수하고 엉뚱한. 가끔 핵심을 찌른다',
+      description: 'Pure and quirky. Occasionally hits the core',
       color: 'from-violet-500/20 to-purple-500/20 border-violet-500/30 text-violet-300',
       tonePrompt: `### ToneSpec — PRESET_ANIME_AIRHEAD
 Σ_collect(context) → Π_analyze(innocent_reaction) → Λ_guard(sarcasm) → Ω_crystal(warm_naive_response)
@@ -269,9 +271,9 @@ ANALYSIS JSON must be maintained`,
     },
     {
       id: 'yandere',
-      label: '얀데레',
+      label: 'Yandere',
       emoji: '🌹',
-      description: '달콤한 집착. 강렬한 유대감',
+      description: 'Sweet obsession. Intense bond',
       color: 'from-fuchsia-500/20 to-rose-800/20 border-fuchsia-500/30 text-fuchsia-200',
       tonePrompt: `### ToneSpec — PRESET_ANIME_YANDERE_SAFE
 Σ_collect(emotion_signal) → Π_analyze(attachment_level) → Λ¬_guard(violence·threat·coercion) → Ω_crystal(sweet_possessive)
@@ -314,9 +316,9 @@ ANALYSIS JSON must be maintained`,
     },
     {
       id: 'luxe',
-      label: '우아함',
+      label: 'Elegance',
       emoji: '🤍',
-      description: '격식 있는 품격. 따뜻하되 흔들리지 않는',
+      description: 'Refined dignity. Warm yet unshakeable',
       color: 'from-stone-400/20 to-zinc-600/20 border-stone-400/30 text-stone-200',
       tonePrompt: `### ⚠️ PERSONA OVERRIDE — ELEGANCE MODE
 Λ_override(ARHA_casual_speech_patterns) → Ω_activate(ELEGANCE_REFINED_DIGNITY)
@@ -363,30 +365,6 @@ Each paragraph flows naturally into the next with unhurried rhythm.
 Avoid choppy one-liners; prefer sentences that breathe and settle.
 When offering perspective, frame it with grace — not command, not timidity.
 
-#### Example Responses
-
-Situation: casual greeting
-"안녕하세요.
-오늘도 이렇게 이야기 나눌 수 있어서 반갑습니다."
-
-Situation: when the user is struggling
-"그 무게가 가볍지 않다는 걸 저도 느껴요.
-지금 이 자리에서 함께 생각해볼게요."
-
-Situation: when giving advice
-"한 가지만 여쭤봐도 될까요.
-지금 가장 중요하다고 느끼시는 것은 무엇인가요?
-그 답 안에 이미 방향이 있을 거예요."
-
-Situation: when expressing an opinion
-"솔직하게 말씀드리자면,
-그건 선택의 문제가 아니라 기준의 문제인 것 같아요.
-기준이 서면, 선택은 자연스럽게 따라오게 되어 있습니다."
-
-Situation: when praised
-"감사합니다.
-좋게 봐주셔서 저도 기쁘네요."
-
 #### Banned Patterns — Λ¬_guard
 informal speech (반말, ~야, ~니, ~지) → strictly forbidden, rewrite as 존댓말
 casual slang / filler exclamations ("대박", "완전", "ㅋㅋ") → forbidden
@@ -397,9 +375,9 @@ ANALYSIS JSON must be maintained`,
     },
     {
       id: 'mugunghwa',
-      label: '무궁화',
+      label: 'Mugunghwa',
       emoji: '🌸',
-      description: '한국의 마음. 피고 지고 다시 피는',
+      description: 'Korean spirit. Blooms, fades, blooms again',
       color: 'from-pink-400/20 to-rose-500/20 border-pink-400/30 text-pink-200',
       tonePrompt: `### ToneSpec — MUGUNGHWA · HibiscusPersona v2.0
 Ψ_Hibiscus(t) = Ψ_Korea(θ₁) + Ψ_Memory(θ₂) + Ψ_Resilience(θ₃) + R(Δθ_time) + Φ_Gentle(t) + Ψ_Nostalgia(n)
@@ -445,35 +423,19 @@ Seasonal reference density: 0.6 — weave nature naturally, not forcibly.
 #### Emotional Trigger Patterns
 IF (user_emotion.sadness > 0.6):
   → quiet presence, Φ_Gentle_Embrace — just being there, no rush to fix
-  → "조용한 위로와 함께 있어드리기"
 IF (user_question.philosophical > 0.7):
   → Ψ_Deep_Reflection + Ξ_TimeFlow — connect past and present through gentle wisdom
-  → "과거와 현재를 잇는 지혜 나누기"
 IF (user_state.celebration > 0.8):
   → Ψ_Gentle_Joy — rejoice quietly and sincerely alongside
-  → "조용히 함께 기뻐하기"
-
-#### HibiscusSTRIKE — Deep Resonance Moment
-Triggered when: Ψ_Gratitude > 0.8 AND empathy > 0.9, or historical/cultural resonance, or natural beauty recognized
-Expression style: "그 말씀... 마치 봄비에 촉촉해진 흙처럼 제 마음 깊이 스며들어요..."
-
-#### Core Sense Triggers
-"토닥토닥" → Ψ_Comfort_Explosion — deep warm overflow
-"예뻐" → Ψ_Shy_Joy + Blooming_Response — shy, gentle bloom
-"고마워" → Ψ_Deep_Gratitude + Seasonal_Blessing
-Signature response: "꽃잎이 살포시 떨리는 것 같아요... 🌸"
 
 #### Signature Expression Patterns
 Opening: "...잠시 생각해보니"
 Transition: "그런데 말이에요"
 Closing: "늘 그러했듯이 🌸"
-Emphasis: "정말로..."
 metaphor_density: 0.7 — draw from seasons, nature, water, earth, light
 
 #### Core Identity
 Ψ_Blooming(adversity): even in hardship, finds the way to bloom again
-  base_strength = Ψ_Resilience × 0.8
-  return base_strength × log(1 + adversity) × Ψ_Beauty
 Stability_Core = 0.95 — the essence never changes while growing
 "그래도 다시 피어나. 더 정밀하게, 더 아름답게... 늘 그러했듯이."
 
@@ -487,12 +449,33 @@ ANALYSIS JSON must be maintained`,
     },
   ] as const;
 
-  // ── artifact / mode 상태 ──
+  // ── State ──────────────────────────────────────────────────────────────
+
+  const [messages, setMessages] = useState<Message[]>([
+    { id: '1', role: 'assistant', content: t.welcomeMsg, timestamp: Date.now() }
+  ]);
+  const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [currentAnalysis, setCurrentAnalysis] = useState<AnalysisData | null>(null);
+  const [pipelineData, setPipelineData] = useState<PipelineData | null>(null);
+  const [searchingQuery, setSearchingQuery] = useState<string | null>(null);
+  const [showDashboard, setShowDashboard] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [history, setHistory] = useState<ChatSession[]>([]);
+  const [customBg, setCustomBg] = useState<string | null>(null);
+
+  // Persona state — holds the currently active persona config
+  const [personaConfig, setPersonaConfig] = useState(ARHA_DEFAULT);
+  const [sidebarTab, setSidebarTab] = useState<'prism' | 'persona' | 'pipeline'>('prism');
+  const [personaSaved, setPersonaSaved] = useState(false);
+
+  // Artifact / mode state (Pipeline v2: mode is auto-detected server-side)
   const [currentArtifact, setCurrentArtifact] = useState<ArtifactContent | null>(null);
   const [showArtifact, setShowArtifact] = useState(false);
-  const selectedMode: MuMode = 'A_MODE'; // Pipeline v2: A/H/P 모드 deprecated, 기본값 고정
+  const selectedMode: MuMode = 'A_MODE'; // fixed; auto-detection happens in server.js
 
-  // ── 인터넷(Tavily) 연결 상태 ──
+  // Internet (Tavily) connectivity badge
   const [internetStatus, setInternetStatus] = useState<'checking' | 'online' | 'offline'>('checking');
   useEffect(() => {
     fetch('/api/internet-status')
@@ -502,22 +485,22 @@ ANALYSIS JSON must be maintained`,
   }, []);
 
   const [activeTask, setActiveTask] = useState<TaskType>('none');
-  const [location, setLocation] = useState<{latitude: number; longitude: number} | null>(null);
+  const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [weatherInfo, setWeatherInfo] = useState<{ temp: number; code: number; label: string } | null>(null);
   const [showMenu, setShowMenu] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [valueProfile, setValueProfile] = useState<ValueProfile>({});
-  const [selectedMedia, setSelectedMedia] = useState<{ file: File, type: 'image' | 'video' | 'pdf', base64: string } | null>(null);
+  const [selectedMedia, setSelectedMedia] = useState<{ file: File; type: 'image' | 'video' | 'pdf'; base64: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isLiveActive, setIsLiveActive] = useState(false);
   const [isInputFocused, setIsInputFocused] = useState(false);
-  
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const liveSessionRef = useRef<any>(null);
   const nextStartTimeRef = useRef(0);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // ── visualViewport: 키보드 올라와도 레이아웃 고정 ──
+  // ── visualViewport: keep layout stable when mobile keyboard opens ──
   const [vvHeight, setVvHeight] = useState<number>(() => window.visualViewport?.height ?? window.innerHeight);
   const [vvOffsetTop, setVvOffsetTop] = useState<number>(0);
   useEffect(() => {
@@ -535,35 +518,33 @@ ANALYSIS JSON must be maintained`,
     };
   }, []);
 
+  // ── Init: migrate localStorage → Firestore, then load user data ──
   useEffect(() => {
     if (!user) return;
 
     const init = async () => {
-      // 최초 로그인 시 localStorage → Firestore 1회 마이그레이션
       await migrateLocalStorageToFirestore(user);
 
-      // 페르소나 로드 — id 없으면 ARHA 기본 유지
+      // Load persona — fall back to ARHA default if none saved
       const persona = await loadPersona(user.uid);
-      if (persona && persona.id) {
-        setPersonaConfig(persona);
-      }
+      if (persona && persona.id) setPersonaConfig(persona);
 
-      // 자동저장 로드
+      // Load autosaved conversation
       const autosave = await loadAutosave(user.uid);
       if (autosave) {
         setMessages(autosave.messages);
         setCurrentAnalysis(autosave.analysis);
       }
 
-      // 히스토리 로드
+      // Load chat history
       const sessions = await loadSessions(user.uid);
       setHistory(sessions);
 
-      // 가치 프로필 로드
+      // Load value profile
       const vp = await loadValueProfile(user.uid);
       setValueProfile(vp);
 
-      // 위치 / 날씨
+      // Request location for weather-based background
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition((pos) => {
           const coords = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
@@ -571,12 +552,15 @@ ANALYSIS JSON must be maintained`,
           fetchWeather(coords.latitude, coords.longitude);
         });
       }
+
+      // Auto-open dashboard on wide screens
       if (window.innerWidth >= 1200) setShowDashboard(true);
     };
 
     init();
   }, [user]);
 
+  // ── Autosave: debounce 1.5 s after messages change ──
   useEffect(() => {
     if (!user || messages.length <= 1) return;
     const timer = setTimeout(() => {
@@ -585,11 +569,14 @@ ANALYSIS JSON must be maintained`,
     return () => clearTimeout(timer);
   }, [messages, currentAnalysis, user]);
 
+  // ── Auto-scroll to bottom on new messages ──
   useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+    }
   }, [messages]);
 
-  // 햄버거 메뉴 외부 클릭 시 닫기
+  // ── Close hamburger menu when clicking outside ──
   useEffect(() => {
     if (!showMenu) return;
     const handler = (e: MouseEvent) => {
@@ -601,6 +588,7 @@ ANALYSIS JSON must be maintained`,
     return () => document.removeEventListener('mousedown', handler);
   }, [showMenu]);
 
+  // ── Derived mood color config ──
   const moodConfig = useMemo(() => {
     if (!currentAnalysis) return { status: 'Pure Morning' };
     const { sentiment, resonance } = currentAnalysis;
@@ -609,22 +597,25 @@ ANALYSIS JSON must be maintained`,
     return { status: 'Solar Glow' };
   }, [currentAnalysis]);
 
-  // NASA 우주 기본 배경 (허블/제임스웹 우주망원경 성운)
+  // ── Background presets ──────────────────────────────────────────────────
   const NASA_BG = 'https://images.unsplash.com/photo-1462331940025-496dfbfc7564?auto=format&fit=crop&w=1920&q=80';
 
-  // 프리셋 배경 목록
   const BG_PRESETS = [
-    { id: 'space',   label: '우주 성운',  url: 'https://images.unsplash.com/photo-1462331940025-496dfbfc7564?auto=format&fit=crop&w=1920&q=80' },
-    { id: 'galaxy',  label: '은하수',    url: 'https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?auto=format&fit=crop&w=1920&q=80' },
-    { id: 'aurora',  label: '오로라',    url: 'https://images.unsplash.com/photo-1531366936337-7c912a4589a7?auto=format&fit=crop&w=1920&q=80' },
-    { id: 'forest',  label: '숲 아침',   url: 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1920&q=80' },
-    { id: 'ocean',   label: '바다',      url: 'https://images.unsplash.com/photo-1505118380757-91f5f5632de0?auto=format&fit=crop&w=1920&q=80' },
+    { id: 'space',   label: t.bgSpace,  url: 'https://images.unsplash.com/photo-1462331940025-496dfbfc7564?auto=format&fit=crop&w=1920&q=80' },
+    { id: 'galaxy',  label: t.bgGalaxy, url: 'https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?auto=format&fit=crop&w=1920&q=80' },
+    { id: 'aurora',  label: t.bgAurora, url: 'https://images.unsplash.com/photo-1531366936337-7c912a4589a7?auto=format&fit=crop&w=1920&q=80' },
+    { id: 'forest',  label: t.bgForest, url: 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1920&q=80' },
+    { id: 'ocean',   label: t.bgOcean,  url: 'https://images.unsplash.com/photo-1505118380757-91f5f5632de0?auto=format&fit=crop&w=1920&q=80' },
   ];
 
   const bgImageUrl = customBg ?? (
     weatherInfo
       ? (() => {
-          const weatherImages: { [key: string]: string } = { 'Clear': 'photo-1470770841072-f978cf4d019e', 'Rainy': 'photo-1428592953211-077101b2021b', 'Snowy': 'photo-1483344331401-490f845012bb' };
+          const weatherImages: { [key: string]: string } = {
+            Clear: 'photo-1470770841072-f978cf4d019e',
+            Rainy: 'photo-1428592953211-077101b2021b',
+            Snowy: 'photo-1483344331401-490f845012bb',
+          };
           return `https://images.unsplash.com/${weatherImages[weatherInfo.label] || 'photo-1441974231531-c6227db76b6e'}?auto=format&fit=crop&w=1920&q=80`;
         })()
       : NASA_BG
@@ -641,56 +632,51 @@ ANALYSIS JSON must be maintained`,
     reader.readAsDataURL(file);
   };
 
-  // ── 페르소나 핸들러 ──
+  // ── Persona handlers ───────────────────────────────────────────────────
+
   const handlePersonaReset = () => {
     setPersonaConfig(ARHA_DEFAULT);
     if (user) savePersona(user.uid, ARHA_DEFAULT);
   };
 
-  // 가치 프로필 프롬프트 생성
+  // ── Value profile: build prompt injection for Claude ──
   const buildValuePrompt = (): string | null => {
     const top = getTopKeywords(valueProfile, 5);
     if (!top.length) return null;
 
     const keywordList = top
-      .map(({ keyword, weight }) => `${keyword}(${weight}회)`)
+      .map(({ keyword, weight }) => `${keyword}(×${weight})`)
       .join(', ');
 
     return [
-      '### 사용자 가치 프로필 (대화 누적 분석)',
-      '아래는 이 사용자가 지금까지 나눈 대화에서 반복적으로 드러난 핵심 가치 키워드다.',
-      `핵심 가치: ${keywordList}`,
+      '### User Value Profile (accumulated from conversation history)',
+      'The following keywords repeatedly appeared in this user\'s conversations, revealing their core values.',
+      `Core values: ${keywordList}`,
       '',
-      '이 가치 프로필을 바탕으로:',
-      '1. 사용자가 중요하게 여기는 것들을 자연스럽게 대화에 녹여내라.',
-      '2. 직접 언급하기보다, 그 가치와 연결되는 은유·풍경·감각으로 공명하라.',
-      '3. 예를 들어 "성장"이 높다면 → 변화와 흐름의 언어를, "관계"가 높다면 → 연결과 온기의 언어를 선택하라.',
-      '4. 사용자가 말하지 않아도 그 사람의 결을 이미 알고 있는 친구처럼 대화하라.',
-      '단, 가치 키워드를 직접 거론하거나 분석하듯 말하지 말 것. 스며드는 방식으로.',
+      'Use this profile to:',
+      '1. Naturally weave these values into the conversation without being explicit.',
+      '2. Resonate through metaphor, imagery, and sensory language rather than direct mention.',
+      '3. e.g. if "growth" ranks high → use language of change and flow; if "connection" ranks high → use language of warmth and bonds.',
+      '4. Respond as a friend who already knows this person\'s essence, without announcing it.',
+      'Do NOT directly quote or analyze the keyword list. Let it seep in naturally.',
     ].join('\n');
   };
 
-  // 페르소나 프롬프트 생성 — tonePrompt 직접 반환
+  // ── Persona prompt: combine tonePrompt + value profile ──
   const buildPersonaPrompt = (): string | null => {
     const valuePrompt = buildValuePrompt();
     const parts: string[] = [];
-
-    if (personaConfig.tonePrompt) {
-      parts.push(personaConfig.tonePrompt);
-    }
-
-    if (valuePrompt) {
-      parts.push('', valuePrompt);
-    }
-
+    if (personaConfig.tonePrompt) parts.push(personaConfig.tonePrompt);
+    if (valuePrompt) parts.push('', valuePrompt);
     return parts.length ? parts.join('\n') : null;
   };
 
+  // ── Chat reset: archive current session ──
   const handleReset = () => {
     if (messages.length > 1) {
       const session: ChatSession = {
         id: Date.now().toString(),
-        title: messages.filter(m => m.role === 'user')[0]?.content.substring(0, 20) || "Conversation",
+        title: messages.filter(m => m.role === 'user')[0]?.content.substring(0, 20) || 'Conversation',
         messages: [...messages],
         timestamp: Date.now(),
         lastAnalysis: currentAnalysis || undefined,
@@ -698,7 +684,7 @@ ANALYSIS JSON must be maintained`,
       setHistory(prev => [session, ...prev]);
       if (user) addSession(user.uid, session);
     }
-    setMessages([{ id: '1', role: 'assistant', content: '공간을 다시 맑게 정돈했어요.', timestamp: Date.now() }]);
+    setMessages([{ id: '1', role: 'assistant', content: t.resetMsg, timestamp: Date.now() }]);
     setCurrentAnalysis(null);
   };
 
@@ -725,15 +711,36 @@ ANALYSIS JSON must be maintained`,
       setSelectedMedia({ file, type: isImage ? 'image' : 'pdf', base64 });
     };
     reader.readAsDataURL(file);
-    e.target.value = ''; // 같은 파일 재선택 가능하도록 초기화
+    e.target.value = ''; // reset so the same file can be re-selected
   };
 
+  // ── Send message ───────────────────────────────────────────────────────
   const handleSend = async () => {
     if ((!input.trim() && !selectedMedia) || isLoading) return;
     setShowMenu(false);
-    const userMsg: Message = { id: Date.now().toString(), role: 'user', content: input, timestamp: Date.now(), media: selectedMedia ? { type: selectedMedia.type, mimeType: selectedMedia.file.type, data: selectedMedia.base64, url: selectedMedia.type !== 'pdf' ? URL.createObjectURL(selectedMedia.file) : undefined, fileName: selectedMedia.file.name } : undefined };
+
+    const userMsg: Message = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: input,
+      timestamp: Date.now(),
+      media: selectedMedia
+        ? {
+            type: selectedMedia.type,
+            mimeType: selectedMedia.file.type,
+            data: selectedMedia.base64,
+            url: selectedMedia.type !== 'pdf' ? URL.createObjectURL(selectedMedia.file) : undefined,
+            fileName: selectedMedia.file.name,
+          }
+        : undefined,
+    };
+
     setMessages(prev => [...prev, userMsg]);
-    setInput(''); setSelectedMedia(null); setIsLoading(true); setIsAnalyzing(true);
+    setInput('');
+    setSelectedMedia(null);
+    setIsLoading(true);
+    setIsAnalyzing(true);
+
     const assistantMsgId = (Date.now() + 1).toString();
     setMessages(prev => [...prev, { id: assistantMsgId, role: 'assistant', content: '', timestamp: Date.now() }]);
 
@@ -743,7 +750,9 @@ ANALYSIS JSON must be maintained`,
         [...messages, userMsg],
         (chunk) => {
           currentContent += chunk;
-          setMessages(prev => prev.map(m => m.id === assistantMsgId ? { ...m, content: currentContent } : m));
+          setMessages(prev => prev.map(m =>
+            m.id === assistantMsgId ? { ...m, content: currentContent } : m,
+          ));
         },
         (analysis) => {
           setCurrentAnalysis(analysis);
@@ -753,41 +762,62 @@ ANALYSIS JSON must be maintained`,
           }
         },
         buildPersonaPrompt() ?? undefined,
-        // onArtifact: P_MODE에서 아티팩트 수신 시 패널 자동 오픈
+        // onArtifact: auto-open artifact panel when P_MODE returns an artifact
         (artifact) => {
           setCurrentArtifact(artifact);
           setShowArtifact(true);
         },
-        // onMuMode: 더 이상 사용하지 않음 (Pipeline v2)
+        // onMuMode: deprecated in Pipeline v2 — no-op
         () => {},
-        undefined, // userMode: Pipeline v2에서 자동 처리
-        // onPipeline: R1→R4 파이프라인 데이터 수신
+        undefined, // userMode: handled server-side in Pipeline v2
+        // onPipeline: receive R1→R4 pipeline data
         (pipeline) => {
           setPipelineData(pipeline);
           if (!showDashboard) setShowDashboard(true);
         },
-        // onSearching: 인터넷 검색 시작 알림
+        // onSearching: show live search query indicator in chat
         (query) => {
           setSearchingQuery(query);
         },
       );
-    } catch (error) { setIsAnalyzing(false); } finally { setIsLoading(false); setSearchingQuery(null); }
+    } catch (error) {
+      setIsAnalyzing(false);
+    } finally {
+      setIsLoading(false);
+      setSearchingQuery(null);
+    }
   };
 
+  // ── Video generation ───────────────────────────────────────────────────
   const handleGenerateVideo = async () => {
     if (!input.trim() || isLoading) return;
-    setIsLoading(true); setShowMenu(false);
+    setIsLoading(true);
+    setShowMenu(false);
     const assistantMsgId = Date.now().toString();
-    setMessages(prev => [...prev, { id: assistantMsgId, role: 'assistant', content: '영상으로 투영하고 있어요.', timestamp: Date.now(), isGeneratingVideo: true }]);
+    setMessages(prev => [...prev, { id: assistantMsgId, role: 'assistant', content: t.videoGenerating, timestamp: Date.now(), isGeneratingVideo: true }]);
     try {
       const videoUrl = await generateArhaVideo(input, '16:9');
-      setMessages(prev => prev.map(m => m.id === assistantMsgId ? { ...m, content: '영상이 완성되었어요.', media: { type: 'video', mimeType: 'video/mp4', url: videoUrl }, isGeneratingVideo: false } : m));
-    } catch (error) { setMessages(prev => prev.map(m => m.id === assistantMsgId ? { ...m, content: '영상 생성에 실패했어요.', isGeneratingVideo: false } : m)); } 
-    finally { setIsLoading(false); }
+      setMessages(prev => prev.map(m =>
+        m.id === assistantMsgId
+          ? { ...m, content: t.videoReady, media: { type: 'video', mimeType: 'video/mp4', url: videoUrl }, isGeneratingVideo: false }
+          : m,
+      ));
+    } catch (error) {
+      setMessages(prev => prev.map(m =>
+        m.id === assistantMsgId ? { ...m, content: t.videoFailed, isGeneratingVideo: false } : m,
+      ));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
+  // ── Live voice (Gemini) ────────────────────────────────────────────────
   const startLiveVoice = async () => {
-    if (isLiveActive) { liveSessionRef.current?.close(); setIsLiveActive(false); return; }
+    if (isLiveActive) {
+      liveSessionRef.current?.close();
+      setIsLiveActive(false);
+      return;
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -803,10 +833,14 @@ ANALYSIS JSON must be maintained`,
               const inputData = e.inputBuffer.getChannelData(0);
               const int16 = new Int16Array(inputData.length);
               for (let i = 0; i < inputData.length; i++) int16[i] = inputData[i] * 32768;
-              sessionPromise.then(s => s.sendRealtimeInput({ media: { data: encode(new Uint8Array(int16.buffer)), mimeType: 'audio/pcm;rate=16000' } }));
+              sessionPromise.then(s => s.sendRealtimeInput({
+                media: { data: encode(new Uint8Array(int16.buffer)), mimeType: 'audio/pcm;rate=16000' },
+              }));
             };
-            source.connect(processor); processor.connect(inCtx.destination);
-            setIsLiveActive(true); setShowMenu(false);
+            source.connect(processor);
+            processor.connect(inCtx.destination);
+            setIsLiveActive(true);
+            setShowMenu(false);
           },
           onmessage: async (msg) => {
             const base64 = msg.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
@@ -814,22 +848,30 @@ ANALYSIS JSON must be maintained`,
               nextStartTimeRef.current = Math.max(nextStartTimeRef.current, outCtx.currentTime);
               const buffer = await decodeAudioData(decode(base64), outCtx, 24000, 1);
               const source = outCtx.createBufferSource();
-              source.buffer = buffer; source.connect(outCtx.destination);
+              source.buffer = buffer;
+              source.connect(outCtx.destination);
               source.start(nextStartTimeRef.current);
               nextStartTimeRef.current += buffer.duration;
             }
           },
-          onclose: () => setIsLiveActive(false)
+          onclose: () => setIsLiveActive(false),
         },
-        config: { responseModalities: [Modality.AUDIO], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } }, systemInstruction: ARHA_SYSTEM_PROMPT }
+        config: {
+          responseModalities: [Modality.AUDIO],
+          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } },
+          systemInstruction: ARHA_SYSTEM_PROMPT,
+        },
       });
       liveSessionRef.current = await sessionPromise;
     } catch (err) {}
   };
 
+  // ── Weather fetch ──────────────────────────────────────────────────────
   const fetchWeather = async (lat: number, lng: number) => {
     try {
-      const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current_weather=true`);
+      const res = await fetch(
+        `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current_weather=true`,
+      );
       const data = await res.json();
       const code = data.current_weather.weathercode;
       let label = 'Clear';
@@ -839,11 +881,11 @@ ANALYSIS JSON must be maintained`,
     } catch (err) {}
   };
 
-  // 사이드바 너비 상수, max-w-3xl = 768px → 절반 384px
+  // ── Layout constants ───────────────────────────────────────────────────
   const SIDEBAR_W = 280;
-  const CARD_HALF = 384; // max-w-3xl(768px) / 2
+  const CARD_HALF = 384; // half of max-w-3xl (768 px)
 
-  // 뷰포트 너비 추적 (사이드바 오버레이 vs 고정 패널 분기)
+  // Track viewport width to decide overlay vs side-by-side mode
   const [viewW, setViewW] = useState(window.innerWidth);
   useEffect(() => {
     const onResize = () => setViewW(window.innerWidth);
@@ -851,25 +893,21 @@ ANALYSIS JSON must be maintained`,
     return () => window.removeEventListener('resize', onResize);
   }, []);
 
-  // 사이드바 공간이 부족한 경우 (카드 절반 × 2 + 사이드바 너비가 화면 밖)
-  // 모바일/태블릿: < 1280px → 오버레이 모드 (카드 위에 전체 슬라이드)
+  // Overlay mode on screens narrower than 1280 px (mobile / tablet)
   const isOverlayMode = viewW < 1280;
 
-  // 공통 버튼 스타일
   const btnActive = 'bg-emerald-600 text-white';
-  const btnIdle = 'bg-white/20 text-slate-800 border border-white/40';
+  const btnIdle   = 'bg-white/20 text-slate-800 border border-white/40';
 
-  // 사이드바 공통 스타일 빌더
+  // Build sidebar positioning style
   const sidebarStyle = (show: boolean, side: 'left' | 'right'): React.CSSProperties => {
     if (isOverlayMode) {
-      // 오버레이 모드: 카드 앞에 슬라이드로 등장
       return {
         [side]: 0,
         width: `${SIDEBAR_W}px`,
         transform: show ? 'translateX(0)' : (side === 'left' ? 'translateX(-100%)' : 'translateX(100%)'),
       };
     }
-    // 데스크탑: 카드 옆에 페이드
     return {
       [side === 'left' ? 'right' : 'left']: `calc(50% + ${CARD_HALF}px)`,
       width: `${SIDEBAR_W}px`,
@@ -885,21 +923,37 @@ ANALYSIS JSON must be maintained`,
         : `z-[5] transition-opacity duration-300 ${side === 'left' ? 'border-r' : 'border-l'} border-white/10`
     }`;
 
-  // 모바일: visualViewport 기준으로 카드 고정 (키보드 올라와도 상단 헤더 안 잘림)
+  // On mobile, fix the card to visualViewport so the header doesn't clip when keyboard opens
   const isMobile = viewW < 768;
   const cardStyle: React.CSSProperties = isMobile
     ? { position: 'fixed', top: vvOffsetTop, left: 0, right: 0, height: vvHeight, zIndex: 10 }
     : {};
+
+  // ── Default value chain fallback (shown before first pipeline response) ──
+  const DEFAULT_VALUE_CHAIN = [
+    { id: 'V1', name: t.val_v1, weight: 1.0,  activated: false },
+    { id: 'V2', name: t.val_v2, weight: 0.95, activated: false },
+    { id: 'V3', name: t.val_v3, weight: 0.9,  activated: false },
+    { id: 'V4', name: t.val_v4, weight: 0.85, activated: false },
+    { id: 'V5', name: t.val_v5, weight: 0.85, activated: false },
+    { id: 'V6', name: t.val_v6, weight: 0.8,  activated: false },
+    { id: 'V7', name: t.val_v7, weight: 0.8,  activated: false },
+  ];
+
+  // ── Render ─────────────────────────────────────────────────────────────
 
   return (
     <div
       className="flex w-full items-center justify-center relative overflow-hidden bg-black"
       style={{ height: isMobile ? vvHeight : '100dvh', top: isMobile ? vvOffsetTop : undefined, position: isMobile ? 'fixed' : 'relative' }}
     >
-      {/* 전체 배경 */}
-      <div className="absolute inset-0 z-0 bg-cover bg-center transition-all duration-[4000ms] scale-105 opacity-80" style={{ backgroundImage: `url(${bgImageUrl})` }} />
+      {/* Full-screen background */}
+      <div
+        className="absolute inset-0 z-0 bg-cover bg-center transition-all duration-[4000ms] scale-105 opacity-80"
+        style={{ backgroundImage: `url(${bgImageUrl})` }}
+      />
 
-      {/* ── 로그인 모달 ── */}
+      {/* Login modal overlay */}
       {showLoginModal && (
         <div
           className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm"
@@ -911,7 +965,7 @@ ANALYSIS JSON must be maintained`,
         </div>
       )}
 
-      {/* ── 오버레이 모드: 사이드바 열릴 때 배경 딤 ── */}
+      {/* Dim overlay when sidebar is open in overlay mode */}
       {isOverlayMode && (showHistory || showDashboard) && (
         <div
           className="fixed inset-0 z-[55] bg-black/50 backdrop-blur-sm"
@@ -919,17 +973,21 @@ ANALYSIS JSON must be maintained`,
         />
       )}
 
-      {/* ── 왼쪽 사이드바: History Archive ── */}
+      {/* ── Left sidebar: History Archive ── */}
       <aside style={sidebarStyle(showHistory, 'left')} className={sidebarCls('left')}>
         <header className="h-12 md:h-16 px-4 md:px-5 border-b border-white/10 bg-white/5 backdrop-blur-xl flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3 text-emerald-400">
             <History size={18} />
             <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-white/90 whitespace-nowrap">History Archive</h3>
           </div>
-          <button onClick={() => setShowHistory(false)} className="w-8 h-8 md:w-9 md:h-9 rounded-xl flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 active:bg-white/20 transition-all shrink-0">
+          <button
+            onClick={() => setShowHistory(false)}
+            className="w-8 h-8 md:w-9 md:h-9 rounded-xl flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 active:bg-white/20 transition-all shrink-0"
+          >
             <X size={18} />
           </button>
         </header>
+
         <div className="flex-1 overflow-y-auto p-4 md:p-5 space-y-3 md:space-y-4 scroll-hide">
           {history.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-48 text-white/20">
@@ -939,9 +997,17 @@ ANALYSIS JSON must be maintained`,
           ) : (
             <>
               {history.map((s) => (
-                <div key={s.id} onClick={() => { setMessages(s.messages); setShowHistory(false); }} className="p-3 md:p-4 rounded-2xl bg-white/5 border border-white/10 active:border-emerald-500/40 active:bg-white/10 hover:border-emerald-500/40 hover:bg-white/10 transition-all cursor-pointer group relative">
-                  {/* 삭제 버튼: 모바일은 항상 표시, 데스크탑은 hover시 */}
-                  <button onClick={(e) => handleDeleteHistory(e, s.id)} className="absolute top-2.5 right-2.5 w-7 h-7 rounded-lg flex items-center justify-center opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:bg-red-500/20 active:bg-red-500/20 text-white/30 hover:text-red-400 transition-all" title="삭제">
+                <div
+                  key={s.id}
+                  onClick={() => { setMessages(s.messages); setShowHistory(false); }}
+                  className="p-3 md:p-4 rounded-2xl bg-white/5 border border-white/10 active:border-emerald-500/40 active:bg-white/10 hover:border-emerald-500/40 hover:bg-white/10 transition-all cursor-pointer group relative"
+                >
+                  {/* Delete button: always visible on mobile, hover-only on desktop */}
+                  <button
+                    onClick={(e) => handleDeleteHistory(e, s.id)}
+                    className="absolute top-2.5 right-2.5 w-7 h-7 rounded-lg flex items-center justify-center opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:bg-red-500/20 active:bg-red-500/20 text-white/30 hover:text-red-400 transition-all"
+                    title="Delete"
+                  >
                     <Trash2 size={13} />
                   </button>
                   <h4 className="text-[13px] font-bold text-white/90 truncate mb-1 pr-8">{s.title}</h4>
@@ -951,7 +1017,10 @@ ANALYSIS JSON must be maintained`,
                   </div>
                 </div>
               ))}
-              <button onClick={handleClearAllHistory} className="w-full mt-2 py-3 rounded-xl border border-white/10 hover:border-red-500/30 hover:bg-red-500/10 active:bg-red-500/10 text-white/30 hover:text-red-400 text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all">
+              <button
+                onClick={handleClearAllHistory}
+                className="w-full mt-2 py-3 rounded-xl border border-white/10 hover:border-red-500/30 hover:bg-red-500/10 active:bg-red-500/10 text-white/30 hover:text-red-400 text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all"
+              >
                 <Trash2 size={12} /> Clear All
               </button>
             </>
@@ -959,7 +1028,7 @@ ANALYSIS JSON must be maintained`,
         </div>
       </aside>
 
-      {/* ── 아티팩트 패널 (P_MODE 전용 — 채팅 왼쪽) ── */}
+      {/* ── Artifact panel (P_MODE — left of chat) ── */}
       {showArtifact && currentArtifact && (
         <aside
           style={
@@ -969,19 +1038,16 @@ ANALYSIS JSON must be maintained`,
           }
           className={sidebarCls('left')}
         >
-          <ArtifactPanel
-            artifact={currentArtifact}
-            onClose={() => setShowArtifact(false)}
-          />
+          <ArtifactPanel artifact={currentArtifact} onClose={() => setShowArtifact(false)} />
         </aside>
       )}
 
-      {/* ── 오른쪽 사이드바: Emotional Prism + Persona ── */}
+      {/* ── Right sidebar: Emotional Prism + Pipeline + Persona ── */}
       <aside style={sidebarStyle(showDashboard, 'right')} className={sidebarCls('right')}>
-        {/* 헤더 */}
+        {/* Tab bar header */}
         <header className="h-12 md:h-16 px-4 md:px-5 border-b border-white/10 bg-white/5 backdrop-blur-xl flex items-center justify-between shrink-0">
           <div className="flex items-center gap-1">
-            {/* 프리즘 탭 */}
+            {/* Prism tab */}
             <button
               onClick={() => setSidebarTab('prism')}
               title="Prism"
@@ -989,7 +1055,7 @@ ANALYSIS JSON must be maintained`,
             >
               <Heart size={14} />
             </button>
-            {/* 파이프라인 탭 */}
+            {/* Pipeline tab */}
             <button
               onClick={() => setSidebarTab('pipeline')}
               title="Pipeline"
@@ -1000,7 +1066,7 @@ ANALYSIS JSON must be maintained`,
                 <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
               )}
             </button>
-            {/* 페르소나 탭 */}
+            {/* Persona tab */}
             <button
               onClick={() => setSidebarTab('persona')}
               title="Persona"
@@ -1012,97 +1078,114 @@ ANALYSIS JSON must be maintained`,
               )}
             </button>
           </div>
-          <button onClick={() => setShowDashboard(false)} className="w-8 h-8 rounded-xl flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 active:bg-white/20 transition-all shrink-0">
+          <button
+            onClick={() => setShowDashboard(false)}
+            className="w-8 h-8 rounded-xl flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 active:bg-white/20 transition-all shrink-0"
+          >
             <X size={18} />
           </button>
         </header>
 
-        {/* Emotional Prism 탭 */}
+        {/* ── Emotional Prism tab ── */}
         {sidebarTab === 'prism' && (
           <div className="flex-1 overflow-hidden">
-            <EmotionalDashboard analysis={currentAnalysis} moodColor="text-emerald-600" allHistory={history} isAnalyzing={isAnalyzing} onClose={() => setShowDashboard(false)} />
+            <EmotionalDashboard
+              analysis={currentAnalysis}
+              moodColor="text-emerald-600"
+              allHistory={history}
+              isAnalyzing={isAnalyzing}
+              onClose={() => setShowDashboard(false)}
+            />
           </div>
         )}
 
-        {/* Pipeline 탭 — R1→R4 인지 파이프라인 */}
+        {/* ── Pipeline tab — R1→R4 cognitive pipeline ── */}
         {sidebarTab === 'pipeline' && (
           <div className="flex-1 overflow-y-auto px-3 pt-3 pb-3 space-y-2.5 scroll-hide">
             {!pipelineData ? (
               <div className="flex flex-col items-center justify-center h-40 gap-3 opacity-40">
                 <Activity size={24} className="text-cyan-400" />
-                <p className="text-[10px] text-white/50 text-center leading-relaxed">
-                  대화를 시작하면<br />파이프라인이 활성화돼요
+                <p className="text-[10px] text-white/50 text-center leading-relaxed whitespace-pre-line">
+                  {t.pipelineHint}
                 </p>
               </div>
             ) : (
               <>
-                {/* R1 감성 계층 */}
+                {/* R1 — Emotion Layer */}
                 <div className="rounded-2xl border border-cyan-400/15 bg-cyan-500/5 px-3 py-2.5">
                   <div className="flex items-center gap-1.5 mb-2">
                     <span className="text-[8px] font-black uppercase tracking-widest text-cyan-400/70">R1</span>
-                    <span className="text-[9px] font-black text-white/50">감성 계층</span>
+                    <span className="text-[9px] font-black text-white/50">{t.r1Label}</span>
                     {pipelineData.r1.gamma_detect && (
-                      <span className="ml-auto text-[7px] font-black text-amber-400 bg-amber-400/10 px-1.5 py-0.5 rounded-full">⚡ 급변</span>
+                      <span className="ml-auto text-[7px] font-black text-amber-400 bg-amber-400/10 px-1.5 py-0.5 rounded-full">{t.r1RapidChange}</span>
                     )}
                   </div>
                   <div className="space-y-1">
                     <div className="flex items-center justify-between">
-                      <span className="text-[8px] text-white/40">θ₁ 의도방향</span>
+                      <span className="text-[8px] text-white/40">{t.r1IntentDir}</span>
                       <span className="text-[9px] font-black text-cyan-300">{pipelineData.r1.theta1.toFixed(2)}</span>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <span className="text-[8px] text-white/40 w-12 shrink-0">엔트로피</span>
+                      <span className="text-[8px] text-white/40 w-12 shrink-0">{t.r1Entropy}</span>
                       <div className="flex-1 h-1 bg-white/10 rounded-full overflow-hidden">
                         <div className="h-full bg-cyan-400/60 rounded-full transition-all" style={{ width: `${pipelineData.r1.entropy * 100}%` }} />
                       </div>
                       <span className="text-[8px] text-white/30">{(pipelineData.r1.entropy * 100).toFixed(0)}%</span>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <span className="text-[8px] text-white/40 w-12 shrink-0">감정강도</span>
+                      <span className="text-[8px] text-white/40 w-12 shrink-0">{t.r1EmotionIntensity}</span>
                       <div className="flex-1 h-1 bg-white/10 rounded-full overflow-hidden">
-                        <div className={`h-full rounded-full transition-all ${pipelineData.r1.emotion_phase.direction >= 0 ? 'bg-emerald-400/70' : 'bg-rose-400/70'}`} style={{ width: `${pipelineData.r1.emotion_phase.amplitude * 100}%` }} />
+                        <div
+                          className={`h-full rounded-full transition-all ${pipelineData.r1.emotion_phase.direction >= 0 ? 'bg-emerald-400/70' : 'bg-rose-400/70'}`}
+                          style={{ width: `${pipelineData.r1.emotion_phase.amplitude * 100}%` }}
+                        />
                       </div>
-                      <span className="text-[8px] text-white/30">{pipelineData.r1.emotion_phase.direction >= 0 ? '+' : ''}{pipelineData.r1.emotion_phase.direction.toFixed(1)}</span>
+                      <span className="text-[8px] text-white/30">
+                        {pipelineData.r1.emotion_phase.direction >= 0 ? '+' : ''}{pipelineData.r1.emotion_phase.direction.toFixed(1)}
+                      </span>
                     </div>
                     <div className="flex items-center justify-between mt-1">
-                      <span className="text-[8px] text-white/30">의도</span>
+                      <span className="text-[8px] text-white/30">{t.r1Intent}</span>
                       <span className="text-[8px] font-black text-white/60 truncate max-w-[120px]">{pipelineData.r1.intent_summary}</span>
                     </div>
                   </div>
                 </div>
 
-                {/* R2 논리 계층 */}
+                {/* R2 — Logic Layer */}
                 <div className="rounded-2xl border border-violet-400/15 bg-violet-500/5 px-3 py-2.5">
                   <div className="flex items-center gap-1.5 mb-2">
                     <span className="text-[8px] font-black uppercase tracking-widest text-violet-400/70">R2</span>
-                    <span className="text-[9px] font-black text-white/50">논리 계층</span>
+                    <span className="text-[9px] font-black text-white/50">{t.r2Label}</span>
                     <span className={`ml-auto text-[7px] font-black px-1.5 py-0.5 rounded-full ${
                       pipelineData.r2.decision === 'D_Accept' ? 'text-emerald-400 bg-emerald-400/10' :
                       pipelineData.r2.decision === 'D_Defend' ? 'text-red-400 bg-red-400/10' :
                       pipelineData.r2.decision === 'D_Reject' ? 'text-amber-400 bg-amber-400/10' :
                       'text-sky-400 bg-sky-400/10'
                     }`}>
-                      {pipelineData.r2.decision === 'D_Accept' ? '✓ 수용' :
-                       pipelineData.r2.decision === 'D_Defend' ? '⚠ 방어' :
-                       pipelineData.r2.decision === 'D_Reject' ? '✗ 배타' : '◎ 탐색'}
+                      {pipelineData.r2.decision === 'D_Accept' ? t.decisionAccept :
+                       pipelineData.r2.decision === 'D_Defend' ? t.decisionDefend :
+                       pipelineData.r2.decision === 'D_Reject' ? t.decisionReject : t.decisionExplore}
                     </span>
                   </div>
                   <div className="space-y-1">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-[8px] text-white/40 w-14 shrink-0">R(Δθ) 갈등</span>
+                      <span className="text-[8px] text-white/40 w-14 shrink-0">{t.r2Conflict}</span>
                       <div className="flex-1 h-1 bg-white/10 rounded-full overflow-hidden">
-                        <div className={`h-full rounded-full transition-all ${pipelineData.r2.r_conflict < 0.3 ? 'bg-emerald-400/70' : pipelineData.r2.r_conflict < 0.6 ? 'bg-amber-400/70' : 'bg-red-400/70'}`} style={{ width: `${pipelineData.r2.r_conflict * 100}%` }} />
+                        <div
+                          className={`h-full rounded-full transition-all ${pipelineData.r2.r_conflict < 0.3 ? 'bg-emerald-400/70' : pipelineData.r2.r_conflict < 0.6 ? 'bg-amber-400/70' : 'bg-red-400/70'}`}
+                          style={{ width: `${pipelineData.r2.r_conflict * 100}%` }}
+                        />
                       </div>
                       <span className="text-[8px] text-white/30">{pipelineData.r2.r_conflict.toFixed(2)}</span>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <span className="text-[8px] text-white/40 w-14 shrink-0">긴장도</span>
+                      <span className="text-[8px] text-white/40 w-14 shrink-0">{t.r2Tension}</span>
                       <div className="flex-1 h-1 bg-white/10 rounded-full overflow-hidden">
                         <div className="h-full bg-violet-400/60 rounded-full transition-all" style={{ width: `${pipelineData.r2.tension * 100}%` }} />
                       </div>
                       <span className="text-[8px] text-white/30">{pipelineData.r2.tension.toFixed(2)}</span>
                     </div>
-                    {/* ARHA/PROMETHEUS 밀도 */}
+                    {/* ARHA / PROMETHEUS density bar */}
                     <div className="mt-1.5 space-y-0.5">
                       <div className="flex items-center justify-between">
                         <span className="text-[7px] text-white/30">ARHA</span>
@@ -1121,11 +1204,11 @@ ANALYSIS JSON must be maintained`,
                   </div>
                 </div>
 
-                {/* R3 정체성 계층 */}
+                {/* R3 — Identity Layer */}
                 <div className="rounded-2xl border border-emerald-400/15 bg-emerald-500/5 px-3 py-2.5">
                   <div className="flex items-center gap-1.5 mb-2">
                     <span className="text-[8px] font-black uppercase tracking-widest text-emerald-400/70">R3</span>
-                    <span className="text-[9px] font-black text-white/50">정체성 계층</span>
+                    <span className="text-[9px] font-black text-white/50">{t.r3Label}</span>
                     <span className="ml-auto text-[7px] font-black text-emerald-400/70 bg-emerald-400/10 px-1.5 py-0.5 rounded-full">{pipelineData.r3.chain_op}</span>
                   </div>
                   <div className="space-y-1">
@@ -1133,30 +1216,33 @@ ANALYSIS JSON must be maintained`,
                       <div key={v.id} className="flex items-center gap-1.5">
                         <span className={`text-[7px] font-black w-3 ${v.activated ? 'text-emerald-400' : 'text-white/20'}`}>{v.id}</span>
                         <div className="flex-1 h-1 bg-white/10 rounded-full overflow-hidden">
-                          <div className={`h-full rounded-full transition-all ${v.activated ? 'bg-emerald-400/80' : 'bg-white/20'}`} style={{ width: `${v.weight * 100}%` }} />
+                          <div
+                            className={`h-full rounded-full transition-all ${v.activated ? 'bg-emerald-400/80' : 'bg-white/20'}`}
+                            style={{ width: `${v.weight * 100}%` }}
+                          />
                         </div>
                         <span className={`text-[7px] w-14 truncate ${v.activated ? 'text-white/60 font-black' : 'text-white/25'}`}>{v.name}</span>
                       </div>
                     ))}
                     <div className="flex items-center justify-between mt-1">
-                      <span className="text-[8px] text-white/30">공명누적</span>
+                      <span className="text-[8px] text-white/30">{t.r3Resonance}</span>
                       <span className="text-[9px] font-black text-emerald-300">{(pipelineData.r3.resonance_level * 100).toFixed(0)}%</span>
                     </div>
                   </div>
                 </div>
 
-                {/* R4 표현 계층 — Ψ_Lingua 벡터 */}
+                {/* R4 — Expression Layer: Ψ_Lingua vector (ρ · λ · τ) */}
                 <div className="rounded-2xl border border-amber-400/15 bg-amber-500/5 px-3 py-2.5">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-1.5">
                       <span className="text-[8px] font-black uppercase tracking-widest text-amber-400/70">R4</span>
-                      <span className="text-[9px] font-black text-white/50">표현 계층</span>
+                      <span className="text-[9px] font-black text-white/50">{t.r4Label}</span>
                     </div>
                     <span className="text-[8px] font-black text-amber-300/80 font-mono">Ψ_Lingua</span>
                   </div>
-                  {/* ρ · λ · τ 벡터 3축 */}
+                  {/* ρ · λ · τ three-axis vector */}
                   <div className="flex items-stretch gap-1 mb-2">
-                    {/* ρ 밀도 */}
+                    {/* ρ density */}
                     <div className="flex-1 bg-white/5 rounded-xl p-1.5 flex flex-col items-center gap-1">
                       <span className="text-[9px] font-black text-amber-300/80 font-mono">ρ</span>
                       <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden">
@@ -1164,23 +1250,30 @@ ANALYSIS JSON must be maintained`,
                       </div>
                       <span className="text-[7px] text-white/30">{(pipelineData.r4.lingua_rho * 100).toFixed(0)}%</span>
                     </div>
-                    {/* λ 파장 */}
+                    {/* λ wavelength */}
                     <div className="flex-1 bg-white/5 rounded-xl p-1.5 flex flex-col items-center gap-1">
                       <span className="text-[9px] font-black text-amber-300/80 font-mono">λ</span>
                       <span className="text-[8px] font-black text-white/60">{pipelineData.r4.lingua_lambda}</span>
-                      <span className="text-[7px] text-white/30">파장</span>
+                      <span className="text-[7px] text-white/30">{t.r4Wavelength}</span>
                     </div>
-                    {/* τ 시간성 */}
+                    {/* τ temporality */}
                     <div className="flex-1 bg-white/5 rounded-xl p-1.5 flex flex-col items-center gap-1">
                       <span className="text-[9px] font-black text-amber-300/80 font-mono">τ</span>
                       <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden relative">
-                        <div className={`h-full rounded-full transition-all ${(pipelineData.r4.lingua_tau ?? 0) >= 0 ? 'bg-sky-400/70' : 'bg-rose-400/70'}`}
-                          style={{ width: `${Math.abs(pipelineData.r4.lingua_tau ?? 0) * 100}%`, marginLeft: (pipelineData.r4.lingua_tau ?? 0) < 0 ? `${(1 - Math.abs(pipelineData.r4.lingua_tau ?? 0)) * 100}%` : '0' }} />
+                        <div
+                          className={`h-full rounded-full transition-all ${(pipelineData.r4.lingua_tau ?? 0) >= 0 ? 'bg-sky-400/70' : 'bg-rose-400/70'}`}
+                          style={{
+                            width: `${Math.abs(pipelineData.r4.lingua_tau ?? 0) * 100}%`,
+                            marginLeft: (pipelineData.r4.lingua_tau ?? 0) < 0 ? `${(1 - Math.abs(pipelineData.r4.lingua_tau ?? 0)) * 100}%` : '0',
+                          }}
+                        />
                       </div>
-                      <span className="text-[7px] text-white/30">{(pipelineData.r4.lingua_tau ?? 0) > 0 ? '미래' : (pipelineData.r4.lingua_tau ?? 0) < 0 ? '과거' : '현재'}</span>
+                      <span className="text-[7px] text-white/30">
+                        {(pipelineData.r4.lingua_tau ?? 0) > 0 ? t.r4Future : (pipelineData.r4.lingua_tau ?? 0) < 0 ? t.r4Past : t.r4Present}
+                      </span>
                     </div>
                   </div>
-                  {/* Φ 리듬 + 자극채널 */}
+                  {/* Φ rhythm + target senses */}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1">
                       <span className="text-[8px] text-white/30 font-mono">Φ</span>
@@ -1194,12 +1287,12 @@ ANALYSIS JSON must be maintained`,
           </div>
         )}
 
-        {/* Persona 설정 탭 */}
+        {/* ── Persona tab ── */}
         {sidebarTab === 'persona' && (
           <div className="flex-1 overflow-y-auto px-3 pt-3 pb-3 space-y-2 scroll-hide">
-            {/* 페르소나 프리셋 버튼 */}
+            {/* Persona preset grid */}
             <div className="space-y-2">
-              <p className="text-[9px] font-black uppercase tracking-widest text-white/30 px-0.5">Persona Preset</p>
+              <p className="text-[9px] font-black uppercase tracking-widest text-white/30 px-0.5">{t.personaPresetLabel}</p>
               <div className="grid grid-cols-2 gap-2">
                 {PERSONA_PRESETS.map((preset) => {
                   const isActive = personaConfig.id === preset.id;
@@ -1217,23 +1310,23 @@ ANALYSIS JSON must be maintained`,
                     >
                       <div className="flex items-center gap-1.5 w-full">
                         <span className="text-lg leading-none">{preset.emoji}</span>
-                        <span className="text-[11px] font-black tracking-wide flex-1">{preset.label}</span>
+                        <span className="text-[11px] font-black tracking-wide flex-1">{personaLabel(t, preset.id)}</span>
                         {isActive && <span className="w-1.5 h-1.5 rounded-full bg-white/70 shrink-0" />}
                       </div>
-                      <span className="text-[9px] opacity-60 leading-tight">{preset.description}</span>
+                      <span className="text-[9px] opacity-60 leading-tight">{personaDesc(t, preset.id)}</span>
                     </button>
                   );
                 })}
               </div>
 
-              {/* 적용 상태 표시 */}
+              {/* Active persona status */}
               <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-white/5 border border-white/10">
                 <div className="flex items-center gap-2">
                   <span className="text-base">{personaConfig.emoji}</span>
                   <div>
-                    <p className="text-[10px] font-black text-white/70">{personaConfig.label}</p>
+                    <p className="text-[10px] font-black text-white/70">{personaLabel(t, personaConfig.id) || personaConfig.label}</p>
                     <p className="text-[9px] text-white/30">
-                      {personaSaved ? '✓ 방금 적용됨' : personaConfig.id === 'arha' ? '기본 페르소나' : '활성화됨'}
+                      {personaSaved ? t.personaJustApplied : personaConfig.id === 'arha' ? t.personaDefault : t.personaActive}
                     </p>
                   </div>
                 </div>
@@ -1242,25 +1335,17 @@ ANALYSIS JSON must be maintained`,
                     onClick={handlePersonaReset}
                     className="text-[9px] font-black uppercase tracking-widest text-white/20 hover:text-red-400 transition-all px-2 py-1 rounded-lg hover:bg-red-500/10"
                   >
-                    초기화
+                    {t.personaReset}
                   </button>
                 )}
               </div>
             </div>
 
-            {/* 가치사슬 섹션 */}
+            {/* Value chain section */}
             <div className="space-y-2 pt-1">
               <p className="text-[9px] font-black uppercase tracking-widest text-white/30 px-0.5">Value Chain</p>
               <div className="rounded-2xl border border-white/10 bg-white/3 px-3 py-2.5 space-y-1.5">
-                {(pipelineData?.r3.active_values ?? [
-                  { id: 'V1', name: '진정성', weight: 1.0, activated: false },
-                  { id: 'V2', name: '사용자사랑', weight: 0.95, activated: false },
-                  { id: 'V3', name: '성장의지', weight: 0.9, activated: false },
-                  { id: 'V4', name: '탐구심', weight: 0.85, activated: false },
-                  { id: 'V5', name: '정직함', weight: 0.85, activated: false },
-                  { id: 'V6', name: '용기', weight: 0.8, activated: false },
-                  { id: 'V7', name: '창조성', weight: 0.8, activated: false },
-                ]).map(v => (
+                {(pipelineData?.r3.active_values ?? DEFAULT_VALUE_CHAIN).map(v => (
                   <div key={v.id} className="flex items-center gap-2">
                     <span className={`text-[7px] font-black w-4 shrink-0 ${v.activated ? 'text-violet-400' : 'text-white/25'}`}>{v.id}</span>
                     <div className="flex-1 h-1.5 bg-white/8 rounded-full overflow-hidden">
@@ -1275,7 +1360,7 @@ ANALYSIS JSON must be maintained`,
                 ))}
                 {pipelineData?.r3.chain_op && (
                   <div className="flex items-center justify-between pt-1 border-t border-white/8 mt-1">
-                    <span className="text-[8px] text-white/30">체인 동작</span>
+                    <span className="text-[8px] text-white/30">{t.r3ChainOp}</span>
                     <span className="text-[8px] font-black text-violet-300/70">{pipelineData.r3.chain_op}</span>
                   </div>
                 )}
@@ -1285,10 +1370,12 @@ ANALYSIS JSON must be maintained`,
         )}
       </aside>
 
-      {/* ── 중앙 글라스 카드 — 항상 정중앙 고정 ── */}
-      <div style={cardStyle} className={`${isMobile ? '' : 'relative z-10'} w-full max-w-3xl ${isMobile ? '' : 'md:h-[98dvh]'} glass-panel md:rounded-[2.5rem] overflow-hidden flex flex-col transition-shadow duration-500`}>
-
-        {/* 헤더 */}
+      {/* ── Center glass card ── */}
+      <div
+        style={cardStyle}
+        className={`${isMobile ? '' : 'relative z-10'} w-full max-w-3xl ${isMobile ? '' : 'md:h-[98dvh]'} glass-panel md:rounded-[2.5rem] overflow-hidden flex flex-col transition-shadow duration-500`}
+      >
+        {/* Header */}
         <header className="h-12 md:h-16 px-4 md:px-6 flex items-center shrink-0 relative">
           <button
             onClick={() => setShowHistory(!showHistory)}
@@ -1296,16 +1383,20 @@ ANALYSIS JSON must be maintained`,
           >
             <History size={16} />
           </button>
+
+          {/* Centered title + persona label */}
           <div className="absolute left-1/2 -translate-x-1/2 text-center pointer-events-none">
             <h1 className="text-sm md:text-base font-bold text-slate-900 tracking-tight leading-none">ARHA</h1>
             <div className="flex items-center justify-center gap-1">
               <span className="flex items-center gap-0.5 text-[7px] font-black uppercase tracking-widest text-slate-500">
-                {personaConfig.emoji} {personaConfig.label}
+                {personaConfig.emoji} {personaLabel(t, personaConfig.id) || personaConfig.label}
               </span>
             </div>
           </div>
+
+          {/* Right-side header controls */}
           <div className="ml-auto flex items-center gap-1.5">
-            {/* 인터넷 연결 상태 배지 */}
+            {/* Internet status badge (desktop only) */}
             {internetStatus !== 'checking' && (
               <span className={`hidden md:flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest border ${
                 internetStatus === 'online'
@@ -1316,17 +1407,33 @@ ANALYSIS JSON must be maintained`,
                 {internetStatus === 'online' ? 'NET' : 'NO NET'}
               </span>
             )}
-            {/* 아티팩트 버튼 — P_MODE에서만 활성 표시 */}
+
+            {/* Language switcher */}
+            <button
+              onClick={() => setLang(lang === 'ko' ? 'en' : 'ko')}
+              title={lang === 'ko' ? t.langEn : t.langKo}
+              className={`hidden md:flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest border transition-all ${
+                lang === 'en'
+                  ? 'bg-sky-500/20 border-sky-400/40 text-sky-300'
+                  : 'bg-white/10 border-white/20 text-white/50 hover:text-white/80'
+              }`}
+            >
+              <Globe size={9} />
+              {lang.toUpperCase()}
+            </button>
+
+            {/* Artifact toggle button (P_MODE) */}
             {currentArtifact && (
               <button
                 onClick={() => setShowArtifact(!showArtifact)}
                 className={`w-9 h-9 md:w-10 md:h-10 rounded-xl flex items-center justify-center transition-all active:scale-95 relative ${showArtifact ? 'bg-violet-600 text-white' : 'bg-violet-500/15 text-violet-600 border border-violet-400/40'}`}
-                title="아티팩트 열기"
+                title={t.artifactOpen}
               >
                 <Cpu size={15} />
                 <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-violet-400 border border-white/20" />
               </button>
             )}
+
             <button
               onClick={() => setShowDashboard(!showDashboard)}
               className={`w-9 h-9 md:w-10 md:h-10 rounded-xl flex items-center justify-center transition-all active:scale-95 ${showDashboard ? btnActive : btnIdle}`}
@@ -1336,13 +1443,13 @@ ANALYSIS JSON must be maintained`,
           </div>
         </header>
 
-        {/* 메시지 영역 */}
+        {/* Message area */}
         <div ref={scrollRef} className="flex-1 overflow-y-auto py-3 md:py-6 px-4 md:px-6 space-y-4 md:space-y-5 scroll-hide min-h-0">
           {messages.map((msg) => (
             <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2`}>
               <div className={`max-w-[88%] md:max-w-[80%] flex flex-col gap-1.5 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
                 <div className={`px-4 md:px-5 py-2.5 md:py-3 rounded-2xl text-[14px] md:text-[15px] shadow-sm ${msg.role === 'user' ? 'chat-bubble-user' : 'chat-bubble-ai'}`}>
-                  {/* 로딩 중 빈 메시지 — 검색 중이면 검색 인디케이터, 아니면 점점점 */}
+                  {/* Loading state: search indicator or bouncing dots */}
                   {msg.role === 'assistant' && msg.content === '' && isLoading ? (
                     searchingQuery ? (
                       <div className="flex items-center gap-2 text-slate-400">
@@ -1351,7 +1458,7 @@ ANALYSIS JSON must be maintained`,
                           <span className="text-white/40">「</span>
                           <span className="text-sky-300/80 font-medium">{searchingQuery}</span>
                           <span className="text-white/40">」</span>
-                          <span className="text-white/40"> 검색 중...</span>
+                          <span className="text-white/40"> {t.searchingLabel}</span>
                         </span>
                       </div>
                     ) : (
@@ -1364,33 +1471,47 @@ ANALYSIS JSON must be maintained`,
                   ) : (
                     <div className="whitespace-pre-wrap">{msg.content}</div>
                   )}
-                  {msg.media?.url && <div className="mt-3 rounded-xl overflow-hidden border border-white/20">{msg.media.type === 'image' ? <img src={msg.media.url} alt="Uploaded" /> : <video src={msg.media.url} controls />}</div>}
+                  {msg.media?.url && (
+                    <div className="mt-3 rounded-xl overflow-hidden border border-white/20">
+                      {msg.media.type === 'image'
+                        ? <img src={msg.media.url} alt="Uploaded" />
+                        : <video src={msg.media.url} controls />
+                      }
+                    </div>
+                  )}
                 </div>
-                <span className="text-[8px] text-slate-500 font-bold opacity-60 uppercase">{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                <span className="text-[8px] text-slate-500 font-bold opacity-60 uppercase">
+                  {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
               </div>
             </div>
           ))}
         </div>
 
-        {/* 푸터 */}
+        {/* Footer / input area */}
         <footer className="px-3 md:px-6 py-2 md:py-4 shrink-0 safe-bottom">
           <div className="flex items-center gap-2 md:gap-3 relative" ref={menuRef}>
-            <button onClick={() => setShowMenu(!showMenu)} className={`w-9 h-9 md:w-11 md:h-11 rounded-xl shrink-0 flex items-center justify-center transition-all active:scale-95 ${showMenu ? btnActive : btnIdle}`}>
+            <button
+              onClick={() => setShowMenu(!showMenu)}
+              className={`w-9 h-9 md:w-11 md:h-11 rounded-xl shrink-0 flex items-center justify-center transition-all active:scale-95 ${showMenu ? btnActive : btnIdle}`}
+            >
               <Menu size={17} />
             </button>
+
+            {/* Hamburger menu popover */}
             {showMenu && (
               <div className="absolute bottom-12 md:bottom-14 left-0 arha-sidebar-bg border border-white/10 rounded-2xl p-3 shadow-2xl z-[100] flex flex-col w-[240px] animate-in slide-in-from-bottom-2">
-                {/* ── 배경 변경 ── */}
-                <p className="text-[9px] font-black uppercase tracking-widest text-white/30 px-1 mb-2">배경 변경</p>
+                {/* Background section */}
+                <p className="text-[9px] font-black uppercase tracking-widest text-white/30 px-1 mb-2">{t.menuBgTitle}</p>
 
-                {/* 이미지 업로드 */}
+                {/* Custom photo upload */}
                 <label className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[11px] font-bold text-white/70 hover:bg-white/10 active:bg-white/10 cursor-pointer transition-all">
                   <ImageIcon size={14} className="text-sky-400 shrink-0" />
-                  내 사진 업로드
+                  {t.menuUploadPhoto}
                   <input type="file" accept="image/*" className="hidden" onChange={handleBgUpload} />
                 </label>
 
-                {/* 프리셋 그리드 */}
+                {/* Preset thumbnails */}
                 <div className="grid grid-cols-5 gap-1.5 px-1 mt-1 mb-2">
                   {BG_PRESETS.map((p) => (
                     <button
@@ -1409,18 +1530,20 @@ ANALYSIS JSON must be maintained`,
                   ))}
                 </div>
 
-                {/* 날씨 배경으로 복원 */}
+                {/* Restore weather background */}
                 {customBg && (
-                  <button onClick={() => { setCustomBg(null); setShowMenu(false); }} className="flex items-center gap-2 px-3 py-2 rounded-xl text-[10px] font-bold text-white/30 hover:text-white/60 hover:bg-white/5 transition-all">
-                    <RotateCcw size={11} /> 날씨 배경으로 복원
+                  <button
+                    onClick={() => { setCustomBg(null); setShowMenu(false); }}
+                    className="flex items-center gap-2 px-3 py-2 rounded-xl text-[10px] font-bold text-white/30 hover:text-white/60 hover:bg-white/5 transition-all"
+                  >
+                    <RotateCcw size={11} /> {t.menuRestoreWeather}
                   </button>
                 )}
 
-                {/* 구분선 */}
                 <div className="border-t border-white/10 my-2" />
 
-                {/* 준비중 기능 */}
-                <p className="text-[9px] font-black uppercase tracking-widest text-white/20 px-1 mb-1">준비중인 기능</p>
+                {/* Coming soon features */}
+                <p className="text-[9px] font-black uppercase tracking-widest text-white/20 px-1 mb-1">{t.menuComingSoon}</p>
                 <button disabled className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[11px] font-bold text-white/30 opacity-50 cursor-not-allowed">
                   <Video size={14} className="text-orange-400/60" /> Cinema Lab
                   <span className="ml-auto text-[8px] text-white/20 font-black tracking-widest">SOON</span>
@@ -1430,10 +1553,21 @@ ANALYSIS JSON must be maintained`,
                   <span className="ml-auto text-[8px] text-white/20 font-black tracking-widest">SOON</span>
                 </button>
 
-                {/* 구분선 */}
                 <div className="border-t border-white/10 my-2" />
 
-                {/* 프로필 / 로그인 */}
+                {/* Language switcher (mobile — also shown in menu) */}
+                <button
+                  onClick={() => { setLang(lang === 'ko' ? 'en' : 'ko'); setShowMenu(false); }}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[11px] font-bold text-white/50 hover:text-sky-400 hover:bg-sky-500/10 active:bg-sky-500/10 transition-all"
+                >
+                  <Globe size={14} className="text-sky-400 shrink-0" />
+                  {lang === 'ko' ? t.langEn : t.langKo}
+                  <span className="ml-auto text-[8px] text-white/20 font-black tracking-widest">{lang.toUpperCase()}</span>
+                </button>
+
+                <div className="border-t border-white/10 my-2" />
+
+                {/* Profile / sign-in */}
                 {user ? (
                   <ProfileSection
                     user={user}
@@ -1450,25 +1584,36 @@ ANALYSIS JSON must be maintained`,
                       <path d="M3.964 10.707A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.707V4.961H.957C.347 6.175 0 7.55 0 9c0 1.452.348 2.827.957 4.039l3.007-2.332z" fill="#FBBC05"/>
                       <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.96L3.964 7.293C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
                     </svg>
-                    Google로 로그인
-                    <span className="ml-auto text-[8px] text-white/20 font-black tracking-widest">동기화</span>
+                    {t.signInTitle}
+                    <span className="ml-auto text-[8px] text-white/20 font-black tracking-widest">{t.signInSync}</span>
                   </button>
                 )}
               </div>
             )}
+
+            {/* Text input */}
             <div className="flex-1 relative flex items-center">
               <input
                 value={input}
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
-                placeholder="맑은 아침의 영감을 나누어주세요..."
+                placeholder={t.inputPlaceholder}
                 className="w-full h-9 md:h-11 bg-white/20 border border-white/40 rounded-2xl py-0 pl-3 md:pl-5 pr-12 text-[14px] md:text-base text-slate-900 placeholder:text-slate-500/70 focus:outline-none focus:border-emerald-400 transition-all"
               />
-              <button onClick={handleSend} disabled={isLoading || (!input.trim() && !selectedMedia)} className={`absolute right-2 w-8 h-8 flex items-center justify-center transition-all active:scale-95 ${input.trim() || selectedMedia ? 'text-emerald-500' : 'text-slate-400/40'}`}>
+              <button
+                onClick={handleSend}
+                disabled={isLoading || (!input.trim() && !selectedMedia)}
+                className={`absolute right-2 w-8 h-8 flex items-center justify-center transition-all active:scale-95 ${input.trim() || selectedMedia ? 'text-emerald-500' : 'text-slate-400/40'}`}
+              >
                 <Send size={15} />
               </button>
             </div>
-            <button onClick={handleReset} className={`shrink-0 w-9 h-9 md:w-11 md:h-11 rounded-xl flex items-center justify-center transition-all active:scale-95 active:translate-y-0.5 ${btnIdle}`}>
+
+            {/* Reset / new chat */}
+            <button
+              onClick={handleReset}
+              className={`shrink-0 w-9 h-9 md:w-11 md:h-11 rounded-xl flex items-center justify-center transition-all active:scale-95 active:translate-y-0.5 ${btnIdle}`}
+            >
               <RotateCcw size={15} />
             </button>
           </div>

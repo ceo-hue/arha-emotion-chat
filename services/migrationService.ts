@@ -2,19 +2,23 @@ import { User } from 'firebase/auth';
 import { savePersona, saveAutosave, addSession, loadPersona, loadAutosave } from './firestoreService';
 import { ChatSession } from '../types';
 
+// localStorage keys (legacy — used only for one-time migration)
 const HISTORY_KEY  = 'arha_chat_history_v1';
 const AUTOSAVE_KEY = 'arha_autosave_current';
 const PERSONA_KEY  = 'arha_persona_v1';
 const MIGRATED_KEY = 'arha_migrated_v1';
 
-// 최초 로그인 시 localStorage 데이터를 Firestore로 1회 이전
+/**
+ * Runs once on the first login to migrate data from localStorage to Firestore.
+ * Guarded by the MIGRATED_KEY flag — subsequent calls are no-ops.
+ */
 export async function migrateLocalStorageToFirestore(user: User): Promise<void> {
-  // 이미 마이그레이션 완료된 경우 skip
+  // Skip if already migrated for this user
   if (localStorage.getItem(MIGRATED_KEY) === user.uid) return;
 
   const tasks: Promise<void>[] = [];
 
-  // 페르소나
+  // Migrate persona config
   const personaRaw = localStorage.getItem(PERSONA_KEY);
   if (personaRaw) {
     try {
@@ -24,7 +28,7 @@ export async function migrateLocalStorageToFirestore(user: User): Promise<void> 
     } catch {}
   }
 
-  // 자동저장
+  // Migrate autosave snapshot
   const autosaveRaw = localStorage.getItem(AUTOSAVE_KEY);
   if (autosaveRaw) {
     try {
@@ -34,7 +38,7 @@ export async function migrateLocalStorageToFirestore(user: User): Promise<void> 
     } catch {}
   }
 
-  // 히스토리
+  // Migrate chat history sessions
   const historyRaw = localStorage.getItem(HISTORY_KEY);
   if (historyRaw) {
     try {
@@ -47,6 +51,6 @@ export async function migrateLocalStorageToFirestore(user: User): Promise<void> 
 
   await Promise.all(tasks);
 
-  // 완료 플래그
+  // Mark as migrated so this never runs again for this user
   localStorage.setItem(MIGRATED_KEY, user.uid);
 }

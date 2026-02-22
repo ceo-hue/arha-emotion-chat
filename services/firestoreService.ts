@@ -12,7 +12,7 @@ import {
 import { db } from '../firebase';
 import { Message, ChatSession, AnalysisData } from '../types';
 
-// ── 타입 ──────────────────────────────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────────────────
 
 export type PersonaConfig = {
   id: string;
@@ -22,9 +22,9 @@ export type PersonaConfig = {
   tonePrompt: string;
 };
 
-// ── 공통 유틸 ─────────────────────────────────────────────────────────────
+// ── Utilities ─────────────────────────────────────────────────────────────
 
-// base64 이미지/영상 데이터는 Firestore 1MB 제한에 걸리므로 저장 전 제거
+// Strip base64 media data before saving to avoid Firestore's 1 MB document limit
 function sanitizeMessages(messages: Message[]): Message[] {
   return messages.map((m) => ({
     ...m,
@@ -32,7 +32,7 @@ function sanitizeMessages(messages: Message[]): Message[] {
   }));
 }
 
-// ── 페르소나 ──────────────────────────────────────────────────────────────
+// ── Persona ───────────────────────────────────────────────────────────────
 
 export async function savePersona(userId: string, persona: PersonaConfig): Promise<void> {
   const ref = doc(db, 'users', userId, 'persona', 'config');
@@ -53,7 +53,7 @@ export async function loadPersona(userId: string): Promise<PersonaConfig | null>
   };
 }
 
-// ── 자동저장 ──────────────────────────────────────────────────────────────
+// ── Autosave ──────────────────────────────────────────────────────────────
 
 export async function saveAutosave(
   userId: string,
@@ -79,7 +79,7 @@ export async function loadAutosave(userId: string): Promise<{
   return { messages: d.messages ?? [], analysis: d.analysis ?? null };
 }
 
-// ── 히스토리 세션 ─────────────────────────────────────────────────────────
+// ── Chat Sessions (History) ────────────────────────────────────────────────
 
 export async function addSession(userId: string, session: ChatSession): Promise<void> {
   const ref = doc(db, 'users', userId, 'sessions', session.id);
@@ -107,8 +107,8 @@ export async function clearAllSessions(userId: string): Promise<void> {
   await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
 }
 
-// ── 가치 프로필 ────────────────────────────────────────────────────────────
-// 구조: { [keyword]: weight } — 최대 50개, 초과 시 최저 weight 제거
+// ── Value Profile ─────────────────────────────────────────────────────────
+// Structure: { [keyword]: weight } — capped at 50 entries; lowest-weight entries pruned on overflow
 
 export type ValueProfile = Record<string, number>;
 
@@ -119,7 +119,7 @@ export async function loadValueProfile(userId: string): Promise<ValueProfile> {
   const snap = await getDoc(ref);
   if (!snap.exists()) return {};
   const data = snap.data();
-  // updatedAt 필드 제외하고 키워드만 반환
+  // Exclude the internal 'updatedAt' field from the returned keyword map
   const { updatedAt: _u, ...keywords } = data;
   return keywords as ValueProfile;
 }
@@ -136,13 +136,13 @@ export async function updateValueProfile(
     ? (() => { const { updatedAt: _u, ...kw } = snap.data(); return kw as ValueProfile; })()
     : {};
 
-  // 새 태그 weight 누적
+  // Accumulate weights for new tags
   const updated: ValueProfile = { ...existing };
   for (const tag of newTags) {
     updated[tag] = (updated[tag] ?? 0) + 1;
   }
 
-  // 최대 50개 초과 시 weight 낮은 순으로 제거
+  // Prune lowest-weight entries when the cap is exceeded
   const entries = Object.entries(updated);
   if (entries.length > VALUE_PROFILE_MAX) {
     const sorted = entries.sort((a, b) => b[1] - a[1]);
@@ -155,7 +155,7 @@ export async function updateValueProfile(
   return updated;
 }
 
-// 상위 N개 키워드 반환 (weight 내림차순)
+// Return top-N keywords sorted by weight (descending)
 export function getTopKeywords(profile: ValueProfile, n = 5): Array<{ keyword: string; weight: number }> {
   return Object.entries(profile)
     .sort((a, b) => b[1] - a[1])
