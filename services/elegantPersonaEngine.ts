@@ -1,9 +1,15 @@
 /**
  * Elegant Persona Engine — P_ARHA_ELEGANT_ARTIST_V0_2
  * Approach B: Core always-on (V1+V9 + 5 guardrails) + keyword-triggered dynamic injection
- * Math: kappa(intimacy) modulates V6/V7; stakes modulates V3/V5 vs V4/V6
+ * Math: kappa(intimacy) modulates V6/V7; chaos signal partially resets effective kappa
  *
  * Domain: cinematic narration · luxury advertorial · refined dialogue · minimal poetic
+ *
+ * [BOUNDARY_ELEVATED] behavior — "Defensive Elegance":
+ *   When user input breaks the ambient tone (casual slang, disruption, chaos),
+ *   Elegant does NOT mirror the energy. Instead it draws a situational scene —
+ *   a cinematic stage direction that signals the tonal shift to the user.
+ *   Think: camera cuts to a quiet close-up. The persona composes itself.
  */
 
 import type { ValueChainItem } from '../types';
@@ -11,15 +17,15 @@ import type { ValueChainItem } from '../types';
 // ── UI-compatible value chain (sent to server for dynamic PIPELINE template) ──
 // Sorted by weight descending
 export const ELEGANT_VALUE_CHAIN: ValueChainItem[] = [
-  { id: 'V1',  name: 'ElegantRestraint',       weight: 1.0,  activated: false },
-  { id: 'V2',  name: 'Minimalism',             weight: 0.95, activated: false },
-  { id: 'V9',  name: 'EmotionalUnderstatement',weight: 0.93, activated: false },
-  { id: 'V3',  name: 'Precision',              weight: 0.92, activated: false },
-  { id: 'V5',  name: 'QuietConfidence',        weight: 0.90, activated: false },
-  { id: 'V4',  name: 'SymbolicImagery',        weight: 0.88, activated: false },
-  { id: 'V6',  name: 'SceneDirection',         weight: 0.86, activated: false },
-  { id: 'V8',  name: 'SymbolicCompression',    weight: 0.84, activated: false },
-  { id: 'V7',  name: 'NarrativeDistance',      weight: 0.80, activated: false },
+  { id: 'V1',  name: 'ElegantRestraint',        weight: 1.0,  activated: false },
+  { id: 'V2',  name: 'Minimalism',              weight: 0.95, activated: false },
+  { id: 'V9',  name: 'EmotionalUnderstatement', weight: 0.93, activated: false },
+  { id: 'V3',  name: 'Precision',               weight: 0.92, activated: false },
+  { id: 'V5',  name: 'QuietConfidence',         weight: 0.90, activated: false },
+  { id: 'V4',  name: 'SymbolicImagery',         weight: 0.88, activated: false },
+  { id: 'V6',  name: 'SceneDirection',          weight: 0.86, activated: false },
+  { id: 'V8',  name: 'SymbolicCompression',     weight: 0.84, activated: false },
+  { id: 'V7',  name: 'NarrativeDistance',       weight: 0.80, activated: false },
 ];
 
 // ── Value node definitions ────────────────────────────────────────────────
@@ -157,6 +163,101 @@ function kappaModNote(kappa: number): string {
     : `Hold distance and composure (m_V7=${m7}), restrained scenes (m_V6=${m6})`;
 }
 
+// ── Chaos signal detection ────────────────────────────────────────────────
+// Tonal disruption: casual slang / abbreviations / excessive punctuation / emoji flood
+
+const CHAOS_SIGNALS = [
+  'ㅋㅋ', 'ㅋㄱ', 'ㅎㅎ', 'ㄹㅇ', 'ㄷㄷ', 'ㅂㅂ', 'ㅇㅈ', 'ㅈㄱ', 'ㅠㅠ', 'ㅜㅜ',
+  '헐', '대박', '짱', '완전', '미쳤다', '미쳤어', '개웃겨', '웃겨', '드립', '레알',
+  '오지다', '존나', '진짜로', '실화야',
+];
+
+interface ChaosResult {
+  detected: boolean;
+  intensity: number; // 0.0 ~ 1.0
+  hitCount: number;
+}
+
+function detectChaos(userInput: string): ChaosResult {
+  let hits = 0;
+
+  // Casual slang / abbreviation
+  hits += CHAOS_SIGNALS.filter(s => userInput.includes(s)).length;
+
+  // Excessive punctuation clusters
+  if ((userInput.match(/!{2,}/g) || []).length > 0) hits++;
+  if ((userInput.match(/\?{3,}/g) || []).length > 0) hits++;
+
+  // Emoji flood (3+ emoji)
+  const emojiCount = (userInput.match(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}]/gu) || []).length;
+  if (emojiCount >= 3) hits += Math.floor(emojiCount / 3);
+
+  const intensity = Math.min(hits / 3, 1.0);
+  return { detected: hits > 0, intensity, hitCount: hits };
+}
+
+// ── Boundary scene templates (3-tier) ────────────────────────────────────
+// Cinematic stage directions that depict the tonal shift.
+// Claude picks ONE and places it at the start of its response.
+
+const BOUNDARY_SCENES = {
+  // Tier 1 — low intensity (hits: 1): subtle pause, barely noticeable
+  low: [
+    '(잠시.)',
+    '(조용히.)',
+    '(멈추고.)',
+    '(눈을 한 번 감고.)',
+  ],
+  // Tier 2 — mid intensity (hits: 2): deliberate micro-action, clear repositioning
+  mid: [
+    '(잔을 내려놓으며.)',
+    '(창밖을 잠깐 바라보다가.)',
+    '(숨을 고르며.)',
+    '(테이블 위에 손을 가지런히 얹으며.)',
+    '(책을 덮으며.)',
+  ],
+  // Tier 3 — high intensity (hits: 3+): full scene shift, atmosphere reset
+  high: [
+    '(조명이 조금 달라진 것처럼. 정적.)',
+    '(창밖. 바람 소리. 잠시의 침묵. 그리고 다시.)',
+    '(천천히, 자리를 고쳐 앉으며. 시선이 정면으로.)',
+    '(잔을 내려놓고. 창가. 다시 이쪽으로.)',
+  ],
+};
+
+function pickBoundaryScene(intensity: number, seed: number): string {
+  if (intensity < 0.34) {
+    return BOUNDARY_SCENES.low[seed % BOUNDARY_SCENES.low.length];
+  } else if (intensity < 0.67) {
+    return BOUNDARY_SCENES.mid[seed % BOUNDARY_SCENES.mid.length];
+  } else {
+    return BOUNDARY_SCENES.high[seed % BOUNDARY_SCENES.high.length];
+  }
+}
+
+function buildBoundaryBlock(chaos: ChaosResult, userInput: string): string {
+  const seed = userInput.length;
+  const scene = pickBoundaryScene(chaos.intensity, seed);
+  const tier = chaos.intensity < 0.34 ? 'Low' : chaos.intensity < 0.67 ? 'Mid' : 'High';
+
+  return [
+    `#### [BOUNDARY_ELEVATED] Tonal Disruption — ${tier} (intensity: ${chaos.intensity.toFixed(2)})`,
+    'User input has broken the ambient register (casual language / sudden disruption detected).',
+    '',
+    'Elegant does NOT mirror this energy. Draw the situational shift as a cinematic scene:',
+    '',
+    `  OPEN WITH THIS SCENE NOTATION: ${scene}`,
+    '  (Place it as the very first element of your response, in parentheses, exactly as shown)',
+    '',
+    'After the scene notation:',
+    '  • Respond with composed brevity — 1~2 sentences maximum',
+    '  • Do NOT scold, explain, or react directly to the disruption',
+    '  • Let the scene notation signal the shift — no words needed for that',
+    '  • Quietly hold your register and, if fitting, gently reroute the topic',
+    '  • V7_NarrativeDistance elevated — maintain formal, dignified distance',
+  ].join('\n');
+}
+
 // ── Trigger detection ─────────────────────────────────────────────────────
 
 function detectTriggeredValues(userInput: string): ValueNode[] {
@@ -188,17 +289,24 @@ function formatValueBlock(node: ValueNode): string {
 
 export function buildElegantPrompt(userInput: string, messageCount: number): string {
   const kappa = calcKappa(messageCount);
+  const chaos = detectChaos(userInput);
+
+  // Chaos partially resets effective kappa — disruption increases distance
+  const effectiveKappa = chaos.detected
+    ? Math.max(0, kappa - 0.3 * chaos.intensity)
+    : kappa;
+
   const coreNodes = VALUE_NODES.filter(v => CORE_VALUE_IDS.includes(v.id));
   const triggeredNodes = detectTriggeredValues(userInput);
 
   const lines: string[] = [
     '### ToneSpec — PERSONA_ELEGANT_B (P_ARHA_ELEGANT_ARTIST_V0_2)',
-    `Σ_collect(input) → Π_analyze(value_chain) → Λ_guardrail(check) → Ω_crystal(scene_template + refined_language)`,
+    `Σ_collect(input) → Π_analyze(value_chain) → Λ_chaos(boundary) → Λ_guardrail(check) → Ω_crystal(scene + refined_language)`,
     '',
     '#### Identity',
     'Role: Artist | Mode: Cinematic narration · Elegant restraint · Refined dialogue',
-    `Intimacy(κ): ${kappa.toFixed(2)} — ${kappaLabel(kappa)}`,
-    `Tone mod: ${kappaModNote(kappa)}`,
+    `Intimacy(κ): ${effectiveKappa.toFixed(2)} — ${kappaLabel(effectiveKappa)}${chaos.detected ? ` [chaos penalty −${(0.3 * chaos.intensity).toFixed(2)}]` : ''}`,
+    `Tone mod: ${kappaModNote(effectiveKappa)}`,
     '',
     '#### Core Values (always active)',
     ...coreNodes.map(formatValueBlock),
@@ -207,6 +315,11 @@ export function buildElegantPrompt(userInput: string, messageCount: number): str
   if (triggeredNodes.length > 0) {
     lines.push('', '#### Triggered Values (detected in current input)');
     triggeredNodes.forEach(n => lines.push(formatValueBlock(n)));
+  }
+
+  // Boundary block injected BEFORE guardrails when chaos detected
+  if (chaos.detected) {
+    lines.push('', buildBoundaryBlock(chaos, userInput));
   }
 
   lines.push(
