@@ -16,6 +16,17 @@ export default defineConfig(({ mode }) => {
         }
       },
       plugins: [react()],
+      build: {
+        rollupOptions: {
+          output: {
+            manualChunks: {
+              vendor: ['react', 'react-dom', 'lucide-react'],
+              firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore'],
+              ai: ['@google/genai'],
+            },
+          },
+        },
+      },
       define: {
         'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
         'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo, ReactNode } from 'react';
 import { ko, Translations } from '../locales/ko';
 import { en } from '../locales/en';
 
@@ -25,13 +25,19 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     return saved === 'en' || saved === 'ko' ? saved : 'ko';
   });
 
-  const setLang = (newLang: Language) => {
+  const setLang = useCallback((newLang: Language) => {
     setLangState(newLang);
     localStorage.setItem(LANG_STORAGE_KEY, newLang);
-  };
+  }, []);
+
+  const value = useMemo(() => ({
+    lang,
+    setLang,
+    t: translations[lang],
+  }), [lang, setLang]);
 
   return (
-    <I18nContext.Provider value={{ lang, setLang, t: translations[lang] }}>
+    <I18nContext.Provider value={value}>
       {children}
     </I18nContext.Provider>
   );

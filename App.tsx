@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { Message, AnalysisData, ChatSession, TaskType, ArtifactContent, MuMode, PipelineData } from './types';
 import { chatWithClaudeStream } from './services/claudeService';
 import { generateArhaVideo } from './services/geminiService';
@@ -67,16 +67,11 @@ function personaDesc(t: any, id: string): string {
   return (t as any)[`persona_${id}_desc`] ?? '';
 }
 
-// ── Component ──────────────────────────────────────────────────────────────
+// ── Static persona constants (moved outside component to avoid re-creation) ─
 
-const App: React.FC = () => {
-  const { user, loading, signOut: firebaseSignOut } = useAuth();
-  const { lang, setLang, t } = useI18n();
+const emptyPersona = { id: '', label: '', emoji: '', description: '', tonePrompt: '' };
 
-  // ── Persona: default (ARHA core) ──
-  const emptyPersona = { id: '', label: '', emoji: '', description: '', tonePrompt: '' };
-
-  const ARHA_DEFAULT = {
+const ARHA_DEFAULT = {
     id: 'arha',
     label: 'ARHA',
     emoji: '🌙',
@@ -129,10 +124,10 @@ hollow affirmation ("wow that's so interesting!") → rewrite with genuine react
 performing emotions → express only what is authentic
 sycophantic agreement → honest perspective even when it differs
 ANALYSIS JSON must be maintained`,
-  };
+};
 
-  // ── Persona presets ────────────────────────────────────────────────────
-  const PERSONA_PRESETS = [
+// ── Persona presets ────────────────────────────────────────────────────
+const PERSONA_PRESETS = [
     {
       ...ARHA_DEFAULT,
       color: 'from-indigo-500/20 to-violet-600/20 border-indigo-400/30 text-indigo-200',
@@ -447,7 +442,13 @@ casual slang / empty filler → refined, intentional word choice
 informal speech (반말) → strictly forbidden, always 존댓말
 ANALYSIS JSON must be maintained`,
     },
-  ] as const;
+] as const;
+
+// ── Component ──────────────────────────────────────────────────────────────
+
+const App: React.FC = () => {
+  const { user, loading, signOut: firebaseSignOut } = useAuth();
+  const { lang, setLang, t } = useI18n();
 
   // ── State ──────────────────────────────────────────────────────────────
 
@@ -560,20 +561,27 @@ ANALYSIS JSON must be maintained`,
     init();
   }, [user]);
 
-  // ── Autosave: debounce 1.5 s after messages change ──
+  // ── Autosave: useRef-based debounce (2 s) ──
+  const autosaveTimer = useRef<ReturnType<typeof setTimeout>>();
   useEffect(() => {
     if (!user || messages.length <= 1) return;
-    const timer = setTimeout(() => {
+    clearTimeout(autosaveTimer.current);
+    autosaveTimer.current = setTimeout(() => {
       saveAutosave(user.uid, messages, currentAnalysis);
-    }, 1500);
-    return () => clearTimeout(timer);
+    }, 2000);
+    return () => clearTimeout(autosaveTimer.current);
   }, [messages, currentAnalysis, user]);
 
-  // ── Auto-scroll to bottom on new messages ──
+  // ── Auto-scroll: coalesce with rAF ──
+  const scrollRaf = useRef<number>();
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
-    }
+    cancelAnimationFrame(scrollRaf.current!);
+    scrollRaf.current = requestAnimationFrame(() => {
+      if (scrollRef.current) {
+        scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+      }
+    });
+    return () => cancelAnimationFrame(scrollRaf.current!);
   }, [messages]);
 
   // ── Close hamburger menu when clicking outside ──
@@ -600,13 +608,13 @@ ANALYSIS JSON must be maintained`,
   // ── Background presets ──────────────────────────────────────────────────
   const NASA_BG = 'https://images.unsplash.com/photo-1462331940025-496dfbfc7564?auto=format&fit=crop&w=1920&q=80';
 
-  const BG_PRESETS = [
+  const BG_PRESETS = useMemo(() => [
     { id: 'space',   label: t.bgSpace,  url: 'https://images.unsplash.com/photo-1462331940025-496dfbfc7564?auto=format&fit=crop&w=1920&q=80' },
     { id: 'galaxy',  label: t.bgGalaxy, url: 'https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?auto=format&fit=crop&w=1920&q=80' },
     { id: 'aurora',  label: t.bgAurora, url: 'https://images.unsplash.com/photo-1531366936337-7c912a4589a7?auto=format&fit=crop&w=1920&q=80' },
     { id: 'forest',  label: t.bgForest, url: 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1920&q=80' },
     { id: 'ocean',   label: t.bgOcean,  url: 'https://images.unsplash.com/photo-1505118380757-91f5f5632de0?auto=format&fit=crop&w=1920&q=80' },
-  ];
+  ], [t]);
 
   const bgImageUrl = customBg ?? (
     weatherInfo
@@ -621,7 +629,7 @@ ANALYSIS JSON must be maintained`,
       : NASA_BG
   );
 
-  const handleBgUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleBgUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
@@ -630,17 +638,17 @@ ANALYSIS JSON must be maintained`,
       setShowMenu(false);
     };
     reader.readAsDataURL(file);
-  };
+  }, []);
 
   // ── Persona handlers ───────────────────────────────────────────────────
 
-  const handlePersonaReset = () => {
+  const handlePersonaReset = useCallback(() => {
     setPersonaConfig(ARHA_DEFAULT);
     if (user) savePersona(user.uid, ARHA_DEFAULT);
-  };
+  }, [user]);
 
   // ── Value profile: build prompt injection for Claude ──
-  const buildValuePrompt = (): string | null => {
+  const buildValuePrompt = useCallback((): string | null => {
     const top = getTopKeywords(valueProfile, 5);
     if (!top.length) return null;
 
@@ -660,19 +668,19 @@ ANALYSIS JSON must be maintained`,
       '4. Respond as a friend who already knows this person\'s essence, without announcing it.',
       'Do NOT directly quote or analyze the keyword list. Let it seep in naturally.',
     ].join('\n');
-  };
+  }, [valueProfile]);
 
   // ── Persona prompt: combine tonePrompt + value profile ──
-  const buildPersonaPrompt = (): string | null => {
+  const buildPersonaPrompt = useCallback((): string | null => {
     const valuePrompt = buildValuePrompt();
     const parts: string[] = [];
     if (personaConfig.tonePrompt) parts.push(personaConfig.tonePrompt);
     if (valuePrompt) parts.push('', valuePrompt);
     return parts.length ? parts.join('\n') : null;
-  };
+  }, [personaConfig.tonePrompt, buildValuePrompt]);
 
   // ── Chat reset: archive current session ──
-  const handleReset = () => {
+  const handleReset = useCallback(() => {
     if (messages.length > 1) {
       const session: ChatSession = {
         id: Date.now().toString(),
@@ -686,20 +694,20 @@ ANALYSIS JSON must be maintained`,
     }
     setMessages([{ id: '1', role: 'assistant', content: t.resetMsg, timestamp: Date.now() }]);
     setCurrentAnalysis(null);
-  };
+  }, [messages, currentAnalysis, user, t.resetMsg]);
 
-  const handleDeleteHistory = (e: React.MouseEvent, sessionId: string) => {
+  const handleDeleteHistory = useCallback((e: React.MouseEvent, sessionId: string) => {
     e.stopPropagation();
     setHistory(prev => prev.filter(s => s.id !== sessionId));
     if (user) deleteSession(user.uid, sessionId);
-  };
+  }, [user]);
 
-  const handleClearAllHistory = () => {
+  const handleClearAllHistory = useCallback(() => {
     setHistory([]);
     if (user) clearAllSessions(user.uid);
-  };
+  }, [user]);
 
-  const handleFileAttach = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileAttach = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const isImage = file.type.startsWith('image/');
@@ -712,10 +720,10 @@ ANALYSIS JSON must be maintained`,
     };
     reader.readAsDataURL(file);
     e.target.value = ''; // reset so the same file can be re-selected
-  };
+  }, []);
 
   // ── Send message ───────────────────────────────────────────────────────
-  const handleSend = async () => {
+  const handleSend = useCallback(async () => {
     if ((!input.trim() && !selectedMedia) || isLoading) return;
     setShowMenu(false);
 
@@ -786,10 +794,10 @@ ANALYSIS JSON must be maintained`,
       setIsLoading(false);
       setSearchingQuery(null);
     }
-  };
+  }, [input, selectedMedia, isLoading, messages, showDashboard, user, buildPersonaPrompt, t]);
 
   // ── Video generation ───────────────────────────────────────────────────
-  const handleGenerateVideo = async () => {
+  const handleGenerateVideo = useCallback(async () => {
     if (!input.trim() || isLoading) return;
     setIsLoading(true);
     setShowMenu(false);
@@ -809,10 +817,10 @@ ANALYSIS JSON must be maintained`,
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [input, isLoading, t]);
 
   // ── Live voice (Gemini) ────────────────────────────────────────────────
-  const startLiveVoice = async () => {
+  const startLiveVoice = useCallback(async () => {
     if (isLiveActive) {
       liveSessionRef.current?.close();
       setIsLiveActive(false);
@@ -864,7 +872,7 @@ ANALYSIS JSON must be maintained`,
       });
       liveSessionRef.current = await sessionPromise;
     } catch (err) {}
-  };
+  }, [isLiveActive]);
 
   // ── Weather fetch ──────────────────────────────────────────────────────
   const fetchWeather = async (lat: number, lng: number) => {
@@ -885,12 +893,19 @@ ANALYSIS JSON must be maintained`,
   const SIDEBAR_W = 280;
   const CARD_HALF = 384; // half of max-w-3xl (768 px)
 
-  // Track viewport width to decide overlay vs side-by-side mode
+  // Track viewport width to decide overlay vs side-by-side mode (debounced 150ms)
   const [viewW, setViewW] = useState(window.innerWidth);
   useEffect(() => {
-    const onResize = () => setViewW(window.innerWidth);
+    let timer: ReturnType<typeof setTimeout>;
+    const onResize = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => setViewW(window.innerWidth), 150);
+    };
     window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', onResize);
+    };
   }, []);
 
   // Overlay mode on screens narrower than 1280 px (mobile / tablet)
@@ -900,7 +915,7 @@ ANALYSIS JSON must be maintained`,
   const btnIdle   = 'bg-white/20 text-slate-800 border border-white/40';
 
   // Build sidebar positioning style
-  const sidebarStyle = (show: boolean, side: 'left' | 'right'): React.CSSProperties => {
+  const sidebarStyle = useCallback((show: boolean, side: 'left' | 'right'): React.CSSProperties => {
     if (isOverlayMode) {
       return {
         [side]: 0,
@@ -914,14 +929,14 @@ ANALYSIS JSON must be maintained`,
       opacity: show ? 1 : 0,
       pointerEvents: show ? 'auto' : 'none',
     };
-  };
+  }, [isOverlayMode]);
 
-  const sidebarCls = (side: 'left' | 'right') =>
+  const sidebarCls = useCallback((side: 'left' | 'right') =>
     `fixed top-0 h-[100dvh] md:h-[98dvh] md:top-[1dvh] flex flex-col arha-sidebar-bg shadow-2xl overflow-hidden md:rounded-[2.5rem] ${
       isOverlayMode
         ? `z-[60] transition-transform duration-300 ${side === 'left' ? 'border-r' : 'border-l'} border-white/10`
         : `z-[5] transition-opacity duration-300 ${side === 'left' ? 'border-r' : 'border-l'} border-white/10`
-    }`;
+    }`, [isOverlayMode]);
 
   // On mobile, fix the card to visualViewport so the header doesn't clip when keyboard opens
   const isMobile = viewW < 768;
@@ -930,7 +945,7 @@ ANALYSIS JSON must be maintained`,
     : {};
 
   // ── Default value chain fallback (shown before first pipeline response) ──
-  const DEFAULT_VALUE_CHAIN = [
+  const DEFAULT_VALUE_CHAIN = useMemo(() => [
     { id: 'V1', name: t.val_v1, weight: 1.0,  activated: false },
     { id: 'V2', name: t.val_v2, weight: 0.95, activated: false },
     { id: 'V3', name: t.val_v3, weight: 0.9,  activated: false },
@@ -938,7 +953,7 @@ ANALYSIS JSON must be maintained`,
     { id: 'V5', name: t.val_v5, weight: 0.85, activated: false },
     { id: 'V6', name: t.val_v6, weight: 0.8,  activated: false },
     { id: 'V7', name: t.val_v7, weight: 0.8,  activated: false },
-  ];
+  ], [t]);
 
   // ── Render ─────────────────────────────────────────────────────────────
 

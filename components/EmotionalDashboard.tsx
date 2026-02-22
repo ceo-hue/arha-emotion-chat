@@ -144,4 +144,4 @@ const EmotionalDashboard: React.FC<EmotionalDashboardProps> = ({
   );
 };
 
-export default EmotionalDashboard;
+export default React.memo(EmotionalDashboard);

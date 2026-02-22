@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useMemo, ReactNode } from 'react';
 import {
   User,
   onAuthStateChanged,
@@ -29,27 +29,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return unsubscribe;
   }, []);
 
-  const handleSignInWithGoogle = async () => {
+  const handleSignInWithGoogle = useCallback(async () => {
     await signInWithPopup(auth, googleProvider);
-  };
+  }, []);
 
-  const handleSignOut = async () => {
+  const handleSignOut = useCallback(async () => {
     await firebaseSignOut(auth);
-  };
+  }, []);
 
-  const getIdToken = async (): Promise<string | null> => {
+  const getIdToken = useCallback(async (): Promise<string | null> => {
     if (!user) return null;
     return user.getIdToken();
-  };
+  }, [user]);
+
+  const value = useMemo(() => ({
+    user,
+    loading,
+    signInWithGoogle: handleSignInWithGoogle,
+    signOut: handleSignOut,
+    getIdToken,
+  }), [user, loading, handleSignInWithGoogle, handleSignOut, getIdToken]);
 
   return (
-    <AuthContext.Provider value={{
-      user,
-      loading,
-      signInWithGoogle: handleSignInWithGoogle,
-      signOut: handleSignOut,
-      getIdToken,
-    }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

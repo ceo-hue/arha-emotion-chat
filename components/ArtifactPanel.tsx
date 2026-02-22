@@ -94,4 +94,4 @@ const ArtifactPanel: React.FC<ArtifactPanelProps> = ({ artifact, onClose }) => {
   );
 };
 
-export default ArtifactPanel;
+export default React.memo(ArtifactPanel);
