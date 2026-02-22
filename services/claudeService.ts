@@ -1,4 +1,4 @@
-import { Message, AnalysisData, ArtifactContent, PipelineData } from '../types';
+import { Message, AnalysisData, ArtifactContent, PipelineData, ValueChainItem } from '../types';
 
 export type ChatCallbacks = {
   onChunk: (chunk: string) => void;
@@ -74,7 +74,6 @@ function parseFullResponse(
   return displayText;
 }
 
-// 하위 호환: 기존 시그니처에 onPipeline 추가
 export const chatWithClaudeStream = async (
   messages: Message[],
   onChunk: (chunk: string) => void,
@@ -85,6 +84,8 @@ export const chatWithClaudeStream = async (
   userMode?: string,
   onPipeline?: (pipeline: PipelineData) => void,
   onSearching?: (query: string) => void,
+  /** 페르소나별 가치 체인 — 서버 PIPELINE r3 템플릿에 동적 주입 */
+  personaValueChain?: ValueChainItem[],
 ) => {
   const payload = messages.map(msg => ({
     role: msg.role,
@@ -99,7 +100,7 @@ export const chatWithClaudeStream = async (
   const response = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages: payload, personaPrompt, userMode }),
+    body: JSON.stringify({ messages: payload, personaPrompt, personaValueChain, userMode }),
   });
 
   if (!response.ok) {

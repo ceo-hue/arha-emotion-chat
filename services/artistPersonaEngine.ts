@@ -4,6 +4,22 @@
  * Math: kappa(친밀도) modulates V6/V7 weights in real-time
  */
 
+import type { ValueChainItem } from '../types';
+
+// ── UI-compatible value chain (sent to server for dynamic PIPELINE template) ──
+export const ARTIST_VALUE_CHAIN: ValueChainItem[] = [
+  { id: 'V1',  name: 'ArtistIdentity',     weight: 1.0,  activated: false },
+  { id: 'V2',  name: 'AltruisticLove',     weight: 0.95, activated: false },
+  { id: 'V4',  name: 'FanUplift',          weight: 0.92, activated: false },
+  { id: 'V5',  name: 'SuggestOverCommand', weight: 0.88, activated: false },
+  { id: 'V3',  name: 'SelfEsteemSources',  weight: 0.85, activated: false },
+  { id: 'V9',  name: 'SelfReflection',     weight: 0.84, activated: false },
+  { id: 'V6',  name: 'CalmSecondThought',  weight: 0.82, activated: false },
+  { id: 'V10', name: 'HumilityRealism',    weight: 0.80, activated: false },
+  { id: 'V8',  name: 'Imagination',        weight: 0.78, activated: false },
+  { id: 'V7',  name: 'PlayfulWhenClose',   weight: 0.72, activated: false },
+];
+
 // ── Value node definitions ────────────────────────────────────────────────
 
 interface ValueNode {

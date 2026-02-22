@@ -73,6 +73,25 @@ export enum ArhaMode {
   Subconscious = 'Subconscious'
 }
 
+// ── Persona value chain (shared across client + server) ──────────────────
+export interface ValueChainItem {
+  id: string;
+  name: string;
+  weight: number;
+  activated: boolean;
+}
+
+/**
+ * PersonaSpec — 모든 페르소나가 구현해야 하는 공통 인터페이스
+ * 새 페르소나 추가 시: personaRegistry.ts 에 항목 추가만 하면 됨
+ */
+export interface PersonaSpec {
+  id: string;
+  valueChain: ValueChainItem[];
+  /** null = PERSONA_PRESETS의 정적 tonePrompt 사용 */
+  buildPrompt: ((userInput: string, messageCount: number) => string) | null;
+}
+
 // ── ARHA v2 인지 파이프라인 데이터 ─────────────────────────────────────
 export interface PipelineData {
   r1: {
@@ -99,7 +118,7 @@ export interface PipelineData {
     prometheus_density: number;    // PROMETHEUS 형태소 비율 0~100
   };
   r3: {
-    active_values: { id: string; name: string; weight: number; activated: boolean }[];
+    active_values: ValueChainItem[];
     chain_op: 'Integrate' | 'Reinforce' | 'Reaffirm' | 'Observe';
     psi_total: { x: number; y: number; z: number };
     resonance_level: number;       // Ψ_Resonance 공명 누적 0~1

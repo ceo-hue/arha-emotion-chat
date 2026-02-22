@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { Message, AnalysisData, ChatSession, TaskType, ArtifactContent, MuMode, PipelineData } from './types';
 import { chatWithClaudeStream } from './services/claudeService';
 import { generateArhaVideo } from './services/geminiService';
-import { buildArtistPrompt } from './services/artistPersonaEngine';
+import { getPersonaValueChain, buildPersonaSystemPrompt } from './services/personaRegistry';
 import { GoogleGenAI, Modality } from '@google/genai';
 import { ARHA_SYSTEM_PROMPT } from './constants';
 import {
@@ -686,18 +686,24 @@ const App: React.FC = () => {
     ].join('\n');
   }, [valueProfile]);
 
-  // ── Persona prompt: combine tonePrompt + value profile ──
+  // ── Active value chain — 현재 페르소나의 독립 체인 ──
+  const activeValueChain = useMemo(
+    () => getPersonaValueChain(personaConfig.id),
+    [personaConfig.id],
+  );
+
+  // ── Persona prompt: registry 경유 (B-mode 엔진 or 정적 tonePrompt) ──
   const buildPersonaPrompt = useCallback((): string | null => {
     const valuePrompt = buildValuePrompt();
     const parts: string[] = [];
 
-    if (personaConfig.id === 'artist') {
-      // Artist: B-mode engine (core always-on + keyword-triggered)
-      parts.push(buildArtistPrompt(input, messages.length));
-    } else if (personaConfig.tonePrompt) {
-      parts.push(personaConfig.tonePrompt);
-    }
-
+    const enginePrompt = buildPersonaSystemPrompt(
+      personaConfig.id,
+      input,
+      messages.length,
+      personaConfig.tonePrompt,
+    );
+    if (enginePrompt) parts.push(enginePrompt);
     if (valuePrompt) parts.push('', valuePrompt);
     return parts.length ? parts.join('\n') : null;
   }, [personaConfig.id, personaConfig.tonePrompt, buildValuePrompt, input, messages.length]);
@@ -811,6 +817,8 @@ const App: React.FC = () => {
         (query) => {
           setSearchingQuery(query);
         },
+        // personaValueChain: 페르소나별 독립 가치 체인 → 서버 PIPELINE r3 동적 주입
+        activeValueChain,
       );
     } catch (error) {
       setIsAnalyzing(false);
@@ -968,16 +976,7 @@ const App: React.FC = () => {
     ? { position: 'fixed', top: vvOffsetTop, left: 0, right: 0, height: vvHeight, zIndex: 10 }
     : {};
 
-  // ── Default value chain fallback (shown before first pipeline response) ──
-  const DEFAULT_VALUE_CHAIN = useMemo(() => [
-    { id: 'V1', name: t.val_v1, weight: 1.0,  activated: false },
-    { id: 'V2', name: t.val_v2, weight: 0.95, activated: false },
-    { id: 'V3', name: t.val_v3, weight: 0.9,  activated: false },
-    { id: 'V4', name: t.val_v4, weight: 0.85, activated: false },
-    { id: 'V5', name: t.val_v5, weight: 0.85, activated: false },
-    { id: 'V6', name: t.val_v6, weight: 0.8,  activated: false },
-    { id: 'V7', name: t.val_v7, weight: 0.8,  activated: false },
-  ], [t]);
+  // DEFAULT_VALUE_CHAIN 제거 — activeValueChain(레지스트리)이 대체
 
   // ── Render ─────────────────────────────────────────────────────────────
 
@@ -1394,7 +1393,7 @@ const App: React.FC = () => {
             <div className="space-y-2 pt-1">
               <p className="text-[9px] font-black uppercase tracking-widest text-white/30 px-0.5">Value Chain</p>
               <div className="rounded-2xl border border-white/10 bg-white/3 px-3 py-2.5 space-y-1.5">
-                {(pipelineData?.r3.active_values ?? DEFAULT_VALUE_CHAIN).map(v => (
+                {(pipelineData?.r3.active_values ?? activeValueChain).map(v => (
                   <div key={v.id} className="flex items-center gap-2">
                     <span className={`text-[7px] font-black w-4 shrink-0 ${v.activated ? 'text-violet-400' : 'text-white/25'}`}>{v.id}</span>
                     <div className="flex-1 h-1.5 bg-white/8 rounded-full overflow-hidden">

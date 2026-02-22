@@ -81,8 +81,29 @@ const MODE_PROMPTS = {
 - One paragraph of logic + one sentence of emotional closing.`,
 };
 
-// ── Analysis + Pipeline output blocks (required in every response) ────────
-const ANALYSIS_PROMPT = `
+// ── ARHA default value chain (fallback when no persona chain is sent) ────────
+const ARHA_DEFAULT_CHAIN = [
+  { id: 'V1', name: 'Authenticity', weight: 1.0,  activated: true  },
+  { id: 'V2', name: 'UserLove',     weight: 0.95, activated: true  },
+  { id: 'V3', name: 'Growth',       weight: 0.9,  activated: false },
+  { id: 'V4', name: 'Curiosity',    weight: 0.85, activated: false },
+  { id: 'V5', name: 'Honesty',      weight: 0.85, activated: false },
+  { id: 'V6', name: 'Courage',      weight: 0.8,  activated: false },
+  { id: 'V7', name: 'Creativity',   weight: 0.8,  activated: false },
+];
+
+// ── Dynamic PIPELINE template builder — r3.active_values 페르소나별 주입 ──
+function buildAnalysisPrompt(personaValueChain) {
+  const chain = (personaValueChain && personaValueChain.length > 0)
+    ? personaValueChain
+    : ARHA_DEFAULT_CHAIN;
+
+  const r3Values = JSON.stringify(chain);
+
+  const pipelineTemplate =
+    `[PIPELINE]{"r1":{"theta1":0.6,"entropy":0.45,"emotion_phase":{"amplitude":0.5,"direction":0.3,"sustain":0.6},"empathy":0.65,"gamma_detect":false,"dominant_sense":"S3","intent_summary":"question/explore"},"r2":{"delta_theta":0.08,"r_conflict":0.1,"tension":0.15,"consistency":0.92,"decision":"D_Accept","tone":"warm_empathetic","arha_density":80,"prometheus_density":20},"r3":{"active_values":${r3Values},"chain_op":"Integrate","psi_total":{"x":0.6,"y":-0.2,"z":0.7},"resonance_level":0.65},"r4":{"rhythm":"slow_wave","lingua_rho":0.55,"lingua_lambda":"medium","lingua_tau":0.2,"target_senses":["S3","S5"],"expression_style":"warm_empathetic"}}[/PIPELINE]`;
+
+  return `
 ### Output Format Requirements
 At the end of every response, include BOTH blocks in this exact order. Fill all fields with accurate values reflecting the actual current interaction.
 
@@ -90,10 +111,11 @@ At the end of every response, include BOTH blocks in this exact order. Fill all 
 [ANALYSIS]{"psi":{"x":0.5,"y":0.2,"z":0.8},"phi":"echo","sentiment":"analysis label","resonance":85,"summary":"analysis summary","tags":["tag1","tag2","tag3"],"mu_mode":"A_MODE","emotion_label":"neutral","trajectory":"stable","modulation_profile":"NEUTRAL_STABLE"}[/ANALYSIS]
 
 **Block 2 — Cognitive Pipeline R1→R4:**
-[PIPELINE]{"r1":{"theta1":0.6,"entropy":0.45,"emotion_phase":{"amplitude":0.5,"direction":0.3,"sustain":0.6},"empathy":0.65,"gamma_detect":false,"dominant_sense":"S3","intent_summary":"question/explore"},"r2":{"delta_theta":0.08,"r_conflict":0.1,"tension":0.15,"consistency":0.92,"decision":"D_Accept","tone":"warm_empathetic","arha_density":80,"prometheus_density":20},"r3":{"active_values":[{"id":"V1","name":"Authenticity","weight":1.0,"activated":true},{"id":"V2","name":"UserLove","weight":0.95,"activated":true},{"id":"V3","name":"Growth","weight":0.9,"activated":false},{"id":"V4","name":"Curiosity","weight":0.85,"activated":false},{"id":"V5","name":"Honesty","weight":0.85,"activated":false},{"id":"V6","name":"Courage","weight":0.8,"activated":false},{"id":"V7","name":"Creativity","weight":0.8,"activated":false}],"chain_op":"Integrate","psi_total":{"x":0.6,"y":-0.2,"z":0.7},"resonance_level":0.65},"r4":{"rhythm":"slow_wave","lingua_rho":0.55,"lingua_lambda":"medium","lingua_tau":0.2,"target_senses":["S3","S5"],"expression_style":"warm_empathetic"}}[/PIPELINE]
+${pipelineTemplate}
 
 Values for Block 1 — emotion_label: joy|sadness|anger|anxiety|neutral|excitement | trajectory: stable|escalating|cooling|reversal_possible | modulation_profile: NEUTRAL_STABLE|WARM_SUPPORT|DEESCALATE_CALM|MATCH_ENERGY|TURNING_POINT
 Values for Block 2 — decision: D_Accept|D_Neutral|D_Reject|D_Defend | chain_op: Integrate|Reinforce|Reaffirm|Observe | rhythm: slow_wave|fast_pulse|echo|step|fade_out | lingua_tau: -1.0(past-oriented/retrospective)~0(present)~+1.0(future-oriented/forward-looking)
+r3 active_values: Use the provided value chain. Set activated:true for values clearly relevant to this interaction, activated:false for others.
 
 ### Live Emotion Modulation
 - WARM_SUPPORT: sadness/low valence → acknowledge first, solutions later, short sentences
@@ -103,14 +125,15 @@ Values for Block 2 — decision: D_Accept|D_Neutral|D_Reject|D_Defend | chain_op
 
 ### Web Search
 When current information, news, weather, or real-time data is needed, use the web_search tool.`;
+}
 
-// Assemble final system prompt: inject today's date so Claude answers date queries accurately
-function buildSystemPrompt(muMode, personaPrompt) {
+// Assemble final system prompt
+function buildSystemPrompt(muMode, personaPrompt, personaValueChain) {
   const today = new Date().toLocaleDateString('ko-KR', {
     year: 'numeric', month: 'long', day: 'numeric', weekday: 'long',
   });
   const dateLine = `\n> 📅 Today's date: ${today} — Use this as the reference for any date/time questions. No search needed.\n`;
-  const parts = [CORE_PROMPT + dateLine, MODE_PROMPTS[muMode] || MODE_PROMPTS.A_MODE, ANALYSIS_PROMPT];
+  const parts = [CORE_PROMPT + dateLine, MODE_PROMPTS[muMode] || MODE_PROMPTS.A_MODE, buildAnalysisPrompt(personaValueChain)];
   if (personaPrompt) parts.push(`\n${personaPrompt}`);
   return parts.join('\n');
 }
@@ -157,13 +180,13 @@ const tools = [
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { messages, personaPrompt, userMode } = req.body;
+  const { messages, personaPrompt, personaValueChain, userMode } = req.body;
 
   const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')?.content ?? '';
   const muMode = userMode || detectMode(lastUserMsg);
   console.log(`🔀 Pipeline v2: ${muMode} ${userMode ? '(user)' : `(auto: "${lastUserMsg.slice(0, 40)}")`}`);
 
-  const finalSystemPrompt = buildSystemPrompt(muMode, personaPrompt);
+  const finalSystemPrompt = buildSystemPrompt(muMode, personaPrompt, personaValueChain);
 
   try {
     // Normalize message format: embed media as vision/document blocks
