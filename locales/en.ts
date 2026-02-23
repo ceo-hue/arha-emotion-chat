@@ -68,7 +68,7 @@ export const en: Translations = {
   // ── Menu ──
   menuBgTitle: 'Background',
   menuUploadPhoto: 'Upload Photo',
-  menuRestoreWeather: 'Restore Weather BG',
+  menuRestoreWeather: 'Restore Default BG',
   menuComingSoon: 'Coming Soon',
 
   // ── Background presets ──
@@ -77,6 +77,16 @@ export const en: Translations = {
   bgAurora: 'Aurora',
   bgForest: 'Forest',
   bgOcean: 'Ocean',
+  bgNeonGradient: 'Neon Gradient',
+  bgPurpleWave: 'Purple Wave',
+  bgStarryMountain: 'Starry Mountain',
+  bgNightCity: 'Night City',
+  bgEarthSpace: 'Earth',
+  bgLiquidArt: 'Liquid Art',
+  bgGlowingLight: 'Glowing Light',
+  bgBokehLight: 'Bokeh Light',
+  bgDarkForest: 'Dark Forest',
+  bgMountainMist: 'Mountain Mist',
 
   // ── Auth (header) ──
   signInTitle: 'Sign in with Google',

@@ -66,7 +66,7 @@ export const ko = {
   // ── Menu ──
   menuBgTitle: '배경 변경',
   menuUploadPhoto: '내 사진 업로드',
-  menuRestoreWeather: '날씨 배경으로 복원',
+  menuRestoreWeather: '기본 배경으로 복원',
   menuComingSoon: '준비중인 기능',
 
   // ── Background presets ──
@@ -75,6 +75,16 @@ export const ko = {
   bgAurora: '오로라',
   bgForest: '숲 아침',
   bgOcean: '바다',
+  bgNeonGradient: '네온 그라데이션',
+  bgPurpleWave: '퍼플 웨이브',
+  bgStarryMountain: '별빛 산',
+  bgNightCity: '야경 도시',
+  bgEarthSpace: '지구',
+  bgLiquidArt: '리퀴드 아트',
+  bgGlowingLight: '빛의 향연',
+  bgBokehLight: '보케 라이트',
+  bgDarkForest: '어두운 숲',
+  bgMountainMist: '안개 산',
 
   // ── Auth (header) ──
   signInTitle: 'Google로 로그인',

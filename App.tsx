@@ -513,7 +513,7 @@ const App: React.FC = () => {
   const [showDashboard, setShowDashboard] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState<ChatSession[]>([]);
-  const [customBg, setCustomBg] = useState<string | null>(null);
+  const [customBg, setCustomBg] = useState<string | null>(() => localStorage.getItem('arha-bg'));
 
   // Persona state — holds the currently active persona config
   const [personaConfig, setPersonaConfig] = useState(ARHA_DEFAULT);
@@ -568,6 +568,15 @@ const App: React.FC = () => {
       vv.removeEventListener('scroll', update);
     };
   }, []);
+
+  // ── Persist background choice to localStorage (URL-only, skip base64) ──
+  useEffect(() => {
+    if (customBg && !customBg.startsWith('data:')) {
+      localStorage.setItem('arha-bg', customBg);
+    } else if (!customBg) {
+      localStorage.removeItem('arha-bg');
+    }
+  }, [customBg]);
 
   // ── Init: migrate localStorage → Firestore, then load user data ──
   useEffect(() => {
@@ -659,25 +668,26 @@ const App: React.FC = () => {
   const NASA_BG = 'https://images.unsplash.com/photo-1462331940025-496dfbfc7564?auto=format&fit=crop&w=1920&q=80';
 
   const BG_PRESETS = useMemo(() => [
-    { id: 'space',   label: t.bgSpace,  url: 'https://images.unsplash.com/photo-1462331940025-496dfbfc7564?auto=format&fit=crop&w=1920&q=80' },
-    { id: 'galaxy',  label: t.bgGalaxy, url: 'https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?auto=format&fit=crop&w=1920&q=80' },
-    { id: 'aurora',  label: t.bgAurora, url: 'https://images.unsplash.com/photo-1531366936337-7c912a4589a7?auto=format&fit=crop&w=1920&q=80' },
-    { id: 'forest',  label: t.bgForest, url: 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1920&q=80' },
-    { id: 'ocean',   label: t.bgOcean,  url: 'https://images.unsplash.com/photo-1505118380757-91f5f5632de0?auto=format&fit=crop&w=1920&q=80' },
+    { id: 'space',          label: t.bgSpace,         url: 'https://images.unsplash.com/photo-1462331940025-496dfbfc7564?auto=format&fit=crop&w=1920&q=80' },
+    { id: 'galaxy',         label: t.bgGalaxy,        url: 'https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?auto=format&fit=crop&w=1920&q=80' },
+    { id: 'aurora',         label: t.bgAurora,        url: 'https://images.unsplash.com/photo-1531366936337-7c912a4589a7?auto=format&fit=crop&w=1920&q=80' },
+    { id: 'forest',         label: t.bgForest,        url: 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1920&q=80' },
+    { id: 'ocean',          label: t.bgOcean,         url: 'https://images.unsplash.com/photo-1505118380757-91f5f5632de0?auto=format&fit=crop&w=1920&q=80' },
+    // ── Glassmorphism-friendly additions ──────────────────────────────────
+    { id: 'neonGradient',   label: t.bgNeonGradient,  url: 'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?auto=format&fit=crop&w=1920&q=80' },
+    { id: 'purpleWave',     label: t.bgPurpleWave,    url: 'https://images.unsplash.com/photo-1557682250-33bd709cbe85?auto=format&fit=crop&w=1920&q=80' },
+    { id: 'starryMountain', label: t.bgStarryMountain,url: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=1920&q=80' },
+    { id: 'nightCity',      label: t.bgNightCity,     url: 'https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?auto=format&fit=crop&w=1920&q=80' },
+    { id: 'earthSpace',     label: t.bgEarthSpace,    url: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1920&q=80' },
+    { id: 'liquidArt',      label: t.bgLiquidArt,     url: 'https://images.unsplash.com/photo-1550684376-efcbd6e3f031?auto=format&fit=crop&w=1920&q=80' },
+    { id: 'glowingLight',   label: t.bgGlowingLight,  url: 'https://images.unsplash.com/photo-1614854262318-831574f15f1f?auto=format&fit=crop&w=1920&q=80' },
+    { id: 'bokehLight',     label: t.bgBokehLight,    url: 'https://images.unsplash.com/photo-1493552152660-f915ab47ae9d?auto=format&fit=crop&w=1920&q=80' },
+    { id: 'darkForest',     label: t.bgDarkForest,    url: 'https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=1920&q=80' },
+    { id: 'mountainMist',   label: t.bgMountainMist,  url: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=1920&q=80' },
   ], [t]);
 
-  const bgImageUrl = customBg ?? (
-    weatherInfo
-      ? (() => {
-          const weatherImages: { [key: string]: string } = {
-            Clear: 'photo-1470770841072-f978cf4d019e',
-            Rainy: 'photo-1428592953211-077101b2021b',
-            Snowy: 'photo-1483344331401-490f845012bb',
-          };
-          return `https://images.unsplash.com/${weatherImages[weatherInfo.label] || 'photo-1441974231531-c6227db76b6e'}?auto=format&fit=crop&w=1920&q=80`;
-        })()
-      : NASA_BG
-  );
+  // Fixed default — no auto weather switch (prevents visible bg change on load)
+  const bgImageUrl = customBg ?? NASA_BG;
 
   const handleBgUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1630,7 +1640,7 @@ const App: React.FC = () => {
                 </label>
 
                 {/* Preset thumbnails */}
-                <div className="grid grid-cols-5 gap-1.5 px-1 mt-1 mb-2">
+                <div className="grid grid-cols-5 gap-1.5 px-1 mt-1 mb-2 max-h-[132px] overflow-y-auto scrollbar-none">
                   {BG_PRESETS.map((p) => (
                     <button
                       key={p.id}
