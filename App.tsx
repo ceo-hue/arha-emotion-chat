@@ -613,8 +613,6 @@ const App: React.FC = () => {
         });
       }
 
-      // Auto-open dashboard on wide screens
-      if (window.innerWidth >= 1200) setShowDashboard(true);
     };
 
     init();
@@ -855,8 +853,6 @@ const App: React.FC = () => {
         // onPipeline: receive R1→R4 pipeline data
         (pipeline) => {
           setPipelineData(pipeline);
-          // Only auto-open dashboard on wide screens (desktop)
-          if (!showDashboard && window.innerWidth >= 1200) setShowDashboard(true);
         },
         // onSearching: show live search query indicator in chat
         (query) => {
