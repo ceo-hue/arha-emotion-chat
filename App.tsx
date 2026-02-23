@@ -166,6 +166,14 @@ const PERSONA_PRESETS = [
       color: 'from-yellow-500/20 to-orange-600/20 border-yellow-400/30 text-yellow-200',
       tonePrompt: '', // handled by milimPersonaEngine (B-mode: crack|pout|battle)
     },
+    {
+      id: 'mochi',
+      label: 'Mochi',
+      emoji: '🍡',
+      description: 'Soft & bubbly — cute is her identity, not her performance',
+      color: 'from-pink-400/20 to-pink-600/20 border-pink-400/30 text-pink-200',
+      tonePrompt: '', // handled by mochiPersonaEngine (B-mode: dignity|bouncy|curious)
+    },
 ] as const;
 
 // ── REMOVED PRESETS PLACEHOLDER — keep for git history ─────────────────

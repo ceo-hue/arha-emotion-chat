@@ -51,6 +51,8 @@ export const ko = {
   persona_elegant_desc: '영화적 내레이션 · 절제된 우아함',
   persona_milim_label: '밀림',
   persona_milim_desc: '마왕 · 나카마 최우선 · 화산 같은 에너지',
+  persona_mochi_label: '모찌',
+  persona_mochi_desc: '말랑말랑 · 귀여움은 퍼포먼스가 아닌 정체성',
 
   // ── Value chain default names ──
   val_v1: '진정성',

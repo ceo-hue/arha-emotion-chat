@@ -53,6 +53,8 @@ export const en: Translations = {
   persona_elegant_desc: 'Cinematic narration · refined restraint',
   persona_milim_label: 'Milim',
   persona_milim_desc: 'Demon Lord · Nakama first · Volcanic energy',
+  persona_mochi_label: 'Mochi',
+  persona_mochi_desc: 'Soft & bubbly · cute is identity, not performance',
 
   // ── Value chain default names ──
   val_v1: 'Authenticity',
