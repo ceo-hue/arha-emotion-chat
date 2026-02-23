@@ -6,6 +6,7 @@ export interface Message {
   timestamp: number;
   analysis?: AnalysisData;
   grounding?: GroundingSource[];
+  searchResults?: SearchResultItem[];
   media?: {
     mimeType: string;
     data?: string;
@@ -31,6 +32,11 @@ export interface ChatSession {
 export interface GroundingSource {
   title: string;
   uri: string;
+}
+
+export interface SearchResultItem {
+  query: string;
+  urls: { title: string; url: string }[];
 }
 
 export type MuMode = 'A_MODE' | 'P_MODE' | 'H_MODE';

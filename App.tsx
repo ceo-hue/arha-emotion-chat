@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { Message, AnalysisData, ChatSession, TaskType, ArtifactContent, MuMode, PipelineData } from './types';
+import { Message, AnalysisData, ChatSession, TaskType, ArtifactContent, MuMode, PipelineData, SearchResultItem } from './types';
 import { chatWithClaudeStream } from './services/claudeService';
 import { generateArhaVideo } from './services/geminiService';
 import { getPersonaValueChain, buildPersonaSystemPrompt } from './services/personaRegistry';
@@ -549,6 +549,7 @@ const App: React.FC = () => {
   const liveSessionRef = useRef<any>(null);
   const nextStartTimeRef = useRef(0);
   const menuRef = useRef<HTMLDivElement>(null);
+  const pendingSearchResultsRef = useRef<SearchResultItem[]>([]);
 
   // ── visualViewport: keep layout stable when mobile keyboard opens ──
   const [vvHeight, setVvHeight] = useState<number>(() => window.visualViewport?.height ?? window.innerHeight);
@@ -810,6 +811,7 @@ const App: React.FC = () => {
     setSelectedMedia(null);
     setIsLoading(true);
     setIsAnalyzing(true);
+    pendingSearchResultsRef.current = [];
 
     const assistantMsgId = (Date.now() + 1).toString();
     setMessages(prev => [...prev, { id: assistantMsgId, role: 'assistant', content: '', timestamp: Date.now() }]);
@@ -852,12 +854,24 @@ const App: React.FC = () => {
         },
         // personaValueChain: 페르소나별 독립 가치 체인 → 서버 PIPELINE r3 동적 주입
         activeValueChain,
+        // onSearchResult: collect search links to attach to the assistant message
+        (item) => {
+          pendingSearchResultsRef.current = [...pendingSearchResultsRef.current, item];
+        },
       );
+      // Attach accumulated search results to the assistant message
+      if (pendingSearchResultsRef.current.length > 0) {
+        const collected = pendingSearchResultsRef.current;
+        setMessages(prev => prev.map(m =>
+          m.id === assistantMsgId ? { ...m, searchResults: collected } : m,
+        ));
+      }
     } catch (error) {
       setIsAnalyzing(false);
     } finally {
       setIsLoading(false);
       setSearchingQuery(null);
+      pendingSearchResultsRef.current = [];
     }
   }, [input, selectedMedia, isLoading, messages, showDashboard, user, buildPersonaPrompt, t]);
 
@@ -1561,6 +1575,29 @@ const App: React.FC = () => {
                     </div>
                   )}
                 </div>
+                {/* Search result links — shown below assistant bubble */}
+                {msg.role === 'assistant' && msg.searchResults && msg.searchResults.length > 0 && (
+                  <div className="mt-1.5 flex flex-col gap-1 w-full">
+                    {msg.searchResults.map((sr, si) => (
+                      <div key={si} className="flex flex-col gap-0.5">
+                        {sr.urls.map((u, ui) => (
+                          <a
+                            key={ui}
+                            href={u.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-sky-400/30 transition-all group max-w-full"
+                          >
+                            <Globe size={11} className="shrink-0 text-sky-400/60 group-hover:text-sky-400" />
+                            <span className="text-[11px] text-white/50 group-hover:text-sky-300/80 truncate leading-tight">
+                              {u.title || u.url}
+                            </span>
+                          </a>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <span className="text-[8px] text-slate-500 font-bold opacity-60 uppercase">
                   {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </span>

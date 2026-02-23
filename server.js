@@ -149,13 +149,15 @@ async function tavilySearch(query) {
   if (!response.ok) throw new Error(`Tavily API error: ${response.status}`);
   const data = await response.json();
   const results = [];
+  const urls = [];
   if (data.answer) results.push(`Summary: ${data.answer}`);
   if (data.results?.length) {
     data.results.slice(0, 3).forEach((r, i) => {
       results.push(`[${i + 1}] ${r.title}\n${r.content?.slice(0, 300)}...\nSource: ${r.url}`);
+      urls.push({ title: r.title, url: r.url });
     });
   }
-  return results.join('\n\n');
+  return { text: results.join('\n\n'), urls };
 }
 
 // Tool definition for Claude's tool-use API
@@ -229,16 +231,21 @@ app.post('/api/chat', async (req, res) => {
         if (toolBlock?.name === 'web_search') {
           console.log(`🔍 Web search [${i + 1}]:`, toolBlock.input.query);
           res.write(`data: ${JSON.stringify({ type: 'searching', query: toolBlock.input.query })}\n\n`);
-          let searchResult;
+          let searchText = '';
+          let searchUrls = [];
           try {
-            searchResult = await tavilySearch(toolBlock.input.query);
+            const result = await tavilySearch(toolBlock.input.query);
+            searchText = result.text;
+            searchUrls = result.urls;
           } catch (err) {
-            searchResult = `Search error: ${err.message}`;
+            searchText = `Search error: ${err.message}`;
           }
+          // Emit search_result event so the UI can show source links
+          res.write(`data: ${JSON.stringify({ type: 'search_result', query: toolBlock.input.query, urls: searchUrls })}\n\n`);
           currentMessages = [
             ...currentMessages,
             { role: 'assistant', content: apiResponse.content },
-            { role: 'user', content: [{ type: 'tool_result', tool_use_id: toolBlock.id, content: searchResult }] },
+            { role: 'user', content: [{ type: 'tool_result', tool_use_id: toolBlock.id, content: searchText }] },
           ];
           continue;
         }

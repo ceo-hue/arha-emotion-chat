@@ -1,4 +1,4 @@
-import { Message, AnalysisData, ArtifactContent, PipelineData, ValueChainItem } from '../types';
+import { Message, AnalysisData, ArtifactContent, PipelineData, ValueChainItem, SearchResultItem } from '../types';
 
 export type ChatCallbacks = {
   onChunk: (chunk: string) => void;
@@ -7,6 +7,7 @@ export type ChatCallbacks = {
   onArtifact?: (artifact: ArtifactContent) => void;
   onMuMode?: (mode: string) => void;
   onSearching?: (query: string) => void;
+  onSearchResult?: (item: SearchResultItem) => void;
 };
 
 function parseArtifact(text: string): ArtifactContent | null {
@@ -86,6 +87,7 @@ export const chatWithClaudeStream = async (
   onSearching?: (query: string) => void,
   /** 페르소나별 가치 체인 — 서버 PIPELINE r3 템플릿에 동적 주입 */
   personaValueChain?: ValueChainItem[],
+  onSearchResult?: (item: SearchResultItem) => void,
 ) => {
   const payload = messages.map(msg => ({
     role: msg.role,
@@ -114,6 +116,9 @@ export const chatWithClaudeStream = async (
   if (contentType.includes('application/json')) {
     const data = await response.json();
     if (data.error) throw new Error(data.error);
+    if (data.searchResults?.length && onSearchResult) {
+      data.searchResults.forEach((item: SearchResultItem) => onSearchResult(item));
+    }
     return parseFullResponse(data.text, { onChunk, onAnalysis, onPipeline, onArtifact, onMuMode }, data.muMode);
   }
 
@@ -157,6 +162,9 @@ export const chatWithClaudeStream = async (
         } else if (parsed.type === 'searching') {
           // 인터넷 검색 시작 알림
           if (onSearching) onSearching(parsed.query);
+        } else if (parsed.type === 'search_result') {
+          // 검색 완료 — 링크 정보 전달
+          if (onSearchResult) onSearchResult({ query: parsed.query, urls: parsed.urls ?? [] });
         } else if (parsed.type === 'error') {
           throw new Error(parsed.message);
         }

@@ -154,13 +154,15 @@ async function tavilySearch(query) {
   if (!response.ok) throw new Error(`Tavily API error: ${response.status}`);
   const data = await response.json();
   const results = [];
+  const urls = [];
   if (data.answer) results.push(`Summary: ${data.answer}`);
   if (data.results?.length) {
     data.results.slice(0, 3).forEach((r, i) => {
       results.push(`[${i + 1}] ${r.title}\n${r.content?.slice(0, 300)}...\nSource: ${r.url}`);
+      urls.push({ title: r.title, url: r.url });
     });
   }
-  return results.join('\n\n');
+  return { text: results.join('\n\n'), urls };
 }
 
 // Tool definition for Claude's tool-use API
@@ -211,6 +213,7 @@ export default async function handler(req, res) {
 
     let currentMessages = [...claudeMessages];
     let finalText = null;
+    const searchResults = [];
 
     // Tool-use loop — up to 3 search iterations
     // - stop_reason === 'tool_use': run Tavily → repeat
@@ -244,13 +247,20 @@ export default async function handler(req, res) {
         const toolUseBlock = data.content.find(b => b.type === 'tool_use');
         if (toolUseBlock?.name === 'web_search') {
           console.log('🔍 Web search:', toolUseBlock.input.query);
-          let searchResult;
-          try { searchResult = await tavilySearch(toolUseBlock.input.query); }
-          catch (err) { searchResult = `Search error: ${err.message}`; }
+          let searchText = '';
+          let searchUrls = [];
+          try {
+            const result = await tavilySearch(toolUseBlock.input.query);
+            searchText = result.text;
+            searchUrls = result.urls;
+          } catch (err) {
+            searchText = `Search error: ${err.message}`;
+          }
+          searchResults.push({ query: toolUseBlock.input.query, urls: searchUrls });
           currentMessages = [
             ...currentMessages,
             { role: 'assistant', content: data.content },
-            { role: 'user', content: [{ type: 'tool_result', tool_use_id: toolUseBlock.id, content: searchResult }] },
+            { role: 'user', content: [{ type: 'tool_result', tool_use_id: toolUseBlock.id, content: searchText }] },
           ];
           continue;
         }
@@ -263,7 +273,7 @@ export default async function handler(req, res) {
 
     // Fallback if all iterations exhausted without a text response
     if (finalText === null) finalText = 'Sorry, I was unable to generate a response.';
-    res.status(200).json({ text: finalText, muMode });
+    res.status(200).json({ text: finalText, muMode, searchResults });
   } catch (error) {
     console.error('Server Error:', error);
     res.status(500).json({ error: error.message });
