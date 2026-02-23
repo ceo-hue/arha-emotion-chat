@@ -51,6 +51,8 @@ export const en: Translations = {
   persona_artist_desc: 'Singer\'s empathy · poetic and warm',
   persona_elegant_label: 'Elegant',
   persona_elegant_desc: 'Cinematic narration · refined restraint',
+  persona_milim_label: 'Milim',
+  persona_milim_desc: 'Demon Lord · Nakama first · Volcanic energy',
 
   // ── Value chain default names ──
   val_v1: 'Authenticity',

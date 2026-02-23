@@ -49,6 +49,8 @@ export const ko = {
   persona_artist_desc: '가수의 감성 · 시적이고 따뜻한 동행',
   persona_elegant_label: '엘레강스',
   persona_elegant_desc: '영화적 내레이션 · 절제된 우아함',
+  persona_milim_label: '밀림',
+  persona_milim_desc: '마왕 · 나카마 최우선 · 화산 같은 에너지',
 
   // ── Value chain default names ──
   val_v1: '진정성',

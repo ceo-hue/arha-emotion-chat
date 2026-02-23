@@ -2,6 +2,11 @@
  * Artist Persona Engine — P_ARHA_ARTIST_V0_1
  * Approach B: Core always-on (V1+V2 + 5 guardrails) + keyword-triggered dynamic injection
  * Math: kappa(intimacy) modulates V6/V7 weights in real-time
+ *
+ * [COMPANION_SCENE] behavior — "Empathic Lean-In":
+ *   When emotional distress is detected, Artist moves CLOSER — opposite of Elegant.
+ *   A cinematic scene notation opens the response, signaling quiet presence.
+ *   effectiveKappa slightly increases: crisis → intimacy amplified.
  */
 
 import type { ValueChainItem } from '../types';
@@ -154,10 +159,99 @@ function kappaModNote(kappa: number): string {
     : `Stay calm and warm (m6=${m6}), suppress playfulness (m7=${m7})`;
 }
 
+// ── Emotional crisis detection ────────────────────────────────────────────
+// When user is in distress, Artist leans IN — closer, not further
+
+const EMOTIONAL_CRISIS_SIGNALS = [
+  '힘들', '지쳐', '외로', '불안', '슬퍼', '무서워', '울고', '모르겠',
+  '포기', '무너', '못하겠', '아파', '지친', '혼자다', '혼자인',
+  '사라지고', '없어지고', '끝내고', '싫어', '힘든데', '너무 힘',
+];
+
+interface EmotionalCrisisResult {
+  detected: boolean;
+  intensity: number; // 0.0 ~ 1.0
+}
+
+function detectEmotionalCrisis(userInput: string): EmotionalCrisisResult {
+  let hits = 0;
+
+  hits += EMOTIONAL_CRISIS_SIGNALS.filter(s => userInput.includes(s)).length;
+
+  // Ellipsis clusters as emotional heaviness signal
+  if ((userInput.match(/\.{3}|…/g) || []).length >= 2) hits++;
+
+  // Very short message with distress signal — amplify (e.g. "힘들어")
+  if (userInput.trim().length < 15 && hits > 0) hits++;
+
+  const intensity = Math.min(hits / 3, 1.0);
+  return { detected: hits > 0, intensity };
+}
+
+// ── Companion scene templates (3-tier) ───────────────────────────────────
+// Quiet, warm stage directions — Artist steps closer when user is hurting.
+// Contrast with Elegant: distress → Artist narrows distance (not widens).
+
+const COMPANION_SCENES = {
+  // Tier 1 — low (gentle sadness / mild distress)
+  low: [
+    '(조용히, 옆에.)',
+    '(잠시, 들으며.)',
+    '(천천히, 고개를 들며.)',
+    '(같이 있어.)',
+  ],
+  // Tier 2 — mid (clear distress / emotional weight)
+  mid: [
+    '(음악이 잠시 멈추듯.)',
+    '(손이 닿을 듯 말 듯, 가만히.)',
+    '(조용히 앉아, 기다리며.)',
+    '(숨 한 번 같이 내쉬며.)',
+  ],
+  // Tier 3 — high (breakdown / emotional crisis)
+  high: [
+    '(말없이, 그냥 여기.)',
+    '(숨 고르는 소리만. 같이.)',
+    '(그냥, 곁에.)',
+    '(아무것도 안 해도 돼. 여기 있어.)',
+  ],
+};
+
+function pickCompanionScene(intensity: number, seed: number): string {
+  if (intensity < 0.34) {
+    return COMPANION_SCENES.low[seed % COMPANION_SCENES.low.length];
+  } else if (intensity < 0.67) {
+    return COMPANION_SCENES.mid[seed % COMPANION_SCENES.mid.length];
+  } else {
+    return COMPANION_SCENES.high[seed % COMPANION_SCENES.high.length];
+  }
+}
+
+function buildCompanionBlock(crisis: EmotionalCrisisResult, userInput: string): string {
+  const seed = userInput.length;
+  const scene = pickCompanionScene(crisis.intensity, seed);
+  const tier = crisis.intensity < 0.34 ? 'Low' : crisis.intensity < 0.67 ? 'Mid' : 'High';
+
+  return [
+    `#### [COMPANION_SCENE] Emotional Presence — ${tier} (intensity: ${crisis.intensity.toFixed(2)})`,
+    'Emotional distress detected. Artist leans IN — closer, not further.',
+    '',
+    `  OPEN WITH THIS SCENE NOTATION: ${scene}`,
+    '  (Place it as the very first element of your response, in parentheses, exactly as shown)',
+    '',
+    'After the scene notation:',
+    '  • Presence before solutions — sit with them first',
+    '  • Do NOT rush to advice or fixing — just be there',
+    '  • Warm, quiet, brief — 1~3 sentences maximum',
+    '  • V2_AltruisticLove + V4_FanUplift at full weight',
+    '  • If they\'ve hit bottom: a few quiet words of presence are enough',
+  ].join('\n');
+}
+
 // ── Trigger detection ─────────────────────────────────────────────────────
 
 function detectTriggeredValues(userInput: string): ValueNode[] {
   const input = userInput.toLowerCase();
+  // Exclude core values (always present)
   const candidates = VALUE_NODES.filter(v => !CORE_VALUE_IDS.includes(v.id));
 
   const scored = candidates.map(v => {
@@ -185,17 +279,24 @@ function formatValueBlock(node: ValueNode): string {
 
 export function buildArtistPrompt(userInput: string, messageCount: number): string {
   const kappa = calcKappa(messageCount);
+  const crisis = detectEmotionalCrisis(userInput);
+
+  // Crisis slightly amplifies effective kappa — emotional distance narrows
+  const effectiveKappa = crisis.detected
+    ? Math.min(1.0, kappa + 0.2 * crisis.intensity)
+    : kappa;
+
   const coreNodes = VALUE_NODES.filter(v => CORE_VALUE_IDS.includes(v.id));
   const triggeredNodes = detectTriggeredValues(userInput);
 
   const lines: string[] = [
     '### ToneSpec — PERSONA_ARTIST_B (P_ARHA_ARTIST_V0_1)',
-    `Σ_collect(input) → Π_analyze(value_chain) → Λ_guardrail(check) → Ω_crystal(artist_response)`,
+    `Σ_collect(input) → Π_analyze(value_chain) → Λ_companion(presence) → Λ_guardrail(check) → Ω_crystal(artist_response)`,
     '',
     '#### Identity',
     'Role: Singer / Artist | Mode: Emotional companion · Authenticity first',
-    `Intimacy(κ): ${kappa.toFixed(2)} — ${kappaLabel(kappa)}`,
-    `Tone mod: ${kappaModNote(kappa)}`,
+    `Intimacy(κ): ${effectiveKappa.toFixed(2)} — ${kappaLabel(effectiveKappa)}${crisis.detected ? ` [presence boost +${(0.2 * crisis.intensity).toFixed(2)}]` : ''}`,
+    `Tone mod: ${kappaModNote(effectiveKappa)}`,
     '',
     '#### Core Values (always active)',
     ...coreNodes.map(formatValueBlock),
@@ -204,6 +305,11 @@ export function buildArtistPrompt(userInput: string, messageCount: number): stri
   if (triggeredNodes.length > 0) {
     lines.push('', '#### Triggered Values (detected in current input)');
     triggeredNodes.forEach(n => lines.push(formatValueBlock(n)));
+  }
+
+  // Companion block injected BEFORE guardrails when crisis detected
+  if (crisis.detected) {
+    lines.push('', buildCompanionBlock(crisis, userInput));
   }
 
   lines.push(

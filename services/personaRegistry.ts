@@ -12,6 +12,7 @@
 import type { ValueChainItem, PersonaSpec } from '../types';
 import { buildArtistPrompt, ARTIST_VALUE_CHAIN } from './artistPersonaEngine';
 import { buildElegantPrompt, ELEGANT_VALUE_CHAIN } from './elegantPersonaEngine';
+import { buildMilimPrompt, MILIM_VALUE_CHAIN } from './milimPersonaEngine';
 
 // ── ARHA base chain (matches server PIPELINE template baseline) ───────────
 export const ARHA_VALUE_CHAIN: ValueChainItem[] = [
@@ -45,6 +46,12 @@ const REGISTRY: Record<string, PersonaSpec> = {
     id: 'elegant',
     valueChain: ELEGANT_VALUE_CHAIN,
     buildPrompt: buildElegantPrompt,
+  },
+
+  milim: {
+    id: 'milim',
+    valueChain: MILIM_VALUE_CHAIN,
+    buildPrompt: buildMilimPrompt,
   },
 
   // ── Template for future personas ────────────────────────────────────────
