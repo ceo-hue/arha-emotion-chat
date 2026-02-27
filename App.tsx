@@ -1082,7 +1082,7 @@ const App: React.FC = () => {
         {/* New chat button */}
         <div className="px-4 md:px-5 pt-3 pb-1">
           <button
-            onClick={() => { handleReset(); setShowHistory(false); }}
+            onClick={() => { handleReset(); }}
             className="w-full py-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 active:bg-emerald-500/30 text-emerald-300 text-[11px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
           >
             <RotateCcw size={13} /> {t.newChat}
