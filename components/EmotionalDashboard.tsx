@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { AnalysisData, ChatSession } from '../types';
 import { Terminal, BrainCircuit, Heart, Activity, Zap, Layers } from 'lucide-react';
+import { useI18n } from '../contexts/I18nContext';
 
 interface EmotionalDashboardProps {
   analysis: AnalysisData | null;
@@ -11,9 +12,10 @@ interface EmotionalDashboardProps {
   onClose: () => void;
 }
 
-const EmotionalDashboard: React.FC<EmotionalDashboardProps> = ({ 
+const EmotionalDashboard: React.FC<EmotionalDashboardProps> = ({
   analysis, allHistory, isAnalyzing
 }) => {
+  const { t } = useI18n();
   const [logs, setLogs] = useState<string[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -94,7 +96,7 @@ const EmotionalDashboard: React.FC<EmotionalDashboardProps> = ({
               </div>
             )) : (
               <div className="w-full py-4 flex items-center justify-center border border-dashed border-white/5 rounded-2xl opacity-20 text-[8px] uppercase font-black tracking-widest">
-                Scanning Vectors...
+                {t.scanningVectors}
               </div>
             )}
           </div>
@@ -109,7 +111,7 @@ const EmotionalDashboard: React.FC<EmotionalDashboardProps> = ({
             </span>
             <div className="flex-1 overflow-y-auto scroll-hide">
               <p className="text-[13px] leading-relaxed text-white/90 font-medium whitespace-pre-wrap tracking-tight">
-                {analysis?.summary || (allHistory.length > 0 ? allHistory[0].report : "사용자의 대화를 통해 감성 벡터를 조율하고 있습니다.")}
+                {analysis?.summary || (allHistory.length > 0 ? allHistory[0].report : t.insightDefault)}
               </p>
             </div>
             {analysis && (

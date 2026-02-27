@@ -71,6 +71,10 @@ export const en: Translations = {
   menuRestoreWeather: 'Restore Default BG',
   menuComingSoon: 'Coming Soon',
 
+  // ── EmotionalDashboard ──
+  scanningVectors: 'Scanning Vectors...',
+  insightDefault: 'Calibrating emotional vectors through your conversation.',
+
   // ── Background presets ──
   bgSpace: 'Nebula',
   bgGalaxy: 'Galaxy',

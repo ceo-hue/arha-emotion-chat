@@ -69,6 +69,10 @@ export const ko = {
   menuRestoreWeather: '기본 배경으로 복원',
   menuComingSoon: '준비중인 기능',
 
+  // ── EmotionalDashboard ──
+  scanningVectors: '벡터 스캔 중...',
+  insightDefault: '사용자의 대화를 통해 감성 벡터를 조율하고 있습니다.',
+
   // ── Background presets ──
   bgSpace: '우주 성운',
   bgGalaxy: '은하수',
