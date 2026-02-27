@@ -4,7 +4,7 @@ import { useI18n } from '../contexts/I18nContext';
 import { FlaskConical } from 'lucide-react';
 
 export default function AuthGate() {
-  const { signInWithGoogle } = useAuth();
+  const { signInWithGoogle, error } = useAuth();
   const { t } = useI18n();
 
   return (
@@ -36,6 +36,11 @@ export default function AuthGate() {
           {t.loginButton}
         </button>
 
+        {error && (
+          <p className="text-[10px] text-red-400 bg-red-500/10 rounded-lg px-3 py-2 break-all">
+            {error}
+          </p>
+        )}
         <p className="text-[10px] text-white/30">{t.loginNote}</p>
       </div>
     </div>
