@@ -23,6 +23,7 @@ export const en: AdminTranslations = {
   catEmotion: 'Emotion Vector',
   catCreativity: 'Creativity Vector',
   catExpression: 'Expression Vector',
+  catSystems: 'Systems Vector',
 
   // Panel 2: Skeleton Canvas
   skeletonCanvas: 'Skeleton Canvas',

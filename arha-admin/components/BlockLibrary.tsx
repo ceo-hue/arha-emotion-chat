@@ -11,13 +11,14 @@ interface BlockLibraryProps {
 
 export default function BlockLibrary({ onAddBlock, activeBlockIds }: BlockLibraryProps) {
   const { t, lang } = useI18n();
-  const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set(['philosophy', 'emotion', 'creativity', 'expression']));
+  const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set(['philosophy', 'emotion', 'creativity', 'expression', 'systems']));
 
   const catLabels: Record<string, string> = {
     philosophy: t.catPhilosophy,
     emotion: t.catEmotion,
     creativity: t.catCreativity,
     expression: t.catExpression,
+    systems: t.catSystems,
   };
 
   const toggleCat = (key: string) => {

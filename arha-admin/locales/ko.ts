@@ -21,6 +21,7 @@ export const ko = {
   catEmotion: '감성 벡터',
   catCreativity: '창의 벡터',
   catExpression: '표현 벡터',
+  catSystems: '사고 벡터',
 
   // Panel 2: Skeleton Canvas
   skeletonCanvas: '뼈대 조립 공간',

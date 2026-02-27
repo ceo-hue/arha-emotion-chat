@@ -30,7 +30,7 @@ export interface EssenceBlock {
   name: string;
   nameEn: string;
   emoji: string;
-  category: 'philosophy' | 'emotion' | 'creativity' | 'expression';
+  category: 'philosophy' | 'emotion' | 'creativity' | 'expression' | 'systems';
   description: string;
   descriptionEn: string;
 
