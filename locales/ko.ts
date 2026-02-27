@@ -68,6 +68,7 @@ export const ko = {
   menuUploadPhoto: '내 사진 업로드',
   menuRestoreWeather: '기본 배경으로 복원',
   menuComingSoon: '준비중인 기능',
+  adminPage: '관리자 페이지',
 
   // ── EmotionalDashboard ──
   scanningVectors: '벡터 스캔 중...',

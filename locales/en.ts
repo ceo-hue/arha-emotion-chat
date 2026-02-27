@@ -70,6 +70,7 @@ export const en: Translations = {
   menuUploadPhoto: 'Upload Photo',
   menuRestoreWeather: 'Restore Default BG',
   menuComingSoon: 'Coming Soon',
+  adminPage: 'Admin Page',
 
   // ── EmotionalDashboard ──
   scanningVectors: 'Scanning Vectors...',

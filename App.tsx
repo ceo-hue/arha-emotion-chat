@@ -10,7 +10,7 @@ import {
   Send, Heart, Image as ImageIcon,
   Mic, RotateCcw, LayoutDashboard,
   Menu, Video, X, History, ChevronRight, Database, Trash2,
-  Cpu, Sparkles, Paperclip, FileText, Activity, Globe
+  Cpu, Sparkles, Paperclip, FileText, Activity, Globe, FlaskConical
 } from 'lucide-react';
 import EmotionalDashboard from './components/EmotionalDashboard';
 import ArtifactPanel from './components/ArtifactPanel';
@@ -1690,6 +1690,24 @@ const App: React.FC = () => {
                 </button>
 
                 <div className="border-t border-white/10 my-2" />
+
+                {/* Admin page shortcut — logged-in only */}
+                {user && (
+                  <>
+                    <div className="border-t border-white/10 my-2" />
+                    <a
+                      href="https://arha-admin.vercel.app"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => setShowMenu(false)}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[11px] font-bold text-white/50 hover:text-violet-400 hover:bg-violet-500/10 active:bg-violet-500/10 transition-all"
+                    >
+                      <FlaskConical size={14} className="text-violet-400 shrink-0" />
+                      {t.adminPage ?? '관리자 페이지'}
+                      <span className="ml-auto text-[8px] text-white/20 font-black tracking-widest">ADMIN</span>
+                    </a>
+                  </>
+                )}
 
                 {/* Profile / sign-in */}
                 {user ? (
