@@ -1,0 +1,12 @@
+{
+  "buildCommand": "vite build",
+  "outputDirectory": "dist",
+  "framework": "vite",
+  "functions": {
+    "api/test-persona.js": { "maxDuration": 60 }
+  },
+  "rewrites": [
+    { "source": "/api/test-persona", "destination": "/api/test-persona" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
