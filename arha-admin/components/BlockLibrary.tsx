@@ -3,6 +3,7 @@ import { useI18n } from '../contexts/I18nContext';
 import { ESSENCE_BLOCKS, CATEGORIES } from '../data/essenceBlocks';
 import { ChevronDown, Plus, Check } from 'lucide-react';
 import type { EssenceBlock } from '../types';
+import { MAX_SUPPORTERS } from '../types';
 
 interface BlockLibraryProps {
   onAddBlock: (block: EssenceBlock) => void;
@@ -12,6 +13,7 @@ interface BlockLibraryProps {
 export default function BlockLibrary({ onAddBlock, activeBlockIds }: BlockLibraryProps) {
   const { t, lang } = useI18n();
   const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set(['philosophy', 'emotion', 'creativity', 'expression', 'systems']));
+  const isFull = activeBlockIds.size >= 1 + MAX_SUPPORTERS; // max 4 total
 
   const catLabels: Record<string, string> = {
     philosophy: t.catPhilosophy,
@@ -62,6 +64,7 @@ export default function BlockLibrary({ onAddBlock, activeBlockIds }: BlockLibrar
                 <div className="mt-1.5 space-y-1.5">
                   {blocks.map(block => {
                     const isActive = activeBlockIds.has(block.id);
+                    const isDisabled = isActive || (!isActive && isFull);
                     return (
                       <div
                         key={block.id}
@@ -92,15 +95,20 @@ export default function BlockLibrary({ onAddBlock, activeBlockIds }: BlockLibrar
                             </div>
                           </div>
                           <button
-                            onClick={() => !isActive && onAddBlock(block)}
-                            disabled={isActive}
+                            onClick={() => !isDisabled && onAddBlock(block)}
+                            disabled={isDisabled}
                             className={`shrink-0 flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-bold transition-all ${
-                              isActive
+                              isDisabled
                                 ? 'bg-white/5 text-white/20 cursor-not-allowed'
                                 : 'bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 active:scale-95'
                             }`}
                           >
-                            {isActive ? <><Check size={8} /> {t.alreadyAdded}</> : <><Plus size={8} /> {t.addBlock}</>}
+                            {isActive
+                              ? <><Check size={8} /> {t.alreadyAdded}</>
+                              : isFull
+                                ? <span className="text-[8px] text-white/20">MAX</span>
+                                : <><Plus size={8} /> {t.addBlock}</>
+                            }
                           </button>
                         </div>
                       </div>

@@ -33,6 +33,10 @@ export const en: AdminTranslations = {
   equationPreview: 'Vector Equation',
   noBlocks: 'Add essences from the block library',
   removeBlock: 'Remove',
+  roleMain: 'Main',
+  roleSupporter: 'Supporter',
+  promoteToMain: 'Promote to Main',
+  maxBlocks: 'Max blocks reached',
 
   // XYZ Axes
   axisX: 'Object.',

@@ -7,7 +7,8 @@ import SkeletonCanvas from './components/SkeletonCanvas';
 import LiveOutput from './components/LiveOutput';
 import { PERSONA_PRESETS } from './data/personaPresets';
 import { ArrowLeft, Globe, Download, LogOut, FlaskConical, Loader2 } from 'lucide-react';
-import type { EssenceBlock, ActiveEssenceBlock, TestResult, VectorXYZ } from './types';
+import type { EssenceBlock, ActiveEssenceBlock, TestResult, VectorXYZ, BlockRole } from './types';
+import { INFLUENCE_MAP, MAX_SUPPORTERS } from './types';
 
 const ARHA_URL = 'https://arha-감성-벡터.vercel.app';
 
@@ -24,22 +25,70 @@ export default function App() {
   // Derived
   const activeBlockIds = useMemo(() => new Set(activeBlocks.map(b => b.id)), [activeBlocks]);
 
+  /** 영향력 자동 재계산 */
+  const recalcInfluence = (blocks: ActiveEssenceBlock[]): ActiveEssenceBlock[] => {
+    const main = blocks.find(b => b.role === 'main');
+    const supporters = blocks.filter(b => b.role === 'supporter');
+    return blocks.map(b => {
+      if (b.role === 'main') {
+        return { ...b, influence: INFLUENCE_MAP.main };
+      }
+      const idx = supporters.indexOf(b);
+      const inf = idx < INFLUENCE_MAP.supporter.length
+        ? INFLUENCE_MAP.supporter[idx]
+        : 0;
+      return { ...b, influence: inf };
+    });
+  };
+
   // Block operations
   const addBlock = useCallback((block: EssenceBlock) => {
     setActiveBlocks(prev => {
       if (prev.some(b => b.id === block.id)) return prev;
-      return [...prev, { ...block, vector: { ...block.defaultVector } }];
+      const hasMain = prev.some(b => b.role === 'main');
+      const supporterCount = prev.filter(b => b.role === 'supporter').length;
+
+      // 첫 블록 → main, 이후 → supporter (최대 3개)
+      let role: BlockRole;
+      if (!hasMain) {
+        role = 'main';
+      } else if (supporterCount < MAX_SUPPORTERS) {
+        role = 'supporter';
+      } else {
+        return prev; // 최대 블록 수 초과 — 추가 불가
+      }
+
+      const next = [...prev, { ...block, vector: { ...block.defaultVector }, role, influence: 0 }];
+      return recalcInfluence(next);
     });
   }, []);
 
   const removeBlock = useCallback((id: string) => {
-    setActiveBlocks(prev => prev.filter(b => b.id !== id));
+    setActiveBlocks(prev => {
+      const next = prev.filter(b => b.id !== id);
+      // 메인이 제거되면 첫 서포터를 승격
+      if (!next.some(b => b.role === 'main') && next.length > 0) {
+        next[0] = { ...next[0], role: 'main' };
+      }
+      return recalcInfluence(next);
+    });
   }, []);
 
   const changeVector = useCallback((id: string, axis: keyof VectorXYZ, value: number) => {
     setActiveBlocks(prev => prev.map(b =>
       b.id === id ? { ...b, vector: { ...b.vector, [axis]: value } } : b
     ));
+  }, []);
+
+  /** 블록 역할 변경 (main ↔ supporter) */
+  const promoteToMain = useCallback((id: string) => {
+    setActiveBlocks(prev => {
+      const next = prev.map(b => ({
+        ...b,
+        role: (b.id === id ? 'main' : 'supporter') as BlockRole,
+      }));
+      return recalcInfluence(next);
+    });
   }, []);
 
   // Test execution
@@ -66,6 +115,8 @@ export default function App() {
               essenceProperties: b.essenceProperties,
               keywords: b.keywords,
               vector: b.vector,
+              role: b.role,
+              influence: b.influence,
             })),
           testMessage,
         }),
@@ -107,6 +158,8 @@ export default function App() {
         id: b.id, name: b.name, nameEn: b.nameEn,
         category: b.category,
         funcNotation: b.funcNotation,
+        role: b.role,
+        influence: b.influence,
         vector: b.vector,
         essenceProperties: b.essenceProperties,
         interpretX: b.interpretX,
@@ -205,6 +258,7 @@ export default function App() {
             activeBlocks={activeBlocks}
             onRemoveBlock={removeBlock}
             onChangeVector={changeVector}
+            onPromoteToMain={promoteToMain}
           />
         </div>
 

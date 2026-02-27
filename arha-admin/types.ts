@@ -52,8 +52,25 @@ export interface EssenceBlock {
   defaultVector: VectorXYZ;
 }
 
+/** 블록 역할: Main = 주력 지시, Supporter = 보조 색채 */
+export type BlockRole = 'main' | 'supporter';
+
+/** 역할별 고정 영향력 (%) */
+export const INFLUENCE_MAP = {
+  main: 0.70,          // 70% — PRIMARY DIRECTIVE
+  supporter: [         // 나머지 30% 분배
+    0.15,              // Supporter #1: 15%
+    0.10,              // Supporter #2: 10%
+    0.05,              // Supporter #3: 5%
+  ],
+} as const;
+
+export const MAX_SUPPORTERS = 3;
+
 export interface ActiveEssenceBlock extends EssenceBlock {
-  vector: VectorXYZ; // 사용자가 조절한 XYZ 값
+  vector: VectorXYZ;        // 사용자가 조절한 XYZ 값
+  role: BlockRole;           // 'main' | 'supporter'
+  influence: number;         // 0.0 ~ 1.0 — 자동 계산된 영향력
 }
 
 export interface PersonaPreset {

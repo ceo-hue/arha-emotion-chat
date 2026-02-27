@@ -11,45 +11,81 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'testMessage is required' });
   }
 
-  // ── Build vector-based essence injection ──
-  const essenceInjection = essenceBlocks
-    .filter(b => (b.vector?.x || 0) + (b.vector?.y || 0) + (b.vector?.z || 0) > 0)
-    .map(b => {
-      const v = b.vector || { x: 0.5, y: 0.5, z: 0.5 };
-      const props = b.essenceProperties || {};
+  // ── Separate Main and Supporter blocks ──
+  const allActive = essenceBlocks.filter(
+    b => (b.vector?.x || 0) + (b.vector?.y || 0) + (b.vector?.z || 0) > 0
+  );
+  const mainBlock = allActive.find(b => b.role === 'main');
+  const supporterBlocks = allActive.filter(b => b.role === 'supporter');
 
-      // Build axis-specific instructions based on vector weights
-      const parts = [];
+  // ── Build vector instruction for a single block ──
+  function buildBlockInstruction(b, level) {
+    const v = b.vector || { x: 0.5, y: 0.5, z: 0.5 };
+    const props = b.essenceProperties || {};
+    const influence = b.influence || 0;
+    const parts = [];
 
-      if (v.x >= 0.3) {
-        const xLevel = v.x >= 0.7 ? 'strongly' : 'moderately';
-        parts.push(`[X-Objectivity: ${xLevel} apply] ${b.interpretX || ''}`);
-      }
+    if (v.x >= 0.3) {
+      const xLevel = v.x >= 0.7 ? 'strongly' : 'moderately';
+      parts.push(`[X-Objectivity: ${xLevel} apply] ${b.interpretX || ''}`);
+    }
 
-      if (v.y >= 0.3) {
-        const yLevel = v.y >= 0.7 ? 'strongly' : 'moderately';
-        parts.push(`[Y-Subjectivity: ${yLevel} apply] ${b.interpretY || ''}`);
-      }
+    if (v.y >= 0.3) {
+      const yLevel = v.y >= 0.7 ? 'strongly' : 'moderately';
+      parts.push(`[Y-Subjectivity: ${yLevel} apply] ${b.interpretY || ''}`);
+    }
 
-      if (v.z >= 0.3) {
-        const zLevel = v.z >= 0.7 ? 'strongly' : 'moderately';
-        // Build physical property description from essence properties
-        const propDesc = [];
-        if (props.temperature !== undefined) propDesc.push(`temperature:${props.temperature > 0 ? 'warm' : 'cold'}(${props.temperature.toFixed(1)})`);
-        if (props.distance !== undefined) propDesc.push(`distance:${props.distance > 0 ? 'far' : 'close'}(${props.distance.toFixed(1)})`);
-        if (props.density !== undefined) propDesc.push(`density:${props.density > 0 ? 'heavy' : 'light'}(${props.density.toFixed(1)})`);
-        if (props.speed !== undefined) propDesc.push(`speed:${props.speed > 0 ? 'fast' : 'slow'}(${props.speed.toFixed(1)})`);
-        if (props.brightness !== undefined) propDesc.push(`brightness:${props.brightness > 0 ? 'bright' : 'dark'}(${props.brightness.toFixed(1)})`);
-        parts.push(`[Z-Essence: ${zLevel} apply | ${propDesc.join(', ')}] ${b.interpretZ || ''}`);
-      }
+    if (v.z >= 0.3) {
+      const zLevel = v.z >= 0.7 ? 'strongly' : 'moderately';
+      const propDesc = [];
+      if (props.temperature !== undefined) propDesc.push(`temperature:${props.temperature > 0 ? 'warm' : 'cold'}(${props.temperature.toFixed(1)})`);
+      if (props.distance !== undefined) propDesc.push(`distance:${props.distance > 0 ? 'far' : 'close'}(${props.distance.toFixed(1)})`);
+      if (props.density !== undefined) propDesc.push(`density:${props.density > 0 ? 'heavy' : 'light'}(${props.density.toFixed(1)})`);
+      if (props.speed !== undefined) propDesc.push(`speed:${props.speed > 0 ? 'fast' : 'slow'}(${props.speed.toFixed(1)})`);
+      if (props.brightness !== undefined) propDesc.push(`brightness:${props.brightness > 0 ? 'bright' : 'dark'}(${props.brightness.toFixed(1)})`);
+      parts.push(`[Z-Essence: ${zLevel} apply | ${propDesc.join(', ')}] ${b.interpretZ || ''}`);
+    }
 
-      return `## ${b.funcNotation} [X:${v.x.toFixed(2)}, Y:${v.y.toFixed(2)}, Z:${v.z.toFixed(2)}]\n${parts.join('\n')}`;
-    })
-    .join('\n\n');
+    return `## ${b.funcNotation} [X:${v.x.toFixed(2)}, Y:${v.y.toFixed(2)}, Z:${v.z.toFixed(2)}] (influence: ${(influence * 100).toFixed(0)}%)\n${parts.join('\n')}`;
+  }
+
+  // ── Build tiered essence injection ──
+  const essenceSections = [];
+
+  if (mainBlock) {
+    essenceSections.push(
+      '# ★ PRIMARY DIRECTIVE (Main Vector — 70%)',
+      'This vector defines the CORE identity of the response. Always prioritize this.',
+      buildBlockInstruction(mainBlock, 'primary'),
+    );
+  }
+
+  if (supporterBlocks.length > 0) {
+    essenceSections.push(
+      '',
+      '# ◇ SUPPORT LAYER (Auxiliary — combined 30%)',
+      'These vectors add SECONDARY coloring. They NEVER override the Main vector.',
+      'When Main and Support conflict, Main ALWAYS wins.',
+    );
+    supporterBlocks.forEach((b, i) => {
+      essenceSections.push(
+        `### Supporter #${i + 1}`,
+        buildBlockInstruction(b, 'support'),
+      );
+    });
+  }
+
+  const essenceInjection = essenceSections.join('\n');
 
   // ── Build system prompt ──
   const systemPrompt = [
     '## Persona Vector Test Mode',
+    '',
+    '### Hierarchy Rule',
+    'Base Persona → always applied as foundation (100%)',
+    'Main Vector → PRIMARY DIRECTIVE (70% influence) — this shapes the core response',
+    'Supporter Vectors → SECONDARY coloring (30% combined) — adds nuance, never overrides Main',
+    'When conflict occurs: Base < Supporter < Main (Main always wins)',
     '',
     '### Vector Axis Reference',
     'X (Objectivity): External knowledge, data-driven judgment',
@@ -63,27 +99,26 @@ export default async function handler(req, res) {
     essenceInjection || '(No essence vectors active — respond naturally)',
     '',
     '### Instructions',
-    'Synthesize all active vectors into a unified response.',
-    'Higher axis values (X/Y/Z) mean stronger influence on that dimension.',
+    'Synthesize all active vectors into a unified response following the hierarchy.',
+    'The Main vector is your PRIMARY voice — it defines tone, perspective, and approach.',
+    'Supporter vectors add subtle coloring — they should be felt but not dominate.',
     'Z-axis essence properties should shape the emotional texture and tone of your language.',
     'Respond in Korean unless the user writes in English.',
     'Keep response concise (2-4 sentences).',
   ].join('\n');
 
   // ── Collect expected keywords for conflict measurement ──
-  const expectedKeywords = essenceBlocks
-    .filter(b => (b.vector?.x || 0) + (b.vector?.y || 0) + (b.vector?.z || 0) > 0)
-    .flatMap(b => b.keywords || []);
+  const expectedKeywords = allActive.flatMap(b => b.keywords || []);
 
-  // ── Compute intended vector (weighted average of active blocks) ──
-  const activeBlocks = essenceBlocks.filter(b =>
-    (b.vector?.x || 0) + (b.vector?.y || 0) + (b.vector?.z || 0) > 0
-  );
-  const intendedVector = activeBlocks.length > 0
+  // ── Compute intended vector (influence-weighted average) ──
+  const intendedVector = allActive.length > 0
     ? {
-        x: activeBlocks.reduce((s, b) => s + (b.vector?.x || 0), 0) / activeBlocks.length,
-        y: activeBlocks.reduce((s, b) => s + (b.vector?.y || 0), 0) / activeBlocks.length,
-        z: activeBlocks.reduce((s, b) => s + (b.vector?.z || 0), 0) / activeBlocks.length,
+        x: allActive.reduce((s, b) => s + (b.vector?.x || 0) * (b.influence || 0.25), 0) /
+           allActive.reduce((s, b) => s + (b.influence || 0.25), 0),
+        y: allActive.reduce((s, b) => s + (b.vector?.y || 0) * (b.influence || 0.25), 0) /
+           allActive.reduce((s, b) => s + (b.influence || 0.25), 0),
+        z: allActive.reduce((s, b) => s + (b.vector?.z || 0) * (b.influence || 0.25), 0) /
+           allActive.reduce((s, b) => s + (b.influence || 0.25), 0),
       }
     : { x: 0.5, y: 0.5, z: 0.5 };
 
@@ -124,7 +159,7 @@ export default async function handler(req, res) {
       : 0.0;
 
     // ── Analyze response for axis contribution ──
-    const axisBreakdown = analyzeAxisContribution(responseText, activeBlocks);
+    const axisBreakdown = analyzeAxisContribution(responseText, allActive);
 
     // ── Vector distance (cosine similarity between intended and observed) ──
     const observedVector = axisBreakdown;
@@ -157,6 +192,7 @@ function analyzeAxisContribution(responseText, blocks) {
 
   for (const b of blocks) {
     const v = b.vector || { x: 0.5, y: 0.5, z: 0.5 };
+    const influence = b.influence || 0.25;
     const xWords = extractSignificantWords(b.interpretX || '');
     const yWords = extractSignificantWords(b.interpretY || '');
     const zWords = extractSignificantWords(b.interpretZ || '');
@@ -167,10 +203,11 @@ function analyzeAxisContribution(responseText, blocks) {
 
     const blockTotal = xHits + yHits + zHits;
     if (blockTotal > 0) {
-      xScore += (xHits / blockTotal) * v.x;
-      yScore += (yHits / blockTotal) * v.y;
-      zScore += (zHits / blockTotal) * v.z;
-      total++;
+      // Weight by influence — Main block contributes more to axis breakdown
+      xScore += (xHits / blockTotal) * v.x * influence;
+      yScore += (yHits / blockTotal) * v.y * influence;
+      zScore += (zHits / blockTotal) * v.z * influence;
+      total += influence;
     }
   }
 

@@ -2,7 +2,7 @@ import React from 'react';
 import { useI18n } from '../contexts/I18nContext';
 import { PERSONA_PRESETS } from '../data/personaPresets';
 import { CATEGORIES } from '../data/essenceBlocks';
-import { X, Layers } from 'lucide-react';
+import { X, Layers, Crown, Shield } from 'lucide-react';
 import type { ActiveEssenceBlock, VectorXYZ } from '../types';
 
 interface SkeletonCanvasProps {
@@ -11,6 +11,7 @@ interface SkeletonCanvasProps {
   activeBlocks: ActiveEssenceBlock[];
   onRemoveBlock: (id: string) => void;
   onChangeVector: (id: string, axis: keyof VectorXYZ, value: number) => void;
+  onPromoteToMain: (id: string) => void;
 }
 
 /** 물성 바 — 작은 수평 게이지 */
@@ -37,16 +38,20 @@ function PropertyBar({ label, value, colorNeg, colorPos }: {
 
 export default function SkeletonCanvas({
   selectedPersonaId, onSelectPersona,
-  activeBlocks, onRemoveBlock, onChangeVector,
+  activeBlocks, onRemoveBlock, onChangeVector, onPromoteToMain,
 }: SkeletonCanvasProps) {
   const { t, lang } = useI18n();
   const persona = PERSONA_PRESETS.find(p => p.id === selectedPersonaId);
 
-  // Build vector equation text
+  // Build vector equation text with role markers
+  const mainBlock = activeBlocks.find(b => b.role === 'main');
+  const supporters = activeBlocks.filter(b => b.role === 'supporter');
   const equationText = persona
-    ? `f(${persona.label}${activeBlocks.length > 0
-        ? ' + ' + activeBlocks.map(b =>
-            `${b.funcNotation}[X:${b.vector.x.toFixed(1)}, Y:${b.vector.y.toFixed(1)}, Z:${b.vector.z.toFixed(1)}]`
+    ? `f(${persona.label}${mainBlock
+        ? ` ⊕ MAIN[${mainBlock.funcNotation}·${(mainBlock.influence * 100).toFixed(0)}%]`
+        : ''}${supporters.length > 0
+        ? ' + ' + supporters.map((b, i) =>
+            `S${i + 1}[${b.funcNotation}·${(b.influence * 100).toFixed(0)}%]`
           ).join(' + ')
         : ''}) → prompt`
     : '';
@@ -103,7 +108,12 @@ export default function SkeletonCanvas({
           <div className="flex items-center gap-2 mb-2">
             <Layers size={10} className="text-emerald-400/50" />
             <p className="text-[8px] font-black uppercase tracking-[0.2em] text-emerald-400/50">{t.essenceLayer}</p>
-            <span className="text-[8px] text-white/20 font-mono">{activeBlocks.length}</span>
+            <span className="text-[8px] text-white/20 font-mono">{activeBlocks.length}/4</span>
+            {activeBlocks.length > 0 && (
+              <span className="text-[7px] text-white/15 font-mono ml-auto">
+                MAIN×1 + SUPPORT×{supporters.length}
+              </span>
+            )}
           </div>
 
           {activeBlocks.length === 0 ? (
@@ -112,10 +122,39 @@ export default function SkeletonCanvas({
             </div>
           ) : (
             <div className="space-y-3">
-              {activeBlocks.map(block => (
-                <div key={block.id} className="p-3 rounded-xl bg-white/5 border border-white/10 space-y-2.5">
-                  {/* Block header */}
+              {activeBlocks.map((block, idx) => {
+                const isMain = block.role === 'main';
+                const supporterIdx = !isMain ? supporters.indexOf(block) + 1 : 0;
+                return (
+                <div
+                  key={block.id}
+                  className={`p-3 rounded-xl space-y-2.5 transition-all ${
+                    isMain
+                      ? 'bg-violet-500/8 border-2 border-violet-400/30 ring-1 ring-violet-500/10'
+                      : 'bg-white/5 border border-white/10'
+                  }`}
+                >
+                  {/* Role badge + block header */}
                   <div className="flex items-center gap-2">
+                    {/* Role indicator */}
+                    {isMain ? (
+                      <div className="shrink-0 flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-violet-500/20 border border-violet-400/30">
+                        <Crown size={8} className="text-violet-400" />
+                        <span className="text-[7px] font-black uppercase tracking-wider text-violet-400">MAIN</span>
+                        <span className="text-[7px] font-mono text-violet-400/60">{(block.influence * 100).toFixed(0)}%</span>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => onPromoteToMain(block.id)}
+                        className="shrink-0 flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-white/5 border border-white/8 hover:border-violet-400/30 hover:bg-violet-500/10 transition-all group"
+                        title={lang === 'ko' ? '메인으로 승격' : 'Promote to Main'}
+                      >
+                        <Shield size={8} className="text-white/25 group-hover:text-violet-400" />
+                        <span className="text-[7px] font-black uppercase tracking-wider text-white/25 group-hover:text-violet-400">S{supporterIdx}</span>
+                        <span className="text-[7px] font-mono text-white/20">{(block.influence * 100).toFixed(0)}%</span>
+                      </button>
+                    )}
+
                     <span className="text-base">{block.emoji}</span>
                     <span className={`text-[11px] font-bold ${catColor(block.category)}`}>
                       {lang === 'ko' ? block.name : block.nameEn}
@@ -187,7 +226,8 @@ export default function SkeletonCanvas({
                     <PropertyBar label={t.propBright} value={block.essenceProperties.brightness} colorNeg="bg-gray-500" colorPos="bg-white" />
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

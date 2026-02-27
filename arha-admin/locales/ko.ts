@@ -31,6 +31,10 @@ export const ko = {
   equationPreview: '벡터 합성 방정식',
   noBlocks: '좌측 블록 창고에서 에센스를 추가하세요',
   removeBlock: '제거',
+  roleMain: '메인',
+  roleSupporter: '서포터',
+  promoteToMain: '메인으로 승격',
+  maxBlocks: '최대 블록 수 도달',
 
   // XYZ Axes
   axisX: '객관성',
