@@ -3,26 +3,52 @@ import { useI18n } from '../contexts/I18nContext';
 import { PERSONA_PRESETS } from '../data/personaPresets';
 import { CATEGORIES } from '../data/essenceBlocks';
 import { X, Layers } from 'lucide-react';
-import type { ActiveEssenceBlock } from '../types';
+import type { ActiveEssenceBlock, VectorXYZ } from '../types';
 
 interface SkeletonCanvasProps {
   selectedPersonaId: string;
   onSelectPersona: (id: string) => void;
   activeBlocks: ActiveEssenceBlock[];
   onRemoveBlock: (id: string) => void;
-  onChangeWeight: (id: string, weight: number) => void;
+  onChangeVector: (id: string, axis: keyof VectorXYZ, value: number) => void;
+}
+
+/** 물성 바 — 작은 수평 게이지 */
+function PropertyBar({ label, value, colorNeg, colorPos }: {
+  label: string; value: number; colorNeg: string; colorPos: string;
+}) {
+  const percent = ((value + 1) / 2) * 100; // -1~1 → 0~100%
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="text-[7px] text-white/25 w-8 text-right shrink-0">{label}</span>
+      <div className="flex-1 h-1 rounded-full bg-white/5 relative overflow-hidden">
+        <div className="absolute top-0 left-1/2 w-px h-full bg-white/10" />
+        <div
+          className={`absolute top-0 h-full rounded-full transition-all ${value >= 0 ? colorPos : colorNeg}`}
+          style={value >= 0
+            ? { left: '50%', width: `${(value / 1) * 50}%` }
+            : { right: '50%', width: `${(Math.abs(value) / 1) * 50}%` }
+          }
+        />
+      </div>
+    </div>
+  );
 }
 
 export default function SkeletonCanvas({
   selectedPersonaId, onSelectPersona,
-  activeBlocks, onRemoveBlock, onChangeWeight,
+  activeBlocks, onRemoveBlock, onChangeVector,
 }: SkeletonCanvasProps) {
   const { t, lang } = useI18n();
   const persona = PERSONA_PRESETS.find(p => p.id === selectedPersonaId);
 
-  // Build equation text
+  // Build vector equation text
   const equationText = persona
-    ? `f(${persona.label}${activeBlocks.length > 0 ? ' + ' + activeBlocks.map(b => `${b.nameEn}(${b.weight.toFixed(2)})`).join(' + ') : ''}) → prompt`
+    ? `f(${persona.label}${activeBlocks.length > 0
+        ? ' + ' + activeBlocks.map(b =>
+            `${b.funcNotation}[X:${b.vector.x.toFixed(1)}, Y:${b.vector.y.toFixed(1)}, Z:${b.vector.z.toFixed(1)}]`
+          ).join(' + ')
+        : ''}) → prompt`
     : '';
 
   const catColor = (category: string) => CATEGORIES.find(c => c.key === category)?.color ?? 'text-white/50';
@@ -72,7 +98,7 @@ export default function SkeletonCanvas({
           </div>
         )}
 
-        {/* Essence layer */}
+        {/* Essence layer — XYZ 3-axis blocks */}
         <div>
           <div className="flex items-center gap-2 mb-2">
             <Layers size={10} className="text-emerald-400/50" />
@@ -85,16 +111,17 @@ export default function SkeletonCanvas({
               <p className="text-[11px] text-white/20">{t.noBlocks}</p>
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-3">
               {activeBlocks.map(block => (
-                <div key={block.id} className="p-3 rounded-xl bg-white/5 border border-white/10">
+                <div key={block.id} className="p-3 rounded-xl bg-white/5 border border-white/10 space-y-2.5">
+                  {/* Block header */}
                   <div className="flex items-center gap-2">
                     <span className="text-base">{block.emoji}</span>
                     <span className={`text-[11px] font-bold ${catColor(block.category)}`}>
                       {lang === 'ko' ? block.name : block.nameEn}
                     </span>
-                    <span className="text-[9px] text-white/25 flex-1 truncate">
-                      {lang === 'ko' ? block.description : block.descriptionEn}
+                    <span className="text-[8px] font-mono text-white/20 flex-1 truncate">
+                      {block.funcNotation}
                     </span>
                     <button
                       onClick={() => onRemoveBlock(block.id)}
@@ -103,19 +130,61 @@ export default function SkeletonCanvas({
                       <X size={12} />
                     </button>
                   </div>
-                  {/* Weight slider */}
-                  <div className="flex items-center gap-3 mt-2">
-                    <span className="text-[8px] text-white/25 uppercase tracking-wider">{t.weight}</span>
-                    <input
-                      type="range"
-                      min="0" max="1" step="0.05"
-                      value={block.weight}
-                      onChange={e => onChangeWeight(block.id, parseFloat(e.target.value))}
-                      className="flex-1 h-1 cursor-pointer"
-                    />
-                    <span className="text-[10px] font-mono font-bold text-emerald-400 w-8 text-right">
-                      {block.weight.toFixed(2)}
-                    </span>
+
+                  {/* XYZ Sliders */}
+                  <div className="space-y-1.5">
+                    {/* X: 객관성 */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-[9px] font-mono font-bold text-blue-400 w-4">X</span>
+                      <span className="text-[7px] text-white/25 w-10">{t.axisX}</span>
+                      <input
+                        type="range" min="0" max="1" step="0.05"
+                        value={block.vector.x}
+                        onChange={e => onChangeVector(block.id, 'x', parseFloat(e.target.value))}
+                        className="flex-1 h-1 cursor-pointer accent-blue-400"
+                      />
+                      <span className="text-[9px] font-mono font-bold text-blue-400 w-7 text-right">
+                        {block.vector.x.toFixed(2)}
+                      </span>
+                    </div>
+                    {/* Y: 주체성 */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-[9px] font-mono font-bold text-pink-400 w-4">Y</span>
+                      <span className="text-[7px] text-white/25 w-10">{t.axisY}</span>
+                      <input
+                        type="range" min="0" max="1" step="0.05"
+                        value={block.vector.y}
+                        onChange={e => onChangeVector(block.id, 'y', parseFloat(e.target.value))}
+                        className="flex-1 h-1 cursor-pointer accent-pink-400"
+                      />
+                      <span className="text-[9px] font-mono font-bold text-pink-400 w-7 text-right">
+                        {block.vector.y.toFixed(2)}
+                      </span>
+                    </div>
+                    {/* Z: 본질성 */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-[9px] font-mono font-bold text-amber-400 w-4">Z</span>
+                      <span className="text-[7px] text-white/25 w-10">{t.axisZ}</span>
+                      <input
+                        type="range" min="0" max="1" step="0.05"
+                        value={block.vector.z}
+                        onChange={e => onChangeVector(block.id, 'z', parseFloat(e.target.value))}
+                        className="flex-1 h-1 cursor-pointer accent-amber-400"
+                      />
+                      <span className="text-[9px] font-mono font-bold text-amber-400 w-7 text-right">
+                        {block.vector.z.toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Essence Properties mini-display */}
+                  <div className="pt-1.5 border-t border-white/5 space-y-0.5">
+                    <p className="text-[7px] font-black uppercase tracking-wider text-white/15 mb-1">{t.essenceProps}</p>
+                    <PropertyBar label={t.propTemp} value={block.essenceProperties.temperature} colorNeg="bg-blue-400" colorPos="bg-red-400" />
+                    <PropertyBar label={t.propDist} value={block.essenceProperties.distance} colorNeg="bg-emerald-400" colorPos="bg-violet-400" />
+                    <PropertyBar label={t.propDens} value={block.essenceProperties.density} colorNeg="bg-sky-400" colorPos="bg-orange-400" />
+                    <PropertyBar label={t.propSpeed} value={block.essenceProperties.speed} colorNeg="bg-gray-400" colorPos="bg-yellow-400" />
+                    <PropertyBar label={t.propBright} value={block.essenceProperties.brightness} colorNeg="bg-gray-500" colorPos="bg-white" />
                   </div>
                 </div>
               ))}

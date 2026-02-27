@@ -7,7 +7,7 @@ import SkeletonCanvas from './components/SkeletonCanvas';
 import LiveOutput from './components/LiveOutput';
 import { PERSONA_PRESETS } from './data/personaPresets';
 import { ArrowLeft, Globe, Download, LogOut, FlaskConical, Loader2 } from 'lucide-react';
-import type { EssenceBlock, ActiveEssenceBlock, TestResult } from './types';
+import type { EssenceBlock, ActiveEssenceBlock, TestResult, VectorXYZ } from './types';
 
 const ARHA_URL = 'https://arha-감성-벡터.vercel.app';
 
@@ -28,7 +28,7 @@ export default function App() {
   const addBlock = useCallback((block: EssenceBlock) => {
     setActiveBlocks(prev => {
       if (prev.some(b => b.id === block.id)) return prev;
-      return [...prev, { ...block, weight: block.weight }];
+      return [...prev, { ...block, vector: { ...block.defaultVector } }];
     });
   }, []);
 
@@ -36,8 +36,10 @@ export default function App() {
     setActiveBlocks(prev => prev.filter(b => b.id !== id));
   }, []);
 
-  const changeWeight = useCallback((id: string, weight: number) => {
-    setActiveBlocks(prev => prev.map(b => b.id === id ? { ...b, weight } : b));
+  const changeVector = useCallback((id: string, axis: keyof VectorXYZ, value: number) => {
+    setActiveBlocks(prev => prev.map(b =>
+      b.id === id ? { ...b, vector: { ...b.vector, [axis]: value } } : b
+    ));
   }, []);
 
   // Test execution
@@ -55,11 +57,15 @@ export default function App() {
         body: JSON.stringify({
           basePersonaSummary: persona.tonePromptSummary,
           essenceBlocks: activeBlocks
-            .filter(b => b.weight > 0)
+            .filter(b => b.vector.x + b.vector.y + b.vector.z > 0)
             .map(b => ({
-              nameEn: b.nameEn,
-              functionLanguage: b.functionLanguage,
-              weight: b.weight,
+              funcNotation: b.funcNotation,
+              interpretX: b.interpretX,
+              interpretY: b.interpretY,
+              interpretZ: b.interpretZ,
+              essenceProperties: b.essenceProperties,
+              keywords: b.keywords,
+              vector: b.vector,
             })),
           testMessage,
         }),
@@ -71,8 +77,10 @@ export default function App() {
       setTestResult({
         response: data.response,
         conflictIndex: data.conflictIndex,
+        vectorDistance: data.vectorDistance ?? 0,
         matchedKeywords: data.matchedKeywords,
         totalExpectedKeywords: data.totalExpectedKeywords,
+        axisBreakdown: data.axisBreakdown ?? { x: 0.33, y: 0.33, z: 0.33 },
         timestamp: Date.now(),
       });
     } catch (err) {
@@ -80,8 +88,10 @@ export default function App() {
       setTestResult({
         response: `Error: ${err instanceof Error ? err.message : 'Unknown error'}`,
         conflictIndex: 1.0,
+        vectorDistance: 0,
         matchedKeywords: [],
         totalExpectedKeywords: 0,
+        axisBreakdown: { x: 0, y: 0, z: 0 },
         timestamp: Date.now(),
       });
     } finally {
@@ -95,8 +105,14 @@ export default function App() {
       selectedPersonaId,
       activeBlocks: activeBlocks.map(b => ({
         id: b.id, name: b.name, nameEn: b.nameEn,
-        category: b.category, weight: b.weight,
-        functionLanguage: b.functionLanguage,
+        category: b.category,
+        funcNotation: b.funcNotation,
+        vector: b.vector,
+        essenceProperties: b.essenceProperties,
+        interpretX: b.interpretX,
+        interpretY: b.interpretY,
+        interpretZ: b.interpretZ,
+        keywords: b.keywords,
       })),
       exportedAt: new Date().toISOString(),
     };
@@ -104,7 +120,7 @@ export default function App() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `persona-essence-${selectedPersonaId}-${Date.now()}.json`;
+    a.download = `persona-vector-${selectedPersonaId}-${Date.now()}.json`;
     a.click();
     URL.revokeObjectURL(url);
   }, [selectedPersonaId, activeBlocks]);
@@ -188,7 +204,7 @@ export default function App() {
             onSelectPersona={setSelectedPersonaId}
             activeBlocks={activeBlocks}
             onRemoveBlock={removeBlock}
-            onChangeWeight={changeWeight}
+            onChangeVector={changeVector}
           />
         </div>
 

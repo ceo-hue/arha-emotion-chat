@@ -3,7 +3,7 @@ import type { AdminTranslations } from './ko';
 export const en: AdminTranslations = {
   // Header
   appTitle: 'Persona Essence Builder',
-  appSubtitle: 'Function Language Equation Lab',
+  appSubtitle: 'Function Vector Equation Lab',
   backToArha: 'Back to ARHA',
 
   // Auth
@@ -29,22 +29,34 @@ export const en: AdminTranslations = {
   basePersona: 'Base Persona',
   valueChain: 'Value Chain',
   essenceLayer: 'Essence Layer',
-  equationPreview: 'Synthesized Equation',
+  equationPreview: 'Vector Equation',
   noBlocks: 'Add essences from the block library',
   removeBlock: 'Remove',
-  weight: 'Weight',
-  equationLabel: 'f(persona + essences)',
+
+  // XYZ Axes
+  axisX: 'Object.',
+  axisY: 'Subject.',
+  axisZ: 'Essence',
+
+  // Essence Properties
+  essenceProps: 'Physical Profile',
+  propTemp: 'Temp',
+  propDist: 'Dist',
+  propDens: 'Dense',
+  propSpeed: 'Speed',
+  propBright: 'Light',
 
   // Panel 3: Live Output
   liveOutput: 'Live Output',
   testInput: 'Enter a test message...',
   sendTest: 'Run Test',
-  sending: 'Generating response...',
+  sending: 'Synthesizing vectors...',
   conflictIndex: 'Conflict Index',
   conflictLow: 'High Match',
   conflictMid: 'Partial Match',
   conflictHigh: 'Conflict Detected',
   matchedKeywords: 'Matched Keywords',
+  vectorDistance: 'Vector Cosine Similarity',
   responseArea: 'Test results will appear here',
   noPersona: 'Select a persona',
 

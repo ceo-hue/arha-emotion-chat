@@ -79,6 +79,16 @@ export default function BlockLibrary({ onAddBlock, activeBlockIds }: BlockLibrar
                             <p className="text-[9px] text-white/35 mt-0.5 leading-relaxed">
                               {lang === 'ko' ? block.description : block.descriptionEn}
                             </p>
+                            {/* Function notation */}
+                            <p className="text-[8px] font-mono text-white/15 mt-1">
+                              {block.funcNotation}
+                            </p>
+                            {/* Default vector mini */}
+                            <div className="flex gap-2 mt-1">
+                              <span className="text-[7px] font-mono text-blue-400/40">X:{block.defaultVector.x}</span>
+                              <span className="text-[7px] font-mono text-pink-400/40">Y:{block.defaultVector.y}</span>
+                              <span className="text-[7px] font-mono text-amber-400/40">Z:{block.defaultVector.z}</span>
+                            </div>
                           </div>
                           <button
                             onClick={() => !isActive && onAddBlock(block)}

@@ -45,11 +45,13 @@ export default function LiveOutput({ onTest, testResult, isTesting }: LiveOutput
               </p>
             </div>
 
-            {/* Conflict gauge */}
+            {/* Conflict gauge with vector data */}
             <ConflictGauge
               value={testResult.conflictIndex}
+              vectorDistance={testResult.vectorDistance}
               matchedKeywords={testResult.matchedKeywords}
               totalExpected={testResult.totalExpectedKeywords}
+              axisBreakdown={testResult.axisBreakdown}
             />
           </>
         ) : (

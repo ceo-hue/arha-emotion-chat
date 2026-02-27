@@ -3,11 +3,13 @@ import { useI18n } from '../contexts/I18nContext';
 
 interface ConflictGaugeProps {
   value: number;
+  vectorDistance: number;
   matchedKeywords: string[];
   totalExpected: number;
+  axisBreakdown: { x: number; y: number; z: number };
 }
 
-export default function ConflictGauge({ value, matchedKeywords, totalExpected }: ConflictGaugeProps) {
+export default function ConflictGauge({ value, vectorDistance, matchedKeywords, totalExpected, axisBreakdown }: ConflictGaugeProps) {
   const { t } = useI18n();
   const matchPercent = Math.round((1 - value) * 100);
   const label = value < 0.3 ? t.conflictLow : value < 0.6 ? t.conflictMid : t.conflictHigh;
@@ -15,14 +17,14 @@ export default function ConflictGauge({ value, matchedKeywords, totalExpected }:
   const barColor = value < 0.3 ? 'bg-emerald-500' : value < 0.6 ? 'bg-amber-500' : 'bg-red-500';
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       {/* Header */}
       <div className="flex items-center justify-between">
         <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white/30">{t.conflictIndex}</span>
         <span className={`text-[10px] font-bold ${color}`}>{label}</span>
       </div>
 
-      {/* Bar */}
+      {/* Main bar */}
       <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden">
         <div
           className={`h-full rounded-full ${barColor} transition-all duration-700 ease-out`}
@@ -36,6 +38,28 @@ export default function ConflictGauge({ value, matchedKeywords, totalExpected }:
           {t.matchedKeywords}: {matchedKeywords.length}/{totalExpected}
         </span>
         <span className={`font-mono font-bold ${color}`}>{matchPercent}%</span>
+      </div>
+
+      {/* XYZ Axis Breakdown */}
+      <div className="grid grid-cols-3 gap-2">
+        <div className="text-center p-2 rounded-lg bg-blue-500/5 border border-blue-400/10">
+          <p className="text-[7px] font-black uppercase text-blue-400/40">X {t.axisX}</p>
+          <p className="text-[12px] font-mono font-bold text-blue-400">{(axisBreakdown.x * 100).toFixed(0)}%</p>
+        </div>
+        <div className="text-center p-2 rounded-lg bg-pink-500/5 border border-pink-400/10">
+          <p className="text-[7px] font-black uppercase text-pink-400/40">Y {t.axisY}</p>
+          <p className="text-[12px] font-mono font-bold text-pink-400">{(axisBreakdown.y * 100).toFixed(0)}%</p>
+        </div>
+        <div className="text-center p-2 rounded-lg bg-amber-500/5 border border-amber-400/10">
+          <p className="text-[7px] font-black uppercase text-amber-400/40">Z {t.axisZ}</p>
+          <p className="text-[12px] font-mono font-bold text-amber-400">{(axisBreakdown.z * 100).toFixed(0)}%</p>
+        </div>
+      </div>
+
+      {/* Vector distance */}
+      <div className="flex items-center justify-between text-[9px]">
+        <span className="text-white/25">{t.vectorDistance}</span>
+        <span className="font-mono text-violet-400">{vectorDistance.toFixed(3)}</span>
       </div>
 
       {/* Matched keyword pills */}
