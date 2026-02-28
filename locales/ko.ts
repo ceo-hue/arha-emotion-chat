@@ -90,6 +90,8 @@ export const ko = {
   bgBokehLight: '보케 라이트',
   bgDarkForest: '어두운 숲',
   bgMountainMist: '안개 산',
+  bgAppleWater: '사과 워터',
+  bgAppleSplash: '사과 스플래시',
 
   // ── Auth (header) ──
   signInTitle: 'Google로 로그인',

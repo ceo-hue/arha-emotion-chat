@@ -679,6 +679,8 @@ const App: React.FC = () => {
 
   // ── Background presets ──────────────────────────────────────────────────
   const NASA_BG = 'https://images.unsplash.com/photo-1462331940025-496dfbfc7564?auto=format&fit=crop&w=1920&q=80';
+  const APPLE_BG = 'https://images.unsplash.com/photo-1668971931548-862d62cd43db?auto=format&fit=crop&w=1920&q=80';
+  const APPLE_SPLASH_BG = 'https://images.unsplash.com/photo-1648326969254-d4dbae4b012b?auto=format&fit=crop&w=1920&q=80';
 
   const BG_PRESETS = useMemo(() => [
     { id: 'space',          label: t.bgSpace,         url: 'https://images.unsplash.com/photo-1462331940025-496dfbfc7564?auto=format&fit=crop&w=1920&q=80' },
@@ -697,10 +699,12 @@ const App: React.FC = () => {
     { id: 'bokehLight',     label: t.bgBokehLight,    url: 'https://images.unsplash.com/photo-1493552152660-f915ab47ae9d?auto=format&fit=crop&w=1920&q=80' },
     { id: 'darkForest',     label: t.bgDarkForest,    url: 'https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=1920&q=80' },
     { id: 'mountainMist',   label: t.bgMountainMist,  url: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=1920&q=80' },
+    { id: 'appleWater',     label: t.bgAppleWater,    url: APPLE_BG },
+    { id: 'appleSplash',    label: t.bgAppleSplash,   url: APPLE_SPLASH_BG },
   ], [t]);
 
   // Fixed default — no auto weather switch (prevents visible bg change on load)
-  const bgImageUrl = customBg ?? NASA_BG;
+  const bgImageUrl = customBg ?? APPLE_BG;
 
   const handleBgUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1053,13 +1057,13 @@ const App: React.FC = () => {
       className="flex w-full items-center justify-center relative overflow-hidden"
       style={{ height: isMobile ? vvHeight : '100dvh', top: isMobile ? vvOffsetTop : undefined, position: isMobile ? 'fixed' : 'relative' }}
     >
-      {/* Adaptive Glass mesh gradient background */}
-      <div className="arha-mesh-bg" />
-      {/* Full-screen background image (fades behind mesh) */}
+      {/* Full-screen background image — sharp & vivid */}
       <div
-        className={`absolute inset-0 z-0 bg-cover bg-center transition-all duration-[4000ms] scale-105 ${isDark ? 'opacity-60' : 'opacity-20'}`}
+        className={`absolute inset-0 z-0 bg-cover bg-center transition-all duration-[4000ms] scale-105 ${isDark ? 'opacity-60' : 'opacity-80'}`}
         style={{ backgroundImage: `url(${bgImageUrl})` }}
       />
+      {/* Subtle mesh tint overlay — light mode only adds gentle color wash */}
+      <div className="arha-mesh-bg" />
 
       {/* Login modal overlay */}
       {showLoginModal && (

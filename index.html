@@ -21,9 +21,9 @@
             --bg-base: #f5ede6;
             --glass-bg: rgba(255, 245, 240, 0.08);
             --glass-border: rgba(255, 255, 255, 0.25);
-            --glass-blur: 12px;
-            --glass-saturate: 200%;
-            --sidebar-blur: 16px;
+            --glass-blur: 20px;
+            --glass-saturate: 180%;
+            --sidebar-blur: 24px;
             --glass-shadow: 0 24px 80px rgba(120, 60, 80, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.5);
             --text-primary: #1e293b;
             --text-secondary: #475569;
@@ -45,6 +45,7 @@
             --mesh-color-1: #f8b4c8;
             --mesh-color-2: #f0a868;
             --mesh-color-3: #c8a8e8;
+            --mesh-opacity: 0.25;
         }
 
         .dark {
@@ -76,6 +77,7 @@
             --mesh-color-1: #064e3b;
             --mesh-color-2: #0f172a;
             --mesh-color-3: #1e1b4b;
+            --mesh-opacity: 0.7;
         }
 
         html, body {
@@ -107,10 +109,10 @@
             background:
                 radial-gradient(ellipse 80% 60% at 20% 30%, var(--mesh-color-1), transparent 70%),
                 radial-gradient(ellipse 60% 80% at 80% 20%, var(--mesh-color-2), transparent 70%),
-                radial-gradient(ellipse 70% 50% at 50% 80%, var(--mesh-color-3), transparent 70%),
-                radial-gradient(ellipse 40% 40% at 65% 50%, rgba(255, 200, 200, 0.15), transparent 60%),
-                var(--bg-base);
+                radial-gradient(ellipse 70% 50% at 50% 80%, var(--mesh-color-3), transparent 70%);
+            opacity: var(--mesh-opacity, 0.3);
             transition: all 0.8s ease;
+            pointer-events: none;
         }
 
         /* 아르하 시그니처 사이드바 배경 */

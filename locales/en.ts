@@ -92,6 +92,8 @@ export const en: Translations = {
   bgBokehLight: 'Bokeh Light',
   bgDarkForest: 'Dark Forest',
   bgMountainMist: 'Mountain Mist',
+  bgAppleWater: 'Apple in Water',
+  bgAppleSplash: 'Apple Splash',
 
   // ── Auth (header) ──
   signInTitle: 'Sign in with Google',
