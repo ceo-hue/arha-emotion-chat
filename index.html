@@ -17,33 +17,33 @@
         :root {
             --arha-primary: #10b981;
 
-            /* ── Light Theme (Adaptive Glass) ── */
-            --bg-base: #e8ecf1;
-            --glass-bg: rgba(255, 255, 255, 0.45);
-            --glass-border: rgba(255, 255, 255, 0.55);
-            --glass-blur: 20px;
-            --glass-saturate: 150%;
-            --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+            /* ── Light Theme — Warm Feminine Glassmorphism ── */
+            --bg-base: #faf5f0;
+            --glass-bg: rgba(255, 245, 240, 0.35);
+            --glass-border: rgba(244, 194, 194, 0.45);
+            --glass-blur: 40px;
+            --glass-saturate: 160%;
+            --glass-shadow: 0 8px 32px rgba(180, 120, 120, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.6);
             --text-primary: #1e293b;
             --text-secondary: #475569;
             --text-muted: #94a3b8;
-            --sidebar-bg: linear-gradient(to bottom, rgba(255, 255, 255, 0.85), rgba(241, 245, 249, 0.92));
-            --sidebar-border: rgba(0, 0, 0, 0.06);
-            --bubble-ai-bg: rgba(255, 255, 255, 0.65);
-            --bubble-ai-border: rgba(0, 0, 0, 0.06);
+            --sidebar-bg: linear-gradient(135deg, rgba(255, 240, 235, 0.75), rgba(250, 235, 245, 0.80), rgba(240, 235, 255, 0.75));
+            --sidebar-border: rgba(220, 170, 180, 0.20);
+            --bubble-ai-bg: rgba(255, 240, 240, 0.45);
+            --bubble-ai-border: rgba(220, 170, 180, 0.35);
             --bubble-ai-text: #1e293b;
             --bubble-user-bg: linear-gradient(135deg, rgba(16, 185, 129, 0.85), rgba(5, 150, 105, 0.85));
             --bubble-user-border: rgba(255, 255, 255, 0.3);
             --bubble-user-text: white;
-            --sunken-bg: rgba(0, 0, 0, 0.04);
-            --sunken-shadow: inset 1px 1px 3px rgba(0, 0, 0, 0.06), inset -1px -1px 3px rgba(255, 255, 255, 0.7);
-            --sunken-border: rgba(0, 0, 0, 0.06);
+            --sunken-bg: rgba(180, 140, 160, 0.06);
+            --sunken-shadow: inset 1px 1px 3px rgba(180, 120, 140, 0.08), inset -1px -1px 3px rgba(255, 255, 255, 0.7);
+            --sunken-border: rgba(200, 160, 180, 0.20);
             --overlay-bg: rgba(0, 0, 0, 0.15);
-            --input-bg: rgba(255, 255, 255, 0.6);
-            --input-border: rgba(0, 0, 0, 0.08);
-            --mesh-color-1: #dbeafe;
-            --mesh-color-2: #d1fae5;
-            --mesh-color-3: #ede9fe;
+            --input-bg: rgba(255, 245, 242, 0.50);
+            --input-border: rgba(220, 170, 180, 0.30);
+            --mesh-color-1: #fce4ec;
+            --mesh-color-2: #ffe0b2;
+            --mesh-color-3: #e8d5f5;
         }
 
         .dark {
@@ -106,6 +106,7 @@
                 radial-gradient(ellipse 80% 60% at 20% 30%, var(--mesh-color-1), transparent 70%),
                 radial-gradient(ellipse 60% 80% at 80% 20%, var(--mesh-color-2), transparent 70%),
                 radial-gradient(ellipse 70% 50% at 50% 80%, var(--mesh-color-3), transparent 70%),
+                radial-gradient(ellipse 40% 40% at 65% 50%, rgba(255, 200, 200, 0.15), transparent 60%),
                 var(--bg-base);
             transition: all 0.8s ease;
         }
