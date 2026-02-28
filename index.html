@@ -21,8 +21,9 @@
             --bg-base: #f5ede6;
             --glass-bg: rgba(255, 245, 240, 0.08);
             --glass-border: rgba(255, 255, 255, 0.25);
-            --glass-blur: 40px;
-            --glass-saturate: 180%;
+            --glass-blur: 12px;
+            --glass-saturate: 200%;
+            --sidebar-blur: 16px;
             --glass-shadow: 0 24px 80px rgba(120, 60, 80, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.5);
             --text-primary: #1e293b;
             --text-secondary: #475569;
@@ -53,6 +54,7 @@
             --glass-border: rgba(255, 255, 255, 0.15);
             --glass-blur: 50px;
             --glass-saturate: 180%;
+            --sidebar-blur: 60px;
             --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
             --text-primary: #f1f5f9;
             --text-secondary: rgba(255, 255, 255, 0.6);
@@ -114,8 +116,8 @@
         /* 아르하 시그니처 사이드바 배경 */
         .arha-sidebar-bg {
             background: var(--sidebar-bg);
-            backdrop-filter: blur(60px) saturate(var(--glass-saturate));
-            -webkit-backdrop-filter: blur(60px) saturate(var(--glass-saturate));
+            backdrop-filter: blur(var(--sidebar-blur)) saturate(var(--glass-saturate));
+            -webkit-backdrop-filter: blur(var(--sidebar-blur)) saturate(var(--glass-saturate));
             border-right: 1px solid var(--sidebar-border);
         }
 

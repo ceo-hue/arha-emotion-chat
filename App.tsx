@@ -1083,7 +1083,7 @@ const App: React.FC = () => {
 
       {/* ── Left sidebar: History Archive ── */}
       <aside style={sidebarStyle(showHistory, 'left')} className={sidebarCls('left')}>
-        <header className="h-12 md:h-16 px-4 md:px-5 border-b border-black/5 dark:border-white/10 bg-black/5 dark:bg-white/5 backdrop-blur-xl flex items-center justify-between shrink-0">
+        <header className="h-12 md:h-16 px-4 md:px-5 border-b border-black/5 dark:border-white/10 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3 text-emerald-400">
             <History size={18} />
             <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-800 dark:text-white/90 whitespace-nowrap">History Archive</h3>
@@ -1118,7 +1118,7 @@ const App: React.FC = () => {
                 <div
                   key={s.id}
                   onClick={() => { setMessages(s.messages); setShowHistory(false); }}
-                  className="p-3 md:p-4 rounded-2xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 active:border-emerald-500/40 active:bg-black/10 dark:active:bg-white/10 hover:border-emerald-500/40 hover:bg-black/5 dark:hover:bg-white/10 transition-all cursor-pointer group relative"
+                  className="p-3 md:p-4 rounded-2xl bg-white/10 dark:bg-white/5 border border-white/25 dark:border-white/10 active:border-emerald-500/40 active:bg-white/20 dark:active:bg-white/10 hover:border-emerald-500/40 hover:bg-white/15 dark:hover:bg-white/10 transition-all cursor-pointer group relative"
                 >
                   {/* Delete button: always visible on mobile, hover-only on desktop */}
                   <button
@@ -1163,7 +1163,7 @@ const App: React.FC = () => {
       {/* ── Right sidebar: Emotional Prism + Pipeline + Persona ── */}
       <aside style={sidebarStyle(showDashboard, 'right')} className={sidebarCls('right')}>
         {/* Tab bar header */}
-        <header className="h-12 md:h-16 px-4 md:px-5 border-b border-black/5 dark:border-white/10 bg-black/5 dark:bg-white/5 backdrop-blur-xl flex items-center justify-between shrink-0">
+        <header className="h-12 md:h-16 px-4 md:px-5 border-b border-black/5 dark:border-white/10 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-1">
             {/* Prism tab */}
             <button
@@ -1770,7 +1770,7 @@ const App: React.FC = () => {
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
                 placeholder={t.inputPlaceholder}
-                className="w-full h-9 md:h-11 bg-black/5 dark:bg-white/20 border border-black/10 dark:border-white/40 rounded-2xl py-0 pl-3 md:pl-5 pr-12 text-[14px] md:text-base text-slate-900 dark:text-white placeholder:text-slate-500/70 dark:placeholder:text-white/30 focus:outline-none focus:border-emerald-400 transition-all"
+                className="w-full h-9 md:h-11 bg-white/10 dark:bg-white/20 border border-white/30 dark:border-white/40 rounded-2xl py-0 pl-3 md:pl-5 pr-12 text-[14px] md:text-base text-slate-900 dark:text-white placeholder:text-slate-500/70 dark:placeholder:text-white/30 focus:outline-none focus:border-emerald-400 transition-all backdrop-blur-sm"
               />
               <button
                 onClick={handleSend}
