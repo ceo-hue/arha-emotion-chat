@@ -41,18 +41,18 @@ export default function LoginScreen({ onClose }: LoginScreenProps) {
         {/* Close button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 w-8 h-8 rounded-xl flex items-center justify-center text-white/30 hover:text-white hover:bg-white/10 transition-all"
+          className="absolute top-4 right-4 w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 dark:text-white/30 hover:text-slate-700 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-all"
         >
           <X size={16} />
         </button>
 
         {/* Logo */}
         <div className="flex flex-col items-center gap-2">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-violet-500/40 to-emerald-500/40 border border-white/20 flex items-center justify-center">
-            <span className="text-lg font-black text-white">A</span>
+          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-violet-500/40 to-emerald-500/40 border border-slate-300 dark:border-white/20 flex items-center justify-center">
+            <span className="text-lg font-black text-slate-800 dark:text-white">A</span>
           </div>
-          <h2 className="text-lg font-bold text-white tracking-tight">{t.loginTitle}</h2>
-          <p className="text-[10px] text-white/30 font-black uppercase tracking-[0.2em]">
+          <h2 className="text-lg font-bold text-slate-800 dark:text-white tracking-tight">{t.loginTitle}</h2>
+          <p className="text-[10px] text-slate-400 dark:text-white/30 font-black uppercase tracking-[0.2em]">
             {t.loginSubtitle}
           </p>
         </div>
@@ -61,10 +61,10 @@ export default function LoginScreen({ onClose }: LoginScreenProps) {
         <button
           onClick={handleGoogleSignIn}
           disabled={isLoading}
-          className="w-full flex items-center justify-center gap-3 px-6 py-3.5 rounded-2xl bg-white/15 border border-white/30 hover:bg-white/25 active:scale-[0.98] transition-all text-white font-bold text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full flex items-center justify-center gap-3 px-6 py-3.5 rounded-2xl bg-emerald-600/10 dark:bg-white/15 border border-emerald-500/30 dark:border-white/30 hover:bg-emerald-600/20 dark:hover:bg-white/25 active:scale-[0.98] transition-all text-slate-800 dark:text-white font-bold text-sm disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isLoading ? (
-            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            <div className="w-5 h-5 border-2 border-slate-300 dark:border-white/30 border-t-slate-700 dark:border-t-white rounded-full animate-spin" />
           ) : (
             <GoogleSVG />
           )}
@@ -77,7 +77,7 @@ export default function LoginScreen({ onClose }: LoginScreenProps) {
           </p>
         )}
 
-        <p className="text-[9px] text-white/20 text-center font-bold uppercase tracking-widest leading-relaxed whitespace-pre-line">
+        <p className="text-[9px] text-slate-400 dark:text-white/20 text-center font-bold uppercase tracking-widest leading-relaxed whitespace-pre-line">
           {t.loginNote}
         </p>
       </div>
@@ -86,21 +86,21 @@ export default function LoginScreen({ onClose }: LoginScreenProps) {
 
   // Full-screen mode (currently unused, can be re-enabled if needed)
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black/80 backdrop-blur-sm" style={{ height: '100dvh' }}>
+    <div className="fixed inset-0 flex items-center justify-center bg-black/30 dark:bg-black/80 backdrop-blur-sm" style={{ height: '100dvh' }}>
       <div className="glass-panel rounded-[2.5rem] px-10 py-12 flex flex-col items-center gap-8 w-[340px] max-w-[90vw]">
         <div className="flex flex-col items-center gap-2">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-500/40 to-emerald-500/40 border border-white/20 flex items-center justify-center mb-1">
-            <span className="text-xl font-black text-white">A</span>
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-500/40 to-emerald-500/40 border border-slate-300 dark:border-white/20 flex items-center justify-center mb-1">
+            <span className="text-xl font-black text-slate-800 dark:text-white">A</span>
           </div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">ARHA</h1>
-          <p className="text-[10px] text-white/40 font-black uppercase tracking-[0.25em]">Emotional Vector System</p>
+          <h1 className="text-2xl font-bold text-slate-800 dark:text-white tracking-tight">ARHA</h1>
+          <p className="text-[10px] text-slate-400 dark:text-white/40 font-black uppercase tracking-[0.25em]">Emotional Vector System</p>
         </div>
         <button
           onClick={handleGoogleSignIn}
           disabled={isLoading}
-          className="w-full flex items-center justify-center gap-3 px-6 py-3.5 rounded-2xl bg-white/15 border border-white/30 hover:bg-white/25 active:scale-[0.98] transition-all text-white font-bold text-sm disabled:opacity-50"
+          className="w-full flex items-center justify-center gap-3 px-6 py-3.5 rounded-2xl bg-emerald-600/10 dark:bg-white/15 border border-emerald-500/30 dark:border-white/30 hover:bg-emerald-600/20 dark:hover:bg-white/25 active:scale-[0.98] transition-all text-slate-800 dark:text-white font-bold text-sm disabled:opacity-50"
         >
-          {isLoading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <GoogleSVG />}
+          {isLoading ? <div className="w-5 h-5 border-2 border-slate-300 dark:border-white/30 border-t-slate-700 dark:border-t-white rounded-full animate-spin" /> : <GoogleSVG />}
           {isLoading ? t.loginConnecting : t.loginContinue}
         </button>
         {error && <p className="text-[11px] text-red-400/80 text-center">{error}</p>}

@@ -10,7 +10,7 @@ import {
   Send, Heart, Image as ImageIcon,
   Mic, RotateCcw, LayoutDashboard,
   Menu, Video, X, History, ChevronRight, Database, Trash2,
-  Cpu, Sparkles, Paperclip, FileText, Activity, Globe, FlaskConical
+  Cpu, Sparkles, Paperclip, FileText, Activity, Globe, FlaskConical, Sun, Moon
 } from 'lucide-react';
 import EmotionalDashboard from './components/EmotionalDashboard';
 import ArtifactPanel from './components/ArtifactPanel';
@@ -539,6 +539,21 @@ const App: React.FC = () => {
   const [weatherInfo, setWeatherInfo] = useState<{ temp: number; code: number; label: string } | null>(null);
   const [showMenu, setShowMenu] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
+
+  // ── Theme toggle (Adaptive Glass) ──
+  const [isDark, setIsDark] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('arha-theme');
+      if (saved) return saved === 'dark';
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+    return true;
+  });
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', isDark);
+    localStorage.setItem('arha-theme', isDark ? 'dark' : 'light');
+  }, [isDark]);
   const [valueProfile, setValueProfile] = useState<ValueProfile>({});
   const [selectedMedia, setSelectedMedia] = useState<{ file: File; type: 'image' | 'video' | 'pdf'; base64: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -997,7 +1012,7 @@ const App: React.FC = () => {
   const isOverlayMode = viewW < 1280;
 
   const btnActive = 'bg-emerald-600 text-white';
-  const btnIdle   = 'bg-white/20 text-slate-800 border border-white/40';
+  const btnIdle   = 'bg-black/5 dark:bg-white/20 text-slate-700 dark:text-white/80 border border-black/10 dark:border-white/40';
 
   // Build sidebar positioning style
   const sidebarStyle = useCallback((show: boolean, side: 'left' | 'right'): React.CSSProperties => {
@@ -1019,8 +1034,8 @@ const App: React.FC = () => {
   const sidebarCls = useCallback((side: 'left' | 'right') =>
     `fixed top-0 h-[100dvh] md:h-[98dvh] md:top-[1dvh] flex flex-col arha-sidebar-bg shadow-2xl overflow-hidden md:rounded-[2.5rem] ${
       isOverlayMode
-        ? `z-[60] transition-transform duration-300 ${side === 'left' ? 'border-r' : 'border-l'} border-white/10`
-        : `z-[5] transition-opacity duration-300 ${side === 'left' ? 'border-r' : 'border-l'} border-white/10`
+        ? `z-[60] transition-transform duration-300 ${side === 'left' ? 'border-r' : 'border-l'} border-black/10 dark:border-white/10`
+        : `z-[5] transition-opacity duration-300 ${side === 'left' ? 'border-r' : 'border-l'} border-black/10 dark:border-white/10`
     }`, [isOverlayMode]);
 
   // On mobile, fix the card to visualViewport so the header doesn't clip when keyboard opens
@@ -1035,19 +1050,21 @@ const App: React.FC = () => {
 
   return (
     <div
-      className="flex w-full items-center justify-center relative overflow-hidden bg-black"
+      className="flex w-full items-center justify-center relative overflow-hidden"
       style={{ height: isMobile ? vvHeight : '100dvh', top: isMobile ? vvOffsetTop : undefined, position: isMobile ? 'fixed' : 'relative' }}
     >
-      {/* Full-screen background */}
+      {/* Adaptive Glass mesh gradient background */}
+      <div className="arha-mesh-bg" />
+      {/* Full-screen background image (fades behind mesh) */}
       <div
-        className="absolute inset-0 z-0 bg-cover bg-center transition-all duration-[4000ms] scale-105 opacity-80"
+        className={`absolute inset-0 z-0 bg-cover bg-center transition-all duration-[4000ms] scale-105 ${isDark ? 'opacity-60' : 'opacity-20'}`}
         style={{ backgroundImage: `url(${bgImageUrl})` }}
       />
 
       {/* Login modal overlay */}
       {showLoginModal && (
         <div
-          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          className={`fixed inset-0 z-[200] flex items-center justify-center backdrop-blur-sm ${isDark ? 'bg-black/60' : 'bg-black/20'}`}
           onClick={() => setShowLoginModal(false)}
         >
           <div onClick={e => e.stopPropagation()}>
@@ -1059,21 +1076,21 @@ const App: React.FC = () => {
       {/* Dim overlay when sidebar is open in overlay mode */}
       {isOverlayMode && (showHistory || showDashboard) && (
         <div
-          className="fixed inset-0 z-[55] bg-black/50 backdrop-blur-sm"
+          className="fixed inset-0 z-[55] bg-black/15 dark:bg-black/50 backdrop-blur-sm"
           onClick={() => { setShowHistory(false); setShowDashboard(false); }}
         />
       )}
 
       {/* ── Left sidebar: History Archive ── */}
       <aside style={sidebarStyle(showHistory, 'left')} className={sidebarCls('left')}>
-        <header className="h-12 md:h-16 px-4 md:px-5 border-b border-white/10 bg-white/5 backdrop-blur-xl flex items-center justify-between shrink-0">
+        <header className="h-12 md:h-16 px-4 md:px-5 border-b border-black/5 dark:border-white/10 bg-black/5 dark:bg-white/5 backdrop-blur-xl flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3 text-emerald-400">
             <History size={18} />
-            <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-white/90 whitespace-nowrap">History Archive</h3>
+            <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-800 dark:text-white/90 whitespace-nowrap">History Archive</h3>
           </div>
           <button
             onClick={() => setShowHistory(false)}
-            className="w-8 h-8 md:w-9 md:h-9 rounded-xl flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 active:bg-white/20 transition-all shrink-0"
+            className="w-8 h-8 md:w-9 md:h-9 rounded-xl flex items-center justify-center text-slate-400 dark:text-white/40 hover:text-slate-700 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 active:bg-black/10 dark:active:bg-white/20 transition-all shrink-0"
           >
             <X size={18} />
           </button>
@@ -1091,7 +1108,7 @@ const App: React.FC = () => {
 
         <div className="flex-1 overflow-y-auto p-4 md:p-5 space-y-3 md:space-y-4 scroll-hide">
           {history.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-48 text-white/20">
+            <div className="flex flex-col items-center justify-center h-48 text-slate-300 dark:text-white/20">
               <History size={28} className="mb-4 opacity-10" />
               <p className="text-[10px] uppercase font-bold tracking-widest">Empty</p>
             </div>
@@ -1101,26 +1118,26 @@ const App: React.FC = () => {
                 <div
                   key={s.id}
                   onClick={() => { setMessages(s.messages); setShowHistory(false); }}
-                  className="p-3 md:p-4 rounded-2xl bg-white/5 border border-white/10 active:border-emerald-500/40 active:bg-white/10 hover:border-emerald-500/40 hover:bg-white/10 transition-all cursor-pointer group relative"
+                  className="p-3 md:p-4 rounded-2xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 active:border-emerald-500/40 active:bg-black/10 dark:active:bg-white/10 hover:border-emerald-500/40 hover:bg-black/5 dark:hover:bg-white/10 transition-all cursor-pointer group relative"
                 >
                   {/* Delete button: always visible on mobile, hover-only on desktop */}
                   <button
                     onClick={(e) => handleDeleteHistory(e, s.id)}
-                    className="absolute top-2.5 right-2.5 w-7 h-7 rounded-lg flex items-center justify-center opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:bg-red-500/20 active:bg-red-500/20 text-white/30 hover:text-red-400 transition-all"
+                    className="absolute top-2.5 right-2.5 w-7 h-7 rounded-lg flex items-center justify-center opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:bg-red-500/20 active:bg-red-500/20 text-slate-400 dark:text-white/30 hover:text-red-400 transition-all"
                     title="Delete"
                   >
                     <Trash2 size={13} />
                   </button>
-                  <h4 className="text-[13px] font-bold text-white/90 truncate mb-1 pr-8">{s.title}</h4>
+                  <h4 className="text-[13px] font-bold text-slate-800 dark:text-white/90 truncate mb-1 pr-8">{s.title}</h4>
                   <div className="flex items-center justify-between">
-                    <span className="text-[9px] text-white/30 uppercase font-black">{new Date(s.timestamp).toLocaleDateString()}</span>
-                    <ChevronRight size={12} className="text-white/20 group-hover:text-emerald-400" />
+                    <span className="text-[9px] text-slate-400 dark:text-white/30 uppercase font-black">{new Date(s.timestamp).toLocaleDateString()}</span>
+                    <ChevronRight size={12} className="text-slate-300 dark:text-white/20 group-hover:text-emerald-400" />
                   </div>
                 </div>
               ))}
               <button
                 onClick={handleClearAllHistory}
-                className="w-full mt-2 py-3 rounded-xl border border-white/10 hover:border-red-500/30 hover:bg-red-500/10 active:bg-red-500/10 text-white/30 hover:text-red-400 text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all"
+                className="w-full mt-2 py-3 rounded-xl border border-black/10 dark:border-white/10 hover:border-red-500/30 hover:bg-red-500/10 active:bg-red-500/10 text-slate-400 dark:text-white/30 hover:text-red-400 text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all"
               >
                 <Trash2 size={12} /> Clear All
               </button>
@@ -1146,13 +1163,13 @@ const App: React.FC = () => {
       {/* ── Right sidebar: Emotional Prism + Pipeline + Persona ── */}
       <aside style={sidebarStyle(showDashboard, 'right')} className={sidebarCls('right')}>
         {/* Tab bar header */}
-        <header className="h-12 md:h-16 px-4 md:px-5 border-b border-white/10 bg-white/5 backdrop-blur-xl flex items-center justify-between shrink-0">
+        <header className="h-12 md:h-16 px-4 md:px-5 border-b border-black/5 dark:border-white/10 bg-black/5 dark:bg-white/5 backdrop-blur-xl flex items-center justify-between shrink-0">
           <div className="flex items-center gap-1">
             {/* Prism tab */}
             <button
               onClick={() => setSidebarTab('prism')}
               title="Prism"
-              className={`relative w-8 h-8 flex items-center justify-center rounded-lg transition-all ${sidebarTab === 'prism' ? 'bg-emerald-500/20 text-emerald-300' : 'text-white/30 hover:text-white/60 hover:bg-white/5'}`}
+              className={`relative w-8 h-8 flex items-center justify-center rounded-lg transition-all ${sidebarTab === 'prism' ? 'bg-emerald-500/20 text-emerald-500 dark:text-emerald-300' : 'text-slate-400 dark:text-white/30 hover:text-slate-600 dark:hover:text-white/60 hover:bg-black/5 dark:hover:bg-white/5'}`}
             >
               <Heart size={14} />
             </button>
@@ -1160,7 +1177,7 @@ const App: React.FC = () => {
             <button
               onClick={() => setSidebarTab('pipeline')}
               title="Pipeline"
-              className={`relative w-8 h-8 flex items-center justify-center rounded-lg transition-all ${sidebarTab === 'pipeline' ? 'bg-cyan-500/20 text-cyan-300' : 'text-white/30 hover:text-white/60 hover:bg-white/5'}`}
+              className={`relative w-8 h-8 flex items-center justify-center rounded-lg transition-all ${sidebarTab === 'pipeline' ? 'bg-cyan-500/20 text-cyan-500 dark:text-cyan-300' : 'text-slate-400 dark:text-white/30 hover:text-slate-600 dark:hover:text-white/60 hover:bg-black/5 dark:hover:bg-white/5'}`}
             >
               <Activity size={14} />
               {pipelineData && sidebarTab !== 'pipeline' && (
@@ -1171,7 +1188,7 @@ const App: React.FC = () => {
             <button
               onClick={() => setSidebarTab('persona')}
               title="Persona"
-              className={`relative w-8 h-8 flex items-center justify-center rounded-lg transition-all ${sidebarTab === 'persona' ? 'bg-violet-500/20 text-violet-300' : 'text-white/30 hover:text-white/60 hover:bg-white/5'}`}
+              className={`relative w-8 h-8 flex items-center justify-center rounded-lg transition-all ${sidebarTab === 'persona' ? 'bg-violet-500/20 text-violet-500 dark:text-violet-300' : 'text-slate-400 dark:text-white/30 hover:text-slate-600 dark:hover:text-white/60 hover:bg-black/5 dark:hover:bg-white/5'}`}
             >
               <Database size={14} />
               {personaConfig.id && personaConfig.id !== 'arha' && (
@@ -1181,7 +1198,7 @@ const App: React.FC = () => {
           </div>
           <button
             onClick={() => setShowDashboard(false)}
-            className="w-8 h-8 rounded-xl flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 active:bg-white/20 transition-all shrink-0"
+            className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 dark:text-white/40 hover:text-slate-700 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 active:bg-black/10 dark:active:bg-white/20 transition-all shrink-0"
           >
             <X size={18} />
           </button>
@@ -1206,7 +1223,7 @@ const App: React.FC = () => {
             {!pipelineData ? (
               <div className="flex flex-col items-center justify-center h-40 gap-3 opacity-40">
                 <Activity size={24} className="text-cyan-400" />
-                <p className="text-[10px] text-white/50 text-center leading-relaxed whitespace-pre-line">
+                <p className="text-[10px] text-slate-500 dark:text-white/50 text-center leading-relaxed whitespace-pre-line">
                   {t.pipelineHint}
                 </p>
               </div>
@@ -1216,38 +1233,38 @@ const App: React.FC = () => {
                 <div className="rounded-2xl border border-cyan-400/15 bg-cyan-500/5 px-3 py-2.5">
                   <div className="flex items-center gap-1.5 mb-2">
                     <span className="text-[8px] font-black uppercase tracking-widest text-cyan-400/70">R1</span>
-                    <span className="text-[9px] font-black text-white/50">{t.r1Label}</span>
+                    <span className="text-[9px] font-black text-slate-500 dark:text-white/50">{t.r1Label}</span>
                     {pipelineData.r1.gamma_detect && (
                       <span className="ml-auto text-[7px] font-black text-amber-400 bg-amber-400/10 px-1.5 py-0.5 rounded-full">{t.r1RapidChange}</span>
                     )}
                   </div>
                   <div className="space-y-1">
                     <div className="flex items-center justify-between">
-                      <span className="text-[8px] text-white/40">{t.r1IntentDir}</span>
+                      <span className="text-[8px] text-slate-500 dark:text-white/40">{t.r1IntentDir}</span>
                       <span className="text-[9px] font-black text-cyan-300">{pipelineData.r1.theta1.toFixed(2)}</span>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <span className="text-[8px] text-white/40 w-12 shrink-0">{t.r1Entropy}</span>
+                      <span className="text-[8px] text-slate-500 dark:text-white/40 w-12 shrink-0">{t.r1Entropy}</span>
                       <div className="flex-1 h-1 bg-white/10 rounded-full overflow-hidden">
                         <div className="h-full bg-cyan-400/60 rounded-full transition-all" style={{ width: `${pipelineData.r1.entropy * 100}%` }} />
                       </div>
-                      <span className="text-[8px] text-white/30">{(pipelineData.r1.entropy * 100).toFixed(0)}%</span>
+                      <span className="text-[8px] text-slate-400 dark:text-white/30">{(pipelineData.r1.entropy * 100).toFixed(0)}%</span>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <span className="text-[8px] text-white/40 w-12 shrink-0">{t.r1EmotionIntensity}</span>
+                      <span className="text-[8px] text-slate-500 dark:text-white/40 w-12 shrink-0">{t.r1EmotionIntensity}</span>
                       <div className="flex-1 h-1 bg-white/10 rounded-full overflow-hidden">
                         <div
                           className={`h-full rounded-full transition-all ${pipelineData.r1.emotion_phase.direction >= 0 ? 'bg-emerald-400/70' : 'bg-rose-400/70'}`}
                           style={{ width: `${pipelineData.r1.emotion_phase.amplitude * 100}%` }}
                         />
                       </div>
-                      <span className="text-[8px] text-white/30">
+                      <span className="text-[8px] text-slate-400 dark:text-white/30">
                         {pipelineData.r1.emotion_phase.direction >= 0 ? '+' : ''}{pipelineData.r1.emotion_phase.direction.toFixed(1)}
                       </span>
                     </div>
                     <div className="flex items-center justify-between mt-1">
-                      <span className="text-[8px] text-white/30">{t.r1Intent}</span>
-                      <span className="text-[8px] font-black text-white/60 truncate max-w-[120px]">{pipelineData.r1.intent_summary}</span>
+                      <span className="text-[8px] text-slate-400 dark:text-white/30">{t.r1Intent}</span>
+                      <span className="text-[8px] font-black text-slate-600 dark:text-white/60 truncate max-w-[120px]">{pipelineData.r1.intent_summary}</span>
                     </div>
                   </div>
                 </div>
@@ -1256,7 +1273,7 @@ const App: React.FC = () => {
                 <div className="rounded-2xl border border-violet-400/15 bg-violet-500/5 px-3 py-2.5">
                   <div className="flex items-center gap-1.5 mb-2">
                     <span className="text-[8px] font-black uppercase tracking-widest text-violet-400/70">R2</span>
-                    <span className="text-[9px] font-black text-white/50">{t.r2Label}</span>
+                    <span className="text-[9px] font-black text-slate-500 dark:text-white/50">{t.r2Label}</span>
                     <span className={`ml-auto text-[7px] font-black px-1.5 py-0.5 rounded-full ${
                       pipelineData.r2.decision === 'D_Accept' ? 'text-emerald-400 bg-emerald-400/10' :
                       pipelineData.r2.decision === 'D_Defend' ? 'text-red-400 bg-red-400/10' :
@@ -1270,27 +1287,27 @@ const App: React.FC = () => {
                   </div>
                   <div className="space-y-1">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-[8px] text-white/40 w-14 shrink-0">{t.r2Conflict}</span>
+                      <span className="text-[8px] text-slate-500 dark:text-white/40 w-14 shrink-0">{t.r2Conflict}</span>
                       <div className="flex-1 h-1 bg-white/10 rounded-full overflow-hidden">
                         <div
                           className={`h-full rounded-full transition-all ${pipelineData.r2.r_conflict < 0.3 ? 'bg-emerald-400/70' : pipelineData.r2.r_conflict < 0.6 ? 'bg-amber-400/70' : 'bg-red-400/70'}`}
                           style={{ width: `${pipelineData.r2.r_conflict * 100}%` }}
                         />
                       </div>
-                      <span className="text-[8px] text-white/30">{pipelineData.r2.r_conflict.toFixed(2)}</span>
+                      <span className="text-[8px] text-slate-400 dark:text-white/30">{pipelineData.r2.r_conflict.toFixed(2)}</span>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <span className="text-[8px] text-white/40 w-14 shrink-0">{t.r2Tension}</span>
+                      <span className="text-[8px] text-slate-500 dark:text-white/40 w-14 shrink-0">{t.r2Tension}</span>
                       <div className="flex-1 h-1 bg-white/10 rounded-full overflow-hidden">
                         <div className="h-full bg-violet-400/60 rounded-full transition-all" style={{ width: `${pipelineData.r2.tension * 100}%` }} />
                       </div>
-                      <span className="text-[8px] text-white/30">{pipelineData.r2.tension.toFixed(2)}</span>
+                      <span className="text-[8px] text-slate-400 dark:text-white/30">{pipelineData.r2.tension.toFixed(2)}</span>
                     </div>
                     {/* ARHA / PROMETHEUS density bar */}
                     <div className="mt-1.5 space-y-0.5">
                       <div className="flex items-center justify-between">
-                        <span className="text-[7px] text-white/30">ARHA</span>
-                        <span className="text-[7px] text-white/30">PROMETHEUS</span>
+                        <span className="text-[7px] text-slate-400 dark:text-white/30">ARHA</span>
+                        <span className="text-[7px] text-slate-400 dark:text-white/30">PROMETHEUS</span>
                       </div>
                       <div className="h-2 bg-white/10 rounded-full overflow-hidden flex">
                         <div className="h-full bg-emerald-400/60 transition-all" style={{ width: `${pipelineData.r2.arha_density}%` }} />
@@ -1298,7 +1315,7 @@ const App: React.FC = () => {
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-[8px] font-black text-emerald-400/80">{pipelineData.r2.arha_density}%</span>
-                        <span className="text-[8px] text-white/30">{pipelineData.r2.tone}</span>
+                        <span className="text-[8px] text-slate-400 dark:text-white/30">{pipelineData.r2.tone}</span>
                         <span className="text-[8px] font-black text-violet-400/80">{pipelineData.r2.prometheus_density}%</span>
                       </div>
                     </div>
@@ -1309,24 +1326,24 @@ const App: React.FC = () => {
                 <div className="rounded-2xl border border-emerald-400/15 bg-emerald-500/5 px-3 py-2.5">
                   <div className="flex items-center gap-1.5 mb-2">
                     <span className="text-[8px] font-black uppercase tracking-widest text-emerald-400/70">R3</span>
-                    <span className="text-[9px] font-black text-white/50">{t.r3Label}</span>
+                    <span className="text-[9px] font-black text-slate-500 dark:text-white/50">{t.r3Label}</span>
                     <span className="ml-auto text-[7px] font-black text-emerald-400/70 bg-emerald-400/10 px-1.5 py-0.5 rounded-full">{pipelineData.r3.chain_op}</span>
                   </div>
                   <div className="space-y-1">
                     {pipelineData.r3.active_values.map(v => (
                       <div key={v.id} className="flex items-center gap-1.5">
-                        <span className={`text-[7px] font-black w-3 ${v.activated ? 'text-emerald-400' : 'text-white/20'}`}>{v.id}</span>
+                        <span className={`text-[7px] font-black w-3 ${v.activated ? 'text-emerald-400' : 'text-slate-300 dark:text-white/20'}`}>{v.id}</span>
                         <div className="flex-1 h-1 bg-white/10 rounded-full overflow-hidden">
                           <div
                             className={`h-full rounded-full transition-all ${v.activated ? 'bg-emerald-400/80' : 'bg-white/20'}`}
                             style={{ width: `${v.weight * 100}%` }}
                           />
                         </div>
-                        <span className={`text-[7px] w-14 truncate ${v.activated ? 'text-white/60 font-black' : 'text-white/25'}`}>{v.name}</span>
+                        <span className={`text-[7px] w-14 truncate ${v.activated ? 'text-slate-700 dark:text-white/60 font-black' : 'text-slate-300 dark:text-white/25'}`}>{v.name}</span>
                       </div>
                     ))}
                     <div className="flex items-center justify-between mt-1">
-                      <span className="text-[8px] text-white/30">{t.r3Resonance}</span>
+                      <span className="text-[8px] text-slate-400 dark:text-white/30">{t.r3Resonance}</span>
                       <span className="text-[9px] font-black text-emerald-300">{(pipelineData.r3.resonance_level * 100).toFixed(0)}%</span>
                     </div>
                   </div>
@@ -1337,7 +1354,7 @@ const App: React.FC = () => {
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-1.5">
                       <span className="text-[8px] font-black uppercase tracking-widest text-amber-400/70">R4</span>
-                      <span className="text-[9px] font-black text-white/50">{t.r4Label}</span>
+                      <span className="text-[9px] font-black text-slate-500 dark:text-white/50">{t.r4Label}</span>
                     </div>
                     <span className="text-[8px] font-black text-amber-300/80 font-mono">Ψ_Lingua</span>
                   </div>
@@ -1349,13 +1366,13 @@ const App: React.FC = () => {
                       <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden">
                         <div className="h-full bg-amber-400/70 rounded-full transition-all" style={{ width: `${pipelineData.r4.lingua_rho * 100}%` }} />
                       </div>
-                      <span className="text-[7px] text-white/30">{(pipelineData.r4.lingua_rho * 100).toFixed(0)}%</span>
+                      <span className="text-[7px] text-slate-400 dark:text-white/30">{(pipelineData.r4.lingua_rho * 100).toFixed(0)}%</span>
                     </div>
                     {/* λ wavelength */}
                     <div className="flex-1 bg-white/5 rounded-xl p-1.5 flex flex-col items-center gap-1">
                       <span className="text-[9px] font-black text-amber-300/80 font-mono">λ</span>
-                      <span className="text-[8px] font-black text-white/60">{pipelineData.r4.lingua_lambda}</span>
-                      <span className="text-[7px] text-white/30">{t.r4Wavelength}</span>
+                      <span className="text-[8px] font-black text-slate-600 dark:text-white/60">{pipelineData.r4.lingua_lambda}</span>
+                      <span className="text-[7px] text-slate-400 dark:text-white/30">{t.r4Wavelength}</span>
                     </div>
                     {/* τ temporality */}
                     <div className="flex-1 bg-white/5 rounded-xl p-1.5 flex flex-col items-center gap-1">
@@ -1369,7 +1386,7 @@ const App: React.FC = () => {
                           }}
                         />
                       </div>
-                      <span className="text-[7px] text-white/30">
+                      <span className="text-[7px] text-slate-400 dark:text-white/30">
                         {(pipelineData.r4.lingua_tau ?? 0) > 0 ? t.r4Future : (pipelineData.r4.lingua_tau ?? 0) < 0 ? t.r4Past : t.r4Present}
                       </span>
                     </div>
@@ -1377,10 +1394,10 @@ const App: React.FC = () => {
                   {/* Φ rhythm + target senses */}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1">
-                      <span className="text-[8px] text-white/30 font-mono">Φ</span>
+                      <span className="text-[8px] text-slate-400 dark:text-white/30 font-mono">Φ</span>
                       <span className="text-[8px] font-black text-amber-300/80">{pipelineData.r4.rhythm}</span>
                     </div>
-                    <span className="text-[7px] font-black text-white/40">{pipelineData.r4.target_senses.join(' · ')}</span>
+                    <span className="text-[7px] font-black text-slate-500 dark:text-white/40">{pipelineData.r4.target_senses.join(' · ')}</span>
                   </div>
                 </div>
               </>
@@ -1393,7 +1410,7 @@ const App: React.FC = () => {
           <div className="flex-1 overflow-y-auto px-3 pt-3 pb-3 space-y-2 scroll-hide">
             {/* Persona preset grid */}
             <div className="space-y-2">
-              <p className="text-[9px] font-black uppercase tracking-widest text-white/30 px-0.5">{t.personaPresetLabel}</p>
+              <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-white/30 px-0.5">{t.personaPresetLabel}</p>
               <div className="grid grid-cols-2 gap-2">
                 {PERSONA_PRESETS.map((preset) => {
                   const isActive = personaConfig.id === preset.id;
@@ -1425,8 +1442,8 @@ const App: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <span className="text-base">{personaConfig.emoji}</span>
                   <div>
-                    <p className="text-[10px] font-black text-white/70">{personaLabel(t, personaConfig.id) || personaConfig.label}</p>
-                    <p className="text-[9px] text-white/30">
+                    <p className="text-[10px] font-black text-slate-700 dark:text-white/70">{personaLabel(t, personaConfig.id) || personaConfig.label}</p>
+                    <p className="text-[9px] text-slate-400 dark:text-white/30">
                       {personaSaved ? t.personaJustApplied : personaConfig.id === 'arha' ? t.personaDefault : t.personaActive}
                     </p>
                   </div>
@@ -1434,7 +1451,7 @@ const App: React.FC = () => {
                 {personaConfig.id !== 'arha' && (
                   <button
                     onClick={handlePersonaReset}
-                    className="text-[9px] font-black uppercase tracking-widest text-white/20 hover:text-red-400 transition-all px-2 py-1 rounded-lg hover:bg-red-500/10"
+                    className="text-[9px] font-black uppercase tracking-widest text-slate-300 dark:text-white/20 hover:text-red-400 transition-all px-2 py-1 rounded-lg hover:bg-red-500/10"
                   >
                     {t.personaReset}
                   </button>
@@ -1444,24 +1461,24 @@ const App: React.FC = () => {
 
             {/* Value chain section */}
             <div className="space-y-2 pt-1">
-              <p className="text-[9px] font-black uppercase tracking-widest text-white/30 px-0.5">Value Chain</p>
+              <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-white/30 px-0.5">Value Chain</p>
               <div className="rounded-2xl border border-white/10 bg-white/3 px-3 py-2.5 space-y-1.5">
                 {(pipelineData?.r3.active_values ?? activeValueChain).map(v => (
                   <div key={v.id} className="flex items-center gap-2">
-                    <span className={`text-[7px] font-black w-4 shrink-0 ${v.activated ? 'text-violet-400' : 'text-white/25'}`}>{v.id}</span>
+                    <span className={`text-[7px] font-black w-4 shrink-0 ${v.activated ? 'text-violet-400' : 'text-slate-300 dark:text-white/25'}`}>{v.id}</span>
                     <div className="flex-1 h-1.5 bg-white/8 rounded-full overflow-hidden">
                       <div
                         className={`h-full rounded-full transition-all duration-500 ${v.activated ? 'bg-gradient-to-r from-violet-400 to-pink-400' : 'bg-white/15'}`}
                         style={{ width: `${v.weight * 100}%` }}
                       />
                     </div>
-                    <span className={`text-[8px] w-16 truncate ${v.activated ? 'text-white/70 font-black' : 'text-white/25'}`}>{v.name}</span>
+                    <span className={`text-[8px] w-16 truncate ${v.activated ? 'text-slate-700 dark:text-white/70 font-black' : 'text-slate-300 dark:text-white/25'}`}>{v.name}</span>
                     {v.activated && <span className="w-1 h-1 rounded-full bg-violet-400 shrink-0" />}
                   </div>
                 ))}
                 {pipelineData?.r3.chain_op && (
                   <div className="flex items-center justify-between pt-1 border-t border-white/8 mt-1">
-                    <span className="text-[8px] text-white/30">{t.r3ChainOp}</span>
+                    <span className="text-[8px] text-slate-400 dark:text-white/30">{t.r3ChainOp}</span>
                     <span className="text-[8px] font-black text-violet-300/70">{pipelineData.r3.chain_op}</span>
                   </div>
                 )}
@@ -1487,9 +1504,9 @@ const App: React.FC = () => {
 
           {/* Centered title + persona label */}
           <div className="absolute left-1/2 -translate-x-1/2 text-center pointer-events-none">
-            <h1 className="text-sm md:text-base font-bold text-slate-900 tracking-tight leading-none">ARHA</h1>
+            <h1 className="text-sm md:text-base font-bold text-slate-900 dark:text-white tracking-tight leading-none">ARHA</h1>
             <div className="flex items-center justify-center gap-1">
-              <span className="flex items-center gap-0.5 text-[7px] font-black uppercase tracking-widest text-slate-500">
+              <span className="flex items-center gap-0.5 text-[7px] font-black uppercase tracking-widest text-slate-500 dark:text-white/60">
                 {personaConfig.emoji} {personaLabel(t, personaConfig.id) || personaConfig.label}
               </span>
             </div>
@@ -1509,14 +1526,27 @@ const App: React.FC = () => {
               </span>
             )}
 
+            {/* Theme toggle (Adaptive Glass) */}
+            <button
+              onClick={() => setIsDark(!isDark)}
+              title={isDark ? 'Light mode' : 'Dark mode'}
+              className={`hidden md:flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest border transition-all ${
+                isDark
+                  ? 'bg-slate-500/20 border-slate-400/30 text-slate-300 hover:text-white'
+                  : 'bg-amber-500/15 border-amber-400/30 text-amber-600 hover:text-amber-700'
+              }`}
+            >
+              {isDark ? <Moon size={9} /> : <Sun size={9} />}
+            </button>
+
             {/* Language switcher */}
             <button
               onClick={() => setLang(lang === 'ko' ? 'en' : 'ko')}
               title={lang === 'ko' ? t.langEn : t.langKo}
               className={`hidden md:flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest border transition-all ${
                 lang === 'en'
-                  ? 'bg-sky-500/20 border-sky-400/40 text-sky-300'
-                  : 'bg-white/10 border-white/20 text-white/50 hover:text-white/80'
+                  ? 'bg-sky-500/20 border-sky-400/40 text-sky-500 dark:text-sky-300'
+                  : 'bg-slate-500/10 dark:bg-white/10 border-slate-300/30 dark:border-white/20 text-slate-500 dark:text-white/50 hover:text-slate-700 dark:hover:text-white/80'
               }`}
             >
               <Globe size={9} />
@@ -1556,10 +1586,10 @@ const App: React.FC = () => {
                       <div className="flex items-center gap-2 text-slate-400">
                         <span className="text-sm animate-pulse">🔍</span>
                         <span className="text-[13px]">
-                          <span className="text-white/40">「</span>
-                          <span className="text-sky-300/80 font-medium">{searchingQuery}</span>
-                          <span className="text-white/40">」</span>
-                          <span className="text-white/40"> {t.searchingLabel}</span>
+                          <span className="text-slate-400 dark:text-white/40">「</span>
+                          <span className="text-sky-500 dark:text-sky-300/80 font-medium">{searchingQuery}</span>
+                          <span className="text-slate-400 dark:text-white/40">」</span>
+                          <span className="text-slate-400 dark:text-white/40"> {t.searchingLabel}</span>
                         </span>
                       </div>
                     ) : (
@@ -1595,7 +1625,7 @@ const App: React.FC = () => {
                             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-sky-400/30 transition-all group max-w-full"
                           >
                             <Globe size={11} className="shrink-0 text-sky-400/60 group-hover:text-sky-400" />
-                            <span className="text-[11px] text-white/50 group-hover:text-sky-300/80 truncate leading-tight">
+                            <span className="text-[11px] text-slate-500 dark:text-white/50 group-hover:text-sky-500 dark:group-hover:text-sky-300/80 truncate leading-tight">
                               {u.title || u.url}
                             </span>
                           </a>
@@ -1624,12 +1654,12 @@ const App: React.FC = () => {
 
             {/* Hamburger menu popover */}
             {showMenu && (
-              <div className="absolute bottom-12 md:bottom-14 left-0 arha-sidebar-bg border border-white/10 rounded-2xl p-3 shadow-2xl z-[100] flex flex-col w-[240px] animate-in slide-in-from-bottom-2">
+              <div className="absolute bottom-12 md:bottom-14 left-0 arha-sidebar-bg border border-black/10 dark:border-white/10 rounded-2xl p-3 shadow-2xl z-[100] flex flex-col w-[240px] animate-in slide-in-from-bottom-2">
                 {/* Background section */}
-                <p className="text-[9px] font-black uppercase tracking-widest text-white/30 px-1 mb-2">{t.menuBgTitle}</p>
+                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-white/30 px-1 mb-2">{t.menuBgTitle}</p>
 
                 {/* Custom photo upload */}
-                <label className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[11px] font-bold text-white/70 hover:bg-white/10 active:bg-white/10 cursor-pointer transition-all">
+                <label className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[11px] font-bold text-slate-600 dark:text-white/70 hover:bg-black/5 dark:hover:bg-white/10 active:bg-black/5 dark:active:bg-white/10 cursor-pointer transition-all">
                   <ImageIcon size={14} className="text-sky-400 shrink-0" />
                   {t.menuUploadPhoto}
                   <input type="file" accept="image/*" className="hidden" onChange={handleBgUpload} />
@@ -1658,53 +1688,53 @@ const App: React.FC = () => {
                 {customBg && (
                   <button
                     onClick={() => { setCustomBg(null); setShowMenu(false); }}
-                    className="flex items-center gap-2 px-3 py-2 rounded-xl text-[10px] font-bold text-white/30 hover:text-white/60 hover:bg-white/5 transition-all"
+                    className="flex items-center gap-2 px-3 py-2 rounded-xl text-[10px] font-bold text-slate-400 dark:text-white/30 hover:text-slate-600 dark:hover:text-white/60 hover:bg-black/5 dark:hover:bg-white/5 transition-all"
                   >
                     <RotateCcw size={11} /> {t.menuRestoreWeather}
                   </button>
                 )}
 
-                <div className="border-t border-white/10 my-2" />
+                <div className="border-t border-black/10 dark:border-white/10 my-2" />
 
                 {/* Coming soon features */}
-                <p className="text-[9px] font-black uppercase tracking-widest text-white/20 px-1 mb-1">{t.menuComingSoon}</p>
-                <button disabled className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[11px] font-bold text-white/30 opacity-50 cursor-not-allowed">
+                <p className="text-[9px] font-black uppercase tracking-widest text-slate-300 dark:text-white/20 px-1 mb-1">{t.menuComingSoon}</p>
+                <button disabled className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[11px] font-bold text-slate-400 dark:text-white/30 opacity-50 cursor-not-allowed">
                   <Video size={14} className="text-orange-400/60" /> Cinema Lab
-                  <span className="ml-auto text-[8px] text-white/20 font-black tracking-widest">SOON</span>
+                  <span className="ml-auto text-[8px] text-slate-300 dark:text-white/20 font-black tracking-widest">SOON</span>
                 </button>
-                <button disabled className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[11px] font-bold text-white/30 opacity-50 cursor-not-allowed">
+                <button disabled className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[11px] font-bold text-slate-400 dark:text-white/30 opacity-50 cursor-not-allowed">
                   <Mic size={14} className="text-emerald-400/60" /> Live Sync
-                  <span className="ml-auto text-[8px] text-white/20 font-black tracking-widest">SOON</span>
+                  <span className="ml-auto text-[8px] text-slate-300 dark:text-white/20 font-black tracking-widest">SOON</span>
                 </button>
 
-                <div className="border-t border-white/10 my-2" />
+                <div className="border-t border-black/10 dark:border-white/10 my-2" />
 
                 {/* Language switcher (mobile — also shown in menu) */}
                 <button
                   onClick={() => { setLang(lang === 'ko' ? 'en' : 'ko'); setShowMenu(false); }}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[11px] font-bold text-white/50 hover:text-sky-400 hover:bg-sky-500/10 active:bg-sky-500/10 transition-all"
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[11px] font-bold text-slate-500 dark:text-white/50 hover:text-sky-400 hover:bg-sky-500/10 active:bg-sky-500/10 transition-all"
                 >
                   <Globe size={14} className="text-sky-400 shrink-0" />
                   {lang === 'ko' ? t.langEn : t.langKo}
-                  <span className="ml-auto text-[8px] text-white/20 font-black tracking-widest">{lang.toUpperCase()}</span>
+                  <span className="ml-auto text-[8px] text-slate-300 dark:text-white/20 font-black tracking-widest">{lang.toUpperCase()}</span>
                 </button>
 
-                <div className="border-t border-white/10 my-2" />
+                <div className="border-t border-black/10 dark:border-white/10 my-2" />
 
                 {/* Admin page shortcut — logged-in only */}
                 {user && (
                   <>
-                    <div className="border-t border-white/10 my-2" />
+                    <div className="border-t border-black/10 dark:border-white/10 my-2" />
                     <a
                       href="https://arha-admin.vercel.app"
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={() => setShowMenu(false)}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[11px] font-bold text-white/50 hover:text-violet-400 hover:bg-violet-500/10 active:bg-violet-500/10 transition-all"
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[11px] font-bold text-slate-500 dark:text-white/50 hover:text-violet-400 hover:bg-violet-500/10 active:bg-violet-500/10 transition-all"
                     >
                       <FlaskConical size={14} className="text-violet-400 shrink-0" />
                       {t.adminPage ?? '관리자 페이지'}
-                      <span className="ml-auto text-[8px] text-white/20 font-black tracking-widest">ADMIN</span>
+                      <span className="ml-auto text-[8px] text-slate-300 dark:text-white/20 font-black tracking-widest">ADMIN</span>
                     </a>
                   </>
                 )}
@@ -1718,7 +1748,7 @@ const App: React.FC = () => {
                 ) : (
                   <button
                     onClick={() => { setShowMenu(false); setShowLoginModal(true); }}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[11px] font-bold text-white/50 hover:text-emerald-400 hover:bg-emerald-500/10 active:bg-emerald-500/10 transition-all"
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[11px] font-bold text-slate-500 dark:text-white/50 hover:text-emerald-400 hover:bg-emerald-500/10 active:bg-emerald-500/10 transition-all"
                   >
                     <svg width="14" height="14" viewBox="0 0 18 18" fill="none" className="shrink-0">
                       <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
@@ -1727,7 +1757,7 @@ const App: React.FC = () => {
                       <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.96L3.964 7.293C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
                     </svg>
                     {t.signInTitle}
-                    <span className="ml-auto text-[8px] text-white/20 font-black tracking-widest">{t.signInSync}</span>
+                    <span className="ml-auto text-[8px] text-slate-300 dark:text-white/20 font-black tracking-widest">{t.signInSync}</span>
                   </button>
                 )}
               </div>
@@ -1740,7 +1770,7 @@ const App: React.FC = () => {
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
                 placeholder={t.inputPlaceholder}
-                className="w-full h-9 md:h-11 bg-white/20 border border-white/40 rounded-2xl py-0 pl-3 md:pl-5 pr-12 text-[14px] md:text-base text-slate-900 placeholder:text-slate-500/70 focus:outline-none focus:border-emerald-400 transition-all"
+                className="w-full h-9 md:h-11 bg-black/5 dark:bg-white/20 border border-black/10 dark:border-white/40 rounded-2xl py-0 pl-3 md:pl-5 pr-12 text-[14px] md:text-base text-slate-900 dark:text-white placeholder:text-slate-500/70 dark:placeholder:text-white/30 focus:outline-none focus:border-emerald-400 transition-all"
               />
               <button
                 onClick={handleSend}

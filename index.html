@@ -6,20 +6,84 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>ARHA - Emotional Vector System</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>tailwind.config = { darkMode: 'class' }</script>
     <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        /* ═══════════════════════════════════════════════
+           Adaptive Glass Theme System
+           Light (default) ↔ Dark (.dark on <html>)
+           ═══════════════════════════════════════════════ */
+
         :root {
-            --arha-primary: #10b981; /* emerald-500 */
-            --arha-bg: #f1f5f9;
+            --arha-primary: #10b981;
+
+            /* ── Light Theme (Adaptive Glass) ── */
+            --bg-base: #e8ecf1;
+            --glass-bg: rgba(255, 255, 255, 0.45);
+            --glass-border: rgba(255, 255, 255, 0.55);
+            --glass-blur: 20px;
+            --glass-saturate: 150%;
+            --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+            --text-primary: #1e293b;
+            --text-secondary: #475569;
+            --text-muted: #94a3b8;
+            --sidebar-bg: linear-gradient(to bottom, rgba(255, 255, 255, 0.85), rgba(241, 245, 249, 0.92));
+            --sidebar-border: rgba(0, 0, 0, 0.06);
+            --bubble-ai-bg: rgba(255, 255, 255, 0.65);
+            --bubble-ai-border: rgba(0, 0, 0, 0.06);
+            --bubble-ai-text: #1e293b;
+            --bubble-user-bg: linear-gradient(135deg, rgba(16, 185, 129, 0.85), rgba(5, 150, 105, 0.85));
+            --bubble-user-border: rgba(255, 255, 255, 0.3);
+            --bubble-user-text: white;
+            --sunken-bg: rgba(0, 0, 0, 0.04);
+            --sunken-shadow: inset 1px 1px 3px rgba(0, 0, 0, 0.06), inset -1px -1px 3px rgba(255, 255, 255, 0.7);
+            --sunken-border: rgba(0, 0, 0, 0.06);
+            --overlay-bg: rgba(0, 0, 0, 0.15);
+            --input-bg: rgba(255, 255, 255, 0.6);
+            --input-border: rgba(0, 0, 0, 0.08);
+            --mesh-color-1: #dbeafe;
+            --mesh-color-2: #d1fae5;
+            --mesh-color-3: #ede9fe;
         }
-        
+
+        .dark {
+            /* ── Dark Theme (Original ARHA refined) ── */
+            --bg-base: #000000;
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.15);
+            --glass-blur: 50px;
+            --glass-saturate: 180%;
+            --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            --text-primary: #f1f5f9;
+            --text-secondary: rgba(255, 255, 255, 0.6);
+            --text-muted: rgba(255, 255, 255, 0.3);
+            --sidebar-bg: linear-gradient(to bottom, rgba(6, 78, 59, 0.98), rgba(15, 23, 42, 0.98), rgba(0, 0, 0, 0.98));
+            --sidebar-border: rgba(255, 255, 255, 0.05);
+            --bubble-ai-bg: rgba(255, 255, 255, 0.12);
+            --bubble-ai-border: rgba(255, 255, 255, 0.2);
+            --bubble-ai-text: #e2e8f0;
+            --bubble-user-bg: linear-gradient(135deg, rgba(16, 185, 129, 0.8), rgba(5, 150, 105, 0.8));
+            --bubble-user-border: rgba(255, 255, 255, 0.2);
+            --bubble-user-text: white;
+            --sunken-bg: rgba(255, 255, 255, 0.06);
+            --sunken-shadow: inset 2px 2px 5px rgba(0, 0, 0, 0.2), inset -2px -2px 5px rgba(255, 255, 255, 0.05);
+            --sunken-border: rgba(255, 255, 255, 0.1);
+            --overlay-bg: rgba(0, 0, 0, 0.5);
+            --input-bg: rgba(255, 255, 255, 0.05);
+            --input-border: rgba(255, 255, 255, 0.1);
+            --mesh-color-1: #064e3b;
+            --mesh-color-2: #0f172a;
+            --mesh-color-3: #1e1b4b;
+        }
+
         html, body {
             height: 100dvh;
             width: 100%;
             margin: 0;
             padding: 0;
-            background-color: #000;
+            background-color: var(--bg-base);
             overscroll-behavior-y: none;
+            transition: background-color 0.5s ease;
         }
 
         body {
@@ -28,43 +92,62 @@
             position: fixed;
             width: 100%;
             height: 100dvh;
+            color: var(--text-primary);
         }
 
         #root { height: 100dvh; width: 100%; }
 
-        /* 아르하 시그니처 사이드바 배경 (Emotional Prism & History Archive 공통) */
-        .arha-sidebar-bg {
-            background: linear-gradient(to bottom, rgba(6, 78, 59, 0.98), rgba(15, 23, 42, 0.98), rgba(0, 0, 0, 0.98));
-            backdrop-filter: blur(60px);
-            -webkit-backdrop-filter: blur(60px);
+        /* ── Mesh Gradient Background ── */
+        .arha-mesh-bg {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            background:
+                radial-gradient(ellipse 80% 60% at 20% 30%, var(--mesh-color-1), transparent 70%),
+                radial-gradient(ellipse 60% 80% at 80% 20%, var(--mesh-color-2), transparent 70%),
+                radial-gradient(ellipse 70% 50% at 50% 80%, var(--mesh-color-3), transparent 70%),
+                var(--bg-base);
+            transition: all 0.8s ease;
         }
 
-        /* 공통 글래스 패널 스타일 */
+        /* 아르하 시그니처 사이드바 배경 */
+        .arha-sidebar-bg {
+            background: var(--sidebar-bg);
+            backdrop-filter: blur(60px) saturate(var(--glass-saturate));
+            -webkit-backdrop-filter: blur(60px) saturate(var(--glass-saturate));
+            border-right: 1px solid var(--sidebar-border);
+        }
+
+        /* 공통 글래스 패널 스타일 — Adaptive Glass */
         .glass-panel {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(50px) saturate(180%);
-            -webkit-backdrop-filter: blur(50px) saturate(180%);
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: var(--glass-bg);
+            backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+            -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+            border: 1px solid var(--glass-border);
+            box-shadow: var(--glass-shadow);
+            transition: background 0.5s, border-color 0.5s, box-shadow 0.5s;
         }
 
         .chat-bubble-ai {
-            background: rgba(255, 255, 255, 0.15);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            backdrop-filter: blur(15px);
-            color: #0f172a;
+            background: var(--bubble-ai-bg);
+            border: 1px solid var(--bubble-ai-border);
+            backdrop-filter: blur(15px) saturate(var(--glass-saturate));
+            color: var(--bubble-ai-text);
+            transition: background 0.5s, color 0.5s, border-color 0.5s;
         }
 
         .chat-bubble-user {
-            background: linear-gradient(135deg, rgba(16, 185, 129, 0.8), rgba(5, 150, 105, 0.8));
+            background: var(--bubble-user-bg);
             backdrop-filter: blur(8px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            color: white;
+            border: 1px solid var(--bubble-user-border);
+            color: var(--bubble-user-text);
         }
 
         .glass-sunken {
-            background: rgba(255, 255, 255, 0.1);
-            box-shadow: inset 2px 2px 5px rgba(0, 0, 0, 0.1), inset -2px -2px 5px rgba(255, 255, 255, 0.4);
-            border: 1px solid rgba(255, 255, 255, 0.15);
+            background: var(--sunken-bg);
+            box-shadow: var(--sunken-shadow);
+            border: 1px solid var(--sunken-border);
+            transition: background 0.5s, box-shadow 0.5s;
         }
 
         /* 스크롤바 완전 숨김 — 모든 브라우저 */
