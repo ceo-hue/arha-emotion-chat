@@ -69,6 +69,11 @@ export const en: AdminTranslations = {
   exportJson: 'Export JSON',
   exportSuccess: 'Export Complete',
 
+  // Mobile tabs
+  tabBlocks: 'Blocks',
+  tabCanvas: 'Canvas',
+  tabOutput: 'Output',
+
   // Language
   langKo: '한국어',
   langEn: 'English',

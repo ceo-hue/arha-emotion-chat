@@ -67,6 +67,11 @@ export const ko = {
   exportJson: 'JSON 내보내기',
   exportSuccess: '내보내기 완료',
 
+  // Mobile tabs
+  tabBlocks: '블록',
+  tabCanvas: '캔버스',
+  tabOutput: '출력',
+
   // Language
   langKo: '한국어',
   langEn: 'English',

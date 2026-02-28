@@ -6,11 +6,11 @@ import BlockLibrary from './components/BlockLibrary';
 import SkeletonCanvas from './components/SkeletonCanvas';
 import LiveOutput from './components/LiveOutput';
 import { PERSONA_PRESETS } from './data/personaPresets';
-import { ArrowLeft, Globe, Download, LogOut, FlaskConical, Loader2 } from 'lucide-react';
+import { ArrowLeft, Globe, Download, LogOut, FlaskConical, Loader2, Layers, PenTool, Zap } from 'lucide-react';
 import type { EssenceBlock, ActiveEssenceBlock, TestResult, VectorXYZ, BlockRole } from './types';
 import { INFLUENCE_MAP, MAX_SUPPORTERS } from './types';
 
-const ARHA_URL = 'https://arha-감성-벡터.vercel.app';
+const ARHA_URL = 'https://arha-emotion-chat.vercel.app';
 
 export default function App() {
   const { user, loading, handleSignOut } = useAuth();
@@ -245,18 +245,21 @@ export default function App() {
       </header>
 
       {/* ── Mobile tab bar (< lg) ── */}
-      <div className="lg:hidden flex items-center gap-1 px-1 pt-1 shrink-0">
+      <div className="lg:hidden flex items-center gap-1.5 px-2 py-1.5 shrink-0 bg-white/5 border-b border-white/10">
         <button onClick={() => setMobileTab('library')}
-          className={`flex-1 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all ${mobileTab === 'library' ? 'bg-violet-500/20 text-violet-400 border border-violet-400/30' : 'text-white/30 hover:text-white/50'}`}>
-          Blocks
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[11px] font-bold tracking-wide transition-all ${mobileTab === 'library' ? 'bg-violet-500/25 text-violet-300 border border-violet-400/40 shadow-lg shadow-violet-500/10' : 'text-white/50 hover:text-white/70 hover:bg-white/5 border border-transparent'}`}>
+          <Layers size={13} />
+          {t.tabBlocks}
         </button>
         <button onClick={() => setMobileTab('canvas')}
-          className={`flex-1 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all ${mobileTab === 'canvas' ? 'bg-violet-500/20 text-violet-400 border border-violet-400/30' : 'text-white/30 hover:text-white/50'}`}>
-          Canvas
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[11px] font-bold tracking-wide transition-all ${mobileTab === 'canvas' ? 'bg-violet-500/25 text-violet-300 border border-violet-400/40 shadow-lg shadow-violet-500/10' : 'text-white/50 hover:text-white/70 hover:bg-white/5 border border-transparent'}`}>
+          <PenTool size={13} />
+          {t.tabCanvas}
         </button>
         <button onClick={() => setMobileTab('output')}
-          className={`flex-1 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all ${mobileTab === 'output' ? 'bg-violet-500/20 text-violet-400 border border-violet-400/30' : 'text-white/30 hover:text-white/50'}`}>
-          Output
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[11px] font-bold tracking-wide transition-all ${mobileTab === 'output' ? 'bg-violet-500/25 text-violet-300 border border-violet-400/40 shadow-lg shadow-violet-500/10' : 'text-white/50 hover:text-white/70 hover:bg-white/5 border border-transparent'}`}>
+          <Zap size={13} />
+          {t.tabOutput}
         </button>
       </div>
 
