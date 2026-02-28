@@ -10,7 +10,7 @@ import {
   Send, Heart, Image as ImageIcon,
   Mic, RotateCcw, LayoutDashboard,
   Menu, Video, X, History, ChevronRight, Database, Trash2,
-  Cpu, Sparkles, Paperclip, FileText, Activity, Globe, FlaskConical, Sun, Moon
+  Cpu, Sparkles, Paperclip, FileText, Activity, Globe, FlaskConical, Sun, Moon, Wifi
 } from 'lucide-react';
 import EmotionalDashboard from './components/EmotionalDashboard';
 import ArtifactPanel from './components/ArtifactPanel';
@@ -1517,44 +1517,34 @@ const App: React.FC = () => {
           </div>
 
           {/* Right-side header controls */}
-          <div className="ml-auto flex items-center gap-1.5">
-            {/* Internet status badge (desktop only) */}
+          <div className="ml-auto flex items-center gap-2">
+            {/* Network status (circle glass button) */}
             {internetStatus !== 'checking' && (
-              <span className={`hidden md:flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest border ${
-                internetStatus === 'online'
-                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                  : 'bg-slate-500/10 border-slate-500/20 text-slate-500'
-              }`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${internetStatus === 'online' ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}`} />
-                {internetStatus === 'online' ? 'NET' : 'NO NET'}
-              </span>
+              <button
+                title={internetStatus === 'online' ? 'Online' : 'Offline'}
+                className="hidden md:flex relative items-center justify-center w-9 h-9 rounded-full bg-white/15 dark:bg-white/10 backdrop-blur-sm border border-white/30 dark:border-white/20 shadow-lg hover:bg-white/25 hover:scale-105 active:scale-95 transition-all"
+              >
+                <Wifi size={16} className={internetStatus === 'online' ? 'text-emerald-400' : 'text-slate-400 dark:text-slate-500'} />
+                <span className={`absolute bottom-0.5 right-0.5 w-2 h-2 rounded-full border border-white/50 ${internetStatus === 'online' ? 'bg-emerald-400 animate-pulse' : 'bg-slate-400'}`} />
+              </button>
             )}
 
-            {/* Theme toggle (Adaptive Glass) */}
+            {/* Theme toggle (circle glass button) */}
             <button
               onClick={() => setIsDark(!isDark)}
               title={isDark ? 'Light mode' : 'Dark mode'}
-              className={`hidden md:flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest border transition-all ${
-                isDark
-                  ? 'bg-slate-500/20 border-slate-400/30 text-slate-300 hover:text-white'
-                  : 'bg-amber-500/15 border-amber-400/30 text-amber-600 hover:text-amber-700'
-              }`}
+              className="hidden md:flex items-center justify-center w-9 h-9 rounded-full bg-white/15 dark:bg-white/10 backdrop-blur-sm border border-white/30 dark:border-white/20 shadow-lg hover:bg-white/25 hover:scale-105 active:scale-95 transition-all"
             >
-              {isDark ? <Moon size={9} /> : <Sun size={9} />}
+              {isDark ? <Moon size={16} className="text-slate-300" /> : <Sun size={16} className="text-amber-500" />}
             </button>
 
-            {/* Language switcher */}
+            {/* Language switcher (circle glass button) */}
             <button
               onClick={() => setLang(lang === 'ko' ? 'en' : 'ko')}
               title={lang === 'ko' ? t.langEn : t.langKo}
-              className={`hidden md:flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest border transition-all ${
-                lang === 'en'
-                  ? 'bg-sky-500/20 border-sky-400/40 text-sky-500 dark:text-sky-300'
-                  : 'bg-slate-500/10 dark:bg-white/10 border-slate-300/30 dark:border-white/20 text-slate-500 dark:text-white/50 hover:text-slate-700 dark:hover:text-white/80'
-              }`}
+              className="hidden md:flex items-center justify-center w-9 h-9 rounded-full bg-white/15 dark:bg-white/10 backdrop-blur-sm border border-white/30 dark:border-white/20 shadow-lg hover:bg-white/25 hover:scale-105 active:scale-95 transition-all"
             >
-              <Globe size={9} />
-              {lang.toUpperCase()}
+              <Globe size={16} className={lang === 'en' ? 'text-sky-400' : 'text-white/60 dark:text-white/50'} />
             </button>
 
             {/* Artifact toggle button (P_MODE) */}
