@@ -9,7 +9,7 @@ export default function AuthGate() {
 
   return (
     <div className="h-[100dvh] w-full bg-black flex items-center justify-center">
-      <div className="glass-panel rounded-3xl p-8 w-[360px] text-center space-y-6">
+      <div className="glass-panel rounded-3xl p-6 sm:p-8 w-[90vw] max-w-[360px] text-center space-y-6">
         {/* Logo */}
         <div className="flex flex-col items-center gap-2">
           <div className="w-16 h-16 rounded-2xl bg-violet-500/20 border border-violet-400/30 flex items-center justify-center">

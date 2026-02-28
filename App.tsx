@@ -1710,6 +1710,16 @@ const App: React.FC = () => {
 
                 <div className="border-t border-black/10 dark:border-white/10 my-2" />
 
+                {/* Theme toggle (mobile — also shown in menu) */}
+                <button
+                  onClick={() => { setIsDark(!isDark); setShowMenu(false); }}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[11px] font-bold text-slate-500 dark:text-white/50 hover:text-amber-500 hover:bg-amber-500/10 active:bg-amber-500/10 transition-all"
+                >
+                  {isDark ? <Moon size={14} className="text-slate-400 shrink-0" /> : <Sun size={14} className="text-amber-400 shrink-0" />}
+                  {isDark ? 'Light Mode' : 'Dark Mode'}
+                  <span className="ml-auto text-[8px] text-slate-300 dark:text-white/20 font-black tracking-widest">{isDark ? '☀️' : '🌙'}</span>
+                </button>
+
                 {/* Language switcher (mobile — also shown in menu) */}
                 <button
                   onClick={() => { setLang(lang === 'ko' ? 'en' : 'ko'); setShowMenu(false); }}

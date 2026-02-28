@@ -21,6 +21,7 @@ export default function App() {
   const [activeBlocks, setActiveBlocks] = useState<ActiveEssenceBlock[]>([]);
   const [testResult, setTestResult] = useState<TestResult | null>(null);
   const [isTesting, setIsTesting] = useState(false);
+  const [mobileTab, setMobileTab] = useState<'library' | 'canvas' | 'output'>('canvas');
 
   // Derived
   const activeBlockIds = useMemo(() => new Set(activeBlocks.map(b => b.id)), [activeBlocks]);
@@ -243,15 +244,31 @@ export default function App() {
         </div>
       </header>
 
+      {/* ── Mobile tab bar (< lg) ── */}
+      <div className="lg:hidden flex items-center gap-1 px-1 pt-1 shrink-0">
+        <button onClick={() => setMobileTab('library')}
+          className={`flex-1 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all ${mobileTab === 'library' ? 'bg-violet-500/20 text-violet-400 border border-violet-400/30' : 'text-white/30 hover:text-white/50'}`}>
+          Blocks
+        </button>
+        <button onClick={() => setMobileTab('canvas')}
+          className={`flex-1 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all ${mobileTab === 'canvas' ? 'bg-violet-500/20 text-violet-400 border border-violet-400/30' : 'text-white/30 hover:text-white/50'}`}>
+          Canvas
+        </button>
+        <button onClick={() => setMobileTab('output')}
+          className={`flex-1 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all ${mobileTab === 'output' ? 'bg-violet-500/20 text-violet-400 border border-violet-400/30' : 'text-white/30 hover:text-white/50'}`}>
+          Output
+        </button>
+      </div>
+
       {/* ── 3-panel body ── */}
       <div className="flex-1 flex min-h-0 gap-1 p-1">
         {/* Panel 1: Block Library */}
-        <div className="w-[280px] shrink-0 glass-panel rounded-2xl overflow-hidden hidden lg:flex flex-col">
+        <div className={`w-full lg:w-[280px] shrink-0 glass-panel rounded-2xl overflow-hidden flex-col ${mobileTab === 'library' ? 'flex' : 'hidden lg:flex'}`}>
           <BlockLibrary onAddBlock={addBlock} activeBlockIds={activeBlockIds} />
         </div>
 
         {/* Panel 2: Skeleton Canvas */}
-        <div className="flex-1 glass-panel rounded-2xl overflow-hidden flex flex-col">
+        <div className={`flex-1 min-w-0 glass-panel rounded-2xl overflow-hidden flex-col ${mobileTab === 'canvas' ? 'flex' : 'hidden lg:flex'}`}>
           <SkeletonCanvas
             selectedPersonaId={selectedPersonaId}
             onSelectPersona={setSelectedPersonaId}
@@ -263,7 +280,7 @@ export default function App() {
         </div>
 
         {/* Panel 3: Live Output */}
-        <div className="w-[340px] shrink-0 glass-panel rounded-2xl overflow-hidden hidden lg:flex flex-col">
+        <div className={`w-full lg:w-[340px] shrink-0 glass-panel rounded-2xl overflow-hidden flex-col ${mobileTab === 'output' ? 'flex' : 'hidden lg:flex'}`}>
           <LiveOutput
             onTest={runTest}
             testResult={testResult}
