@@ -1506,14 +1506,9 @@ const App: React.FC = () => {
             <History size={16} />
           </button>
 
-          {/* Centered title + persona label */}
+          {/* Centered title */}
           <div className="absolute left-1/2 -translate-x-1/2 text-center pointer-events-none">
-            <h1 className="text-sm md:text-base font-bold text-slate-900 dark:text-white tracking-tight leading-none">ARHA</h1>
-            <div className="flex items-center justify-center gap-1">
-              <span className="flex items-center gap-0.5 text-[7px] font-black uppercase tracking-widest text-slate-500 dark:text-white/60">
-                {personaConfig.emoji} {personaLabel(t, personaConfig.id) || personaConfig.label}
-              </span>
-            </div>
+            <h1 className="text-lg md:text-xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-none">ARHA</h1>
           </div>
 
           {/* Right-side header controls */}
@@ -1545,6 +1540,18 @@ const App: React.FC = () => {
               className="hidden md:flex items-center justify-center w-9 h-9 rounded-full bg-white/15 dark:bg-white/10 backdrop-blur-sm border border-white/30 dark:border-white/20 shadow-lg hover:bg-white/25 hover:scale-105 active:scale-95 transition-all"
             >
               <Globe size={16} className={lang === 'en' ? 'text-sky-400' : 'text-white/60 dark:text-white/50'} />
+            </button>
+
+            {/* Persona toggle (oval glass button) */}
+            <button
+              onClick={() => { setShowDashboard(true); setSidebarTab('persona'); }}
+              title={personaLabel(t, personaConfig.id) || personaConfig.label}
+              className="hidden md:flex items-center justify-center gap-1.5 h-9 px-3 rounded-full bg-white/15 dark:bg-white/10 backdrop-blur-sm border border-white/30 dark:border-white/20 shadow-lg hover:bg-white/25 hover:scale-105 active:scale-95 transition-all"
+            >
+              <span className="text-sm leading-none">{personaConfig.emoji}</span>
+              <span className="text-[10px] font-bold text-slate-700 dark:text-white/70 uppercase tracking-wide">
+                {personaLabel(t, personaConfig.id) || personaConfig.label}
+              </span>
             </button>
 
             {/* Artifact toggle button (P_MODE) */}
