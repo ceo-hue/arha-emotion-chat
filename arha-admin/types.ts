@@ -160,7 +160,8 @@ export interface PersonaPreset {
   description: string;
   descriptionEn: string;
   valueChain: ValueChainItem[];
-  tonePromptSummary: string;
+  tonePromptSummary: string;     // 짧은 요약 (어드민 테스트용)
+  tonePromptFull?: string;       // 완전한 페르소나 프롬프트 (시스템 프롬프트 내보내기용)
   triggers: PersonaTrigger[];   // 동적 트리거 목록
 }
 

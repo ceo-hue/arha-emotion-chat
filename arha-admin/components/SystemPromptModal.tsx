@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { X, Copy, Check, FileText } from 'lucide-react';
+import { X, Copy, Check, FileText, Download } from 'lucide-react';
 import { useI18n } from '../contexts/I18nContext';
 import type { PersonaPreset, ActiveEssenceBlock } from '../types';
 import { OPERATOR_META, OPERATOR_DIRECTIVES } from '../types';
@@ -41,7 +41,7 @@ function buildPromptText(
 
   // ── Core Identity ──
   lines.push('## Core Identity');
-  lines.push(persona.tonePromptSummary);
+  lines.push(persona.tonePromptFull ?? persona.tonePromptSummary);
   lines.push('');
 
   // ── Value System ──
@@ -168,6 +168,16 @@ export default function SystemPromptModal({ persona, activeBlocks, onClose }: Sy
     [persona, activeBlocks, platform],
   );
 
+  const handleDownload = () => {
+    const blob = new Blob([promptText], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${persona.id}-${platform}-system-prompt.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(promptText);
@@ -254,17 +264,26 @@ export default function SystemPromptModal({ persona, activeBlocks, onClose }: Sy
           <p className="text-[9px] text-white/20">
             텍스트를 클릭하면 전체 선택됩니다
           </p>
-          <button
-            onClick={handleCopy}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[11px] font-bold transition-all ${
-              copied
-                ? 'bg-emerald-500/20 border border-emerald-400/40 text-emerald-300'
-                : 'bg-violet-500/20 border border-violet-400/40 text-violet-300 hover:bg-violet-500/30'
-            }`}
-          >
-            {copied ? <Check size={12} /> : <Copy size={12} />}
-            {copied ? '복사 완료!' : '클립보드에 복사'}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleDownload}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-[11px] font-bold bg-white/5 border border-white/15 text-white/50 hover:text-emerald-300 hover:bg-emerald-500/10 hover:border-emerald-400/30 transition-all"
+            >
+              <Download size={12} />
+              .txt 저장
+            </button>
+            <button
+              onClick={handleCopy}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[11px] font-bold transition-all ${
+                copied
+                  ? 'bg-emerald-500/20 border border-emerald-400/40 text-emerald-300'
+                  : 'bg-violet-500/20 border border-violet-400/40 text-violet-300 hover:bg-violet-500/30'
+              }`}
+            >
+              {copied ? <Check size={12} /> : <Copy size={12} />}
+              {copied ? '복사 완료!' : '클립보드에 복사'}
+            </button>
+          </div>
         </div>
       </div>
     </div>
