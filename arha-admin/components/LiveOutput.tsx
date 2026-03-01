@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useI18n } from '../contexts/I18nContext';
-import { Send, Loader2 } from 'lucide-react';
+import { Send, Loader2, Zap } from 'lucide-react';
 import ConflictGauge from './ConflictGauge';
 import type { TestResult } from '../types';
 
@@ -38,6 +38,19 @@ export default function LiveOutput({ onTest, testResult, isTesting }: LiveOutput
         {/* Test result */}
         {testResult ? (
           <>
+            {/* Activated triggers */}
+            {testResult.activatedTriggers && testResult.activatedTriggers.length > 0 && (
+              <div className="flex items-center gap-1.5 flex-wrap px-1">
+                <Zap size={10} className="text-amber-400 shrink-0" />
+                <span className="text-[8px] font-black uppercase tracking-wider text-amber-400/60">{t.activatedTriggers ?? 'Triggers'}</span>
+                {testResult.activatedTriggers.map((tr, i) => (
+                  <span key={i} className="text-[9px] px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-400/20 text-amber-300/70 font-bold">
+                    {tr}
+                  </span>
+                ))}
+              </div>
+            )}
+
             {/* Response text */}
             <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
               <p className="text-[12px] text-white/80 leading-relaxed whitespace-pre-wrap">

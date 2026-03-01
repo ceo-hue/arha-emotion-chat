@@ -18,6 +18,61 @@ export interface EssenceProperty {
   brightness: number;   // -1.0(어두움) ~ 1.0(밝음)
 }
 
+// ── 연산자 타입 (Operator Type) ──
+// 블록이 상태공간에서 어떻게 작동하는지를 결정하는 함수언어 타입
+export type OperatorType = 'transform' | 'gate' | 'amplify' | 'restructure';
+
+/** 연산자 타입별 메타 정보 */
+export const OPERATOR_META: Record<OperatorType, {
+  labelKo: string;
+  labelEn: string;
+  notation: string;       // 수학적 표기
+  color: string;          // Tailwind text color
+  bgColor: string;        // Tailwind bg color
+  borderColor: string;    // Tailwind border color
+  descKo: string;
+}> = {
+  transform: {
+    labelKo: '변환',
+    labelEn: 'Transform',
+    notation: 'Ψ→Ψ′',
+    color: 'text-sky-400',
+    bgColor: 'bg-sky-500/15',
+    borderColor: 'border-sky-400/30',
+    descKo: '입력 상태를 새로운 상태로 전환',
+  },
+  gate: {
+    labelKo: '게이트',
+    labelEn: 'Gate',
+    notation: 'Ψ→{0,1}',
+    color: 'text-amber-400',
+    bgColor: 'bg-amber-500/15',
+    borderColor: 'border-amber-400/30',
+    descKo: '조건 충족 시에만 활성화',
+  },
+  amplify: {
+    labelKo: '증폭',
+    labelEn: 'Amplify',
+    notation: 'Ψ→kΨ',
+    color: 'text-emerald-400',
+    bgColor: 'bg-emerald-500/15',
+    borderColor: 'border-emerald-400/30',
+    descKo: '현재 상태 강도를 높임',
+  },
+  restructure: {
+    labelKo: '재구성',
+    labelEn: 'Restructure',
+    notation: 'Ψ→TΨ',
+    color: 'text-violet-400',
+    bgColor: 'bg-violet-500/15',
+    borderColor: 'border-violet-400/30',
+    descKo: '구조를 분해하여 재배열',
+  },
+};
+
+/** 연산자 타입 순환 순서 */
+export const OPERATOR_CYCLE: OperatorType[] = ['transform', 'gate', 'amplify', 'restructure'];
+
 export interface ValueChainItem {
   id: string;
   name: string;
@@ -36,6 +91,9 @@ export interface EssenceBlock {
 
   /** 함수 표기: e.g. Logic_Epistemology(t), Emotion_Empathy(t) */
   funcNotation: string;
+
+  /** 연산자 타입 — 블록이 상태공간에서 어떻게 동작하는가 */
+  operatorType: OperatorType;
 
   /** XYZ 해석 규칙 */
   interpretX: string; // 객관성 시선으로 해석할 때의 규칙
@@ -71,6 +129,20 @@ export interface ActiveEssenceBlock extends EssenceBlock {
   vector: VectorXYZ;        // 사용자가 조절한 XYZ 값
   role: BlockRole;           // 'main' | 'supporter'
   influence: number;         // 0.0 ~ 1.0 — 자동 계산된 영향력
+  // operatorType은 EssenceBlock에서 상속 (사용자가 override 가능)
+}
+
+// ── 페르소나 동적 트리거 (Persona Dynamic Trigger) ──
+// 사용자 입력에서 특정 조건이 감지될 때 자동으로 연산자 모드를 전환
+export interface PersonaTrigger {
+  id: string;
+  labelKo: string;
+  labelEn: string;
+  emoji: string;
+  conditionKeywords: string[];   // 이 키워드들이 감지되면 트리거 활성화
+  conditionDesc: string;         // 활성화 조건 설명
+  responseDirective: string;     // 활성화 시 LLM에게 주입할 지시문
+  preferredOperator: OperatorType; // 트리거 시 권장 연산자 모드
 }
 
 export interface PersonaPreset {
@@ -81,6 +153,7 @@ export interface PersonaPreset {
   descriptionEn: string;
   valueChain: ValueChainItem[];
   tonePromptSummary: string;
+  triggers: PersonaTrigger[];   // 동적 트리거 목록
 }
 
 export interface TestResult {
@@ -94,6 +167,7 @@ export interface TestResult {
     y: number;
     z: number;
   };
+  activatedTriggers: string[];     // 활성화된 트리거 ID 목록
   timestamp: number;
 }
 

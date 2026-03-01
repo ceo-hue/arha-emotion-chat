@@ -2,8 +2,9 @@ import React from 'react';
 import { useI18n } from '../contexts/I18nContext';
 import { PERSONA_PRESETS } from '../data/personaPresets';
 import { CATEGORIES } from '../data/essenceBlocks';
-import { X, Layers, Crown, Shield } from 'lucide-react';
-import type { ActiveEssenceBlock, VectorXYZ } from '../types';
+import { X, Layers, Crown, Shield, Zap } from 'lucide-react';
+import type { ActiveEssenceBlock, VectorXYZ, OperatorType } from '../types';
+import { OPERATOR_META, OPERATOR_CYCLE } from '../types';
 
 interface SkeletonCanvasProps {
   selectedPersonaId: string;
@@ -11,6 +12,7 @@ interface SkeletonCanvasProps {
   activeBlocks: ActiveEssenceBlock[];
   onRemoveBlock: (id: string) => void;
   onChangeVector: (id: string, axis: keyof VectorXYZ, value: number) => void;
+  onChangeOperator: (id: string, op: OperatorType) => void;
   onPromoteToMain: (id: string) => void;
 }
 
@@ -36,27 +38,48 @@ function PropertyBar({ label, value, colorNeg, colorPos }: {
   );
 }
 
+/** 오퍼레이터 타입 배지 — 클릭으로 순환 */
+function OperatorBadge({ opType, onClick }: { opType: OperatorType; onClick: () => void }) {
+  const meta = OPERATOR_META[opType];
+  return (
+    <button
+      onClick={onClick}
+      title={`${meta.labelKo} — ${meta.descKo}\n클릭으로 전환`}
+      className={`shrink-0 flex items-center gap-1 px-1.5 py-0.5 rounded-md border transition-all hover:opacity-90 active:scale-95 ${meta.bgColor} ${meta.borderColor}`}
+    >
+      <span className={`text-[8px] font-mono font-bold ${meta.color}`}>{meta.notation}</span>
+      <span className={`text-[7px] font-black uppercase tracking-wider ${meta.color}`}>{meta.labelKo}</span>
+    </button>
+  );
+}
+
 export default function SkeletonCanvas({
   selectedPersonaId, onSelectPersona,
-  activeBlocks, onRemoveBlock, onChangeVector, onPromoteToMain,
+  activeBlocks, onRemoveBlock, onChangeVector, onChangeOperator, onPromoteToMain,
 }: SkeletonCanvasProps) {
   const { t, lang } = useI18n();
   const persona = PERSONA_PRESETS.find(p => p.id === selectedPersonaId);
 
-  // Build vector equation text with role markers
+  // Build vector equation text with role markers and operator type
   const mainBlock = activeBlocks.find(b => b.role === 'main');
   const supporters = activeBlocks.filter(b => b.role === 'supporter');
   const equationText = persona
     ? `f(${persona.label}${mainBlock
-        ? ` ⊕ MAIN[${mainBlock.funcNotation}·${(mainBlock.influence * 100).toFixed(0)}%]`
+        ? ` ⊕ MAIN[${mainBlock.funcNotation}·${(mainBlock.influence * 100).toFixed(0)}%|${mainBlock.operatorType[0].toUpperCase()}]`
         : ''}${supporters.length > 0
         ? ' + ' + supporters.map((b, i) =>
-            `S${i + 1}[${b.funcNotation}·${(b.influence * 100).toFixed(0)}%]`
+            `S${i + 1}[${b.funcNotation}·${(b.influence * 100).toFixed(0)}%|${b.operatorType[0].toUpperCase()}]`
           ).join(' + ')
         : ''}) → prompt`
     : '';
 
   const catColor = (category: string) => CATEGORIES.find(c => c.key === category)?.color ?? 'text-white/50';
+
+  const cycleOperator = (block: ActiveEssenceBlock) => {
+    const idx = OPERATOR_CYCLE.indexOf(block.operatorType);
+    const next = OPERATOR_CYCLE[(idx + 1) % OPERATOR_CYCLE.length];
+    onChangeOperator(block.id, next);
+  };
 
   return (
     <div className="h-full flex flex-col">
@@ -103,6 +126,33 @@ export default function SkeletonCanvas({
           </div>
         )}
 
+        {/* Persona Triggers display */}
+        {persona && persona.triggers && persona.triggers.length > 0 && (
+          <div>
+            <div className="flex items-center gap-1.5 mb-2">
+              <Zap size={10} className="text-amber-400/60" />
+              <p className="text-[8px] font-black uppercase tracking-[0.2em] text-amber-400/50">{t.triggerSection ?? 'Dynamic Triggers'}</p>
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {persona.triggers.map(trigger => (
+                <div
+                  key={trigger.id}
+                  title={trigger.conditionDesc}
+                  className="flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-500/8 border border-amber-400/15"
+                >
+                  <span className="text-[10px]">{trigger.emoji}</span>
+                  <span className="text-[8px] text-amber-300/60 font-bold">
+                    {lang === 'ko' ? trigger.labelKo : trigger.labelEn}
+                  </span>
+                  <span className={`text-[7px] font-mono ${OPERATOR_META[trigger.preferredOperator].color} opacity-60`}>
+                    {OPERATOR_META[trigger.preferredOperator].notation}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Essence layer — XYZ 3-axis blocks */}
         <div>
           <div className="flex items-center gap-2 mb-2">
@@ -122,7 +172,7 @@ export default function SkeletonCanvas({
             </div>
           ) : (
             <div className="space-y-3">
-              {activeBlocks.map((block, idx) => {
+              {activeBlocks.map((block) => {
                 const isMain = block.role === 'main';
                 const supporterIdx = !isMain ? supporters.indexOf(block) + 1 : 0;
                 return (
@@ -134,8 +184,8 @@ export default function SkeletonCanvas({
                       : 'bg-white/5 border border-white/10'
                   }`}
                 >
-                  {/* Role badge + block header */}
-                  <div className="flex items-center gap-2">
+                  {/* Role badge + operator badge + block header */}
+                  <div className="flex items-center gap-2 flex-wrap">
                     {/* Role indicator */}
                     {isMain ? (
                       <div className="shrink-0 flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-violet-500/20 border border-violet-400/30">
@@ -154,6 +204,9 @@ export default function SkeletonCanvas({
                         <span className="text-[7px] font-mono text-white/20">{(block.influence * 100).toFixed(0)}%</span>
                       </button>
                     )}
+
+                    {/* Operator type badge (clickable) */}
+                    <OperatorBadge opType={block.operatorType} onClick={() => cycleOperator(block)} />
 
                     <span className="text-base">{block.emoji}</span>
                     <span className={`text-[11px] font-bold ${catColor(block.category)}`}>

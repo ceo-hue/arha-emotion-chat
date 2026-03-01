@@ -7,8 +7,8 @@ import SkeletonCanvas from './components/SkeletonCanvas';
 import LiveOutput from './components/LiveOutput';
 import { PERSONA_PRESETS } from './data/personaPresets';
 import { ArrowLeft, Globe, Download, LogOut, FlaskConical, Loader2, Layers, PenTool, Zap } from 'lucide-react';
-import type { EssenceBlock, ActiveEssenceBlock, TestResult, VectorXYZ, BlockRole } from './types';
-import { INFLUENCE_MAP, MAX_SUPPORTERS } from './types';
+import type { EssenceBlock, ActiveEssenceBlock, TestResult, VectorXYZ, BlockRole, OperatorType } from './types';
+import { INFLUENCE_MAP, MAX_SUPPORTERS, OPERATOR_CYCLE } from './types';
 
 const ARHA_URL = 'https://arha-emotion-chat.vercel.app';
 
@@ -81,6 +81,13 @@ export default function App() {
     ));
   }, []);
 
+  /** 오퍼레이터 타입 순환 변경 */
+  const changeOperator = useCallback((id: string, op: OperatorType) => {
+    setActiveBlocks(prev => prev.map(b =>
+      b.id === id ? { ...b, operatorType: op } : b
+    ));
+  }, []);
+
   /** 블록 역할 변경 (main ↔ supporter) */
   const promoteToMain = useCallback((id: string) => {
     setActiveBlocks(prev => {
@@ -118,7 +125,9 @@ export default function App() {
               vector: b.vector,
               role: b.role,
               influence: b.influence,
+              operatorType: b.operatorType,
             })),
+          personaTriggers: persona.triggers ?? [],
           testMessage,
         }),
       });
@@ -133,6 +142,7 @@ export default function App() {
         matchedKeywords: data.matchedKeywords,
         totalExpectedKeywords: data.totalExpectedKeywords,
         axisBreakdown: data.axisBreakdown ?? { x: 0.33, y: 0.33, z: 0.33 },
+        activatedTriggers: data.activatedTriggers ?? [],
         timestamp: Date.now(),
       });
     } catch (err) {
@@ -144,6 +154,7 @@ export default function App() {
         matchedKeywords: [],
         totalExpectedKeywords: 0,
         axisBreakdown: { x: 0, y: 0, z: 0 },
+        activatedTriggers: [],
         timestamp: Date.now(),
       });
     } finally {
@@ -159,6 +170,7 @@ export default function App() {
         id: b.id, name: b.name, nameEn: b.nameEn,
         category: b.category,
         funcNotation: b.funcNotation,
+        operatorType: b.operatorType,
         role: b.role,
         influence: b.influence,
         vector: b.vector,
@@ -278,6 +290,7 @@ export default function App() {
             activeBlocks={activeBlocks}
             onRemoveBlock={removeBlock}
             onChangeVector={changeVector}
+            onChangeOperator={changeOperator}
             onPromoteToMain={promoteToMain}
           />
         </div>

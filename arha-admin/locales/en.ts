@@ -74,6 +74,10 @@ export const en: AdminTranslations = {
   tabCanvas: 'Canvas',
   tabOutput: 'Output',
 
+  // Operator type system
+  triggerSection: 'Dynamic Triggers',
+  activatedTriggers: 'Activated Triggers',
+
   // Language
   langKo: '한국어',
   langEn: 'English',

@@ -3,7 +3,7 @@ import { useI18n } from '../contexts/I18nContext';
 import { ESSENCE_BLOCKS, CATEGORIES } from '../data/essenceBlocks';
 import { ChevronDown, Plus, Check } from 'lucide-react';
 import type { EssenceBlock } from '../types';
-import { MAX_SUPPORTERS } from '../types';
+import { MAX_SUPPORTERS, OPERATOR_META } from '../types';
 
 interface BlockLibraryProps {
   onAddBlock: (block: EssenceBlock) => void;
@@ -87,11 +87,19 @@ export default function BlockLibrary({ onAddBlock, activeBlockIds }: BlockLibrar
                             <p className="text-[8px] font-mono text-white/15 mt-1">
                               {block.funcNotation}
                             </p>
-                            {/* Default vector mini */}
-                            <div className="flex gap-2 mt-1">
+                            {/* Default vector mini + operator type badge */}
+                            <div className="flex items-center gap-2 mt-1 flex-wrap">
                               <span className="text-[7px] font-mono text-blue-400/40">X:{block.defaultVector.x}</span>
                               <span className="text-[7px] font-mono text-pink-400/40">Y:{block.defaultVector.y}</span>
                               <span className="text-[7px] font-mono text-amber-400/40">Z:{block.defaultVector.z}</span>
+                              {block.operatorType && (() => {
+                                const meta = OPERATOR_META[block.operatorType];
+                                return (
+                                  <span className={`text-[7px] font-mono font-bold px-1 py-0.5 rounded ${meta.bgColor} ${meta.color}`}>
+                                    {meta.notation}
+                                  </span>
+                                );
+                              })()}
                             </div>
                           </div>
                           <button

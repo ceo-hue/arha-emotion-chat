@@ -5,7 +5,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { basePersonaSummary, essenceBlocks = [], testMessage } = req.body;
+  const { basePersonaSummary, essenceBlocks = [], personaTriggers = [], testMessage } = req.body;
 
   if (!testMessage) {
     return res.status(400).json({ error: 'testMessage is required' });
@@ -18,12 +18,24 @@ export default async function handler(req, res) {
   const mainBlock = allActive.find(b => b.role === 'main');
   const supporterBlocks = allActive.filter(b => b.role === 'supporter');
 
-  // ── Build vector instruction for a single block ──
-  function buildBlockInstruction(b, level) {
+  // ── Operator type behavioral directives ──
+  const OPERATOR_DIRECTIVES = {
+    transform:   'TRANSFORM: Convert the input state into a distinctly new output state. Do not merely describe — actively shift the perspective, framing, or emotional register of the response.',
+    gate:        'GATE: Evaluate conditions before responding. Check if the emotional or logical requirements are met. Only engage this dimension fully if the threshold is reached. Otherwise, hold back.',
+    amplify:     'AMPLIFY: Do not change direction or introduce new content. Intensify what is already present — deepen warmth, heighten clarity, increase emotional resonance. More of the same, stronger.',
+    restructure: 'RESTRUCTURE: Deconstruct the premise of the input. Break down its implicit assumptions. Then reassemble into a new configuration — a fresh angle that reframes rather than answers.',
+  };
+
+  // ── Build vector instruction for a single block (with operator type) ──
+  function buildBlockInstruction(b) {
     const v = b.vector || { x: 0.5, y: 0.5, z: 0.5 };
     const props = b.essenceProperties || {};
     const influence = b.influence || 0;
+    const opType = b.operatorType || 'transform';
     const parts = [];
+
+    // Operator type directive (top-level behavioral instruction)
+    parts.push(`[OPERATOR: ${opType.toUpperCase()}] ${OPERATOR_DIRECTIVES[opType]}`);
 
     if (v.x >= 0.3) {
       const xLevel = v.x >= 0.7 ? 'strongly' : 'moderately';
@@ -46,7 +58,41 @@ export default async function handler(req, res) {
       parts.push(`[Z-Essence: ${zLevel} apply | ${propDesc.join(', ')}] ${b.interpretZ || ''}`);
     }
 
-    return `## ${b.funcNotation} [X:${v.x.toFixed(2)}, Y:${v.y.toFixed(2)}, Z:${v.z.toFixed(2)}] (influence: ${(influence * 100).toFixed(0)}%)\n${parts.join('\n')}`;
+    return `## ${b.funcNotation} [${opType}|X:${v.x.toFixed(2)},Y:${v.y.toFixed(2)},Z:${v.z.toFixed(2)}] (influence: ${(influence * 100).toFixed(0)}%)\n${parts.join('\n')}`;
+  }
+
+  // ── Trigger detection and injection ──
+  function buildTriggerInjection(triggers, message) {
+    if (!triggers || triggers.length === 0) return { injection: '', activatedTriggers: [] };
+
+    const msgLower = message.toLowerCase();
+    const activated = [];
+    const directives = [];
+
+    for (const trigger of triggers) {
+      const matched = trigger.conditionKeywords.some(kw => msgLower.includes(kw.toLowerCase()));
+      if (matched) {
+        activated.push(`${trigger.emoji} ${trigger.labelEn}`);
+        directives.push(
+          `### 🔔 DYNAMIC TRIGGER ACTIVATED: ${trigger.emoji} ${trigger.labelEn} [${trigger.preferredOperator.toUpperCase()}]`,
+          `Condition: ${trigger.conditionDesc}`,
+          `Directive: ${trigger.responseDirective}`,
+        );
+      }
+    }
+
+    if (directives.length === 0) return { injection: '', activatedTriggers: [] };
+
+    return {
+      injection: [
+        '',
+        '## ⚡ PERSONA DYNAMIC TRIGGERS (Active)',
+        'The following triggers have been activated by the user\'s message.',
+        'These override default response behavior where they apply.',
+        ...directives,
+      ].join('\n'),
+      activatedTriggers: activated,
+    };
   }
 
   // ── Build tiered essence injection ──
@@ -56,7 +102,7 @@ export default async function handler(req, res) {
     essenceSections.push(
       '# ★ PRIMARY DIRECTIVE (Main Vector — 70%)',
       'This vector defines the CORE identity of the response. Always prioritize this.',
-      buildBlockInstruction(mainBlock, 'primary'),
+      buildBlockInstruction(mainBlock),
     );
   }
 
@@ -70,12 +116,15 @@ export default async function handler(req, res) {
     supporterBlocks.forEach((b, i) => {
       essenceSections.push(
         `### Supporter #${i + 1}`,
-        buildBlockInstruction(b, 'support'),
+        buildBlockInstruction(b),
       );
     });
   }
 
   const essenceInjection = essenceSections.join('\n');
+
+  // ── Trigger injection ──
+  const { injection: triggerInjection, activatedTriggers } = buildTriggerInjection(personaTriggers, testMessage);
 
   // ── Build system prompt ──
   const systemPrompt = [
@@ -85,7 +134,15 @@ export default async function handler(req, res) {
     'Base Persona → always applied as foundation (100%)',
     'Main Vector → PRIMARY DIRECTIVE (70% influence) — this shapes the core response',
     'Supporter Vectors → SECONDARY coloring (30% combined) — adds nuance, never overrides Main',
-    'When conflict occurs: Base < Supporter < Main (Main always wins)',
+    'Dynamic Triggers → CONTEXTUAL OVERRIDES when activated by user message',
+    'When conflict occurs: Base < Supporter < Main < Active Triggers (Triggers override when activated)',
+    '',
+    '### Operator Type System',
+    'Each essence vector has an operator type that defines HOW it modifies the response state:',
+    '- TRANSFORM (Ψ→Ψ′): Convert to new state — shift framing, perspective, emotional register',
+    '- GATE (Ψ→{0,1}): Conditional activation — evaluate threshold before engaging',
+    '- AMPLIFY (Ψ→kΨ): Intensify existing state — more of the same, stronger',
+    '- RESTRUCTURE (Ψ→TΨ): Deconstruct and rebuild — new configuration from same components',
     '',
     '### Vector Axis Reference',
     'X (Objectivity): External knowledge, data-driven judgment',
@@ -97,12 +154,15 @@ export default async function handler(req, res) {
     '',
     '### Active Essence Vectors',
     essenceInjection || '(No essence vectors active — respond naturally)',
+    triggerInjection,
     '',
     '### Instructions',
     'Synthesize all active vectors into a unified response following the hierarchy.',
     'The Main vector is your PRIMARY voice — it defines tone, perspective, and approach.',
     'Supporter vectors add subtle coloring — they should be felt but not dominate.',
     'Z-axis essence properties should shape the emotional texture and tone of your language.',
+    'When an operator type is specified, follow its behavioral directive strictly.',
+    'When a dynamic trigger is activated, apply its directive with priority.',
     'Respond in Korean unless the user writes in English.',
     'Keep response concise (2-4 sentences).',
   ].join('\n');
@@ -175,6 +235,7 @@ export default async function handler(req, res) {
       matchedKeywords,
       totalExpectedKeywords: uniqueExpected.length,
       axisBreakdown,
+      activatedTriggers,
     });
   } catch (error) {
     return res.status(500).json({ error: error.message || 'Internal server error' });

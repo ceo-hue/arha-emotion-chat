@@ -72,6 +72,10 @@ export const ko = {
   tabCanvas: '캔버스',
   tabOutput: '출력',
 
+  // Operator type system
+  triggerSection: '동적 트리거',
+  activatedTriggers: '활성 트리거',
+
   // Language
   langKo: '한국어',
   langEn: 'English',

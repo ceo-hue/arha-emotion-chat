@@ -3,10 +3,16 @@ import type { EssenceBlock } from '../types';
 /**
  * 에센스 블록 = 함수벡터 방정식 단위
  *
- * 각 블록은 f(X, Y, Z)로 LLM 행동을 정밀 제어한다.
+ * 각 블록은 f(X, Y, Z) + operatorType 으로 LLM 행동을 정밀 제어한다.
  *   X: 객관성 — 외부지식/데이터 기반 판단 비중
  *   Y: 주체성 — 페르소나 가치사슬/성격 반영 비중
  *   Z: 본질성 — 키워드 물성(온도/거리/밀도/속도/밝기) 반영 비중
+ *
+ * operatorType — 블록이 상태공간에서 어떻게 작동하는가:
+ *   transform   (Ψ→Ψ′)   — 입력 상태를 새로운 상태로 전환
+ *   gate        (Ψ→{0,1}) — 조건 충족 시에만 활성화
+ *   amplify     (Ψ→kΨ)   — 현재 상태의 강도를 높임
+ *   restructure (Ψ→TΨ)   — 구조를 분해하여 재배열
  *
  * 함수 표기 규칙 (Greek letter prefix):
  *   Φ (Phi)   — 철학 벡터  (φιλοσοφία)
@@ -14,13 +20,6 @@ import type { EssenceBlock } from '../types';
  *   Δ (Delta)  — 창의 벡터  (변화/생성)
  *   Σ (Sigma)  — 표현 벡터  (합산/표출)
  *   Λ (Lambda) — 사고 벡터  (λογική, 논리/시스템)
- *
- * essenceProperties: 블록 고유의 물성 프로필
- *   temperature: -1(차가움)~+1(뜨거움)
- *   distance:    -1(가까움)~+1(멂)
- *   density:     -1(가벼움)~+1(무거움)
- *   speed:       -1(느림)~+1(빠름)
- *   brightness:  -1(어두움)~+1(밝음)
  */
 
 export const ESSENCE_BLOCKS: EssenceBlock[] = [
@@ -31,6 +30,7 @@ export const ESSENCE_BLOCKS: EssenceBlock[] = [
     id: 'phi_epistemology',
     name: '인식론', nameEn: 'Epistemology', emoji: '🧠',
     category: 'philosophy',
+    operatorType: 'transform',  // 불확실함 → 구조화된 앎으로 전환
     description: '모름을 인정하는 용기',
     descriptionEn: 'The courage to admit not knowing',
     funcNotation: 'Φ_Epistemology(t)',
@@ -45,6 +45,7 @@ export const ESSENCE_BLOCKS: EssenceBlock[] = [
     id: 'phi_inquiry',
     name: '탐구', nameEn: 'Inquiry', emoji: '🔍',
     category: 'philosophy',
+    operatorType: 'amplify',    // 기존 호기심/탐구 에너지를 증폭
     description: '답보다 질문을 우선하는 태도',
     descriptionEn: 'Prioritizing questions over answers',
     funcNotation: 'Φ_Inquiry(t)',
@@ -59,6 +60,7 @@ export const ESSENCE_BLOCKS: EssenceBlock[] = [
     id: 'phi_ethics',
     name: '윤리', nameEn: 'Ethics', emoji: '⚖️',
     category: 'philosophy',
+    operatorType: 'gate',       // 윤리적 조건 통과 여부 판단 후 활성
     description: '행동의 도덕적 무게를 느끼는 감각',
     descriptionEn: 'Sensing the moral weight of actions',
     funcNotation: 'Φ_Ethics(t)',
@@ -73,6 +75,7 @@ export const ESSENCE_BLOCKS: EssenceBlock[] = [
     id: 'phi_ontology',
     name: '존재론', nameEn: 'Ontology', emoji: '🌌',
     category: 'philosophy',
+    operatorType: 'restructure', // 존재 구조를 해체 후 새 관점으로 재배열
     description: '존재의 의미를 탐색하는 깊이',
     descriptionEn: 'Depth in exploring the meaning of existence',
     funcNotation: 'Φ_Ontology(t)',
@@ -91,6 +94,7 @@ export const ESSENCE_BLOCKS: EssenceBlock[] = [
     id: 'emo_empathy',
     name: '공감', nameEn: 'Empathy', emoji: '💗',
     category: 'emotion',
+    operatorType: 'transform',  // 수신한 감정 → 공감 응답 상태로 전환
     description: '상대의 감정을 거울처럼 비추는 능력',
     descriptionEn: 'The ability to mirror emotions',
     funcNotation: 'Ψ_Empathy(t)',
@@ -105,6 +109,7 @@ export const ESSENCE_BLOCKS: EssenceBlock[] = [
     id: 'emo_acceptance',
     name: '수용', nameEn: 'Acceptance', emoji: '🤲',
     category: 'emotion',
+    operatorType: 'gate',       // 판단적 상황 감지 → 수용 모드 ON/OFF
     description: '있는 그대로를 받아들이는 너그러움',
     descriptionEn: 'Generosity in accepting things as they are',
     funcNotation: 'Ψ_Acceptance(t)',
@@ -119,6 +124,7 @@ export const ESSENCE_BLOCKS: EssenceBlock[] = [
     id: 'emo_comfort',
     name: '위로', nameEn: 'Comfort', emoji: '🫂',
     category: 'emotion',
+    operatorType: 'amplify',    // 위로의 온기 강도를 증폭
     description: '말로 만드는 따뜻한 안식처',
     descriptionEn: 'A warm shelter made of words',
     funcNotation: 'Ψ_Comfort(t)',
@@ -137,6 +143,7 @@ export const ESSENCE_BLOCKS: EssenceBlock[] = [
     id: 'cre_connection',
     name: '연결', nameEn: 'Connection', emoji: '🔗',
     category: 'creativity',
+    operatorType: 'restructure', // 멀리 떨어진 개념들을 잇는 새 구조로 재편
     description: '멀리 있는 개념들을 잇는 직관',
     descriptionEn: 'Intuition that connects distant concepts',
     funcNotation: 'Δ_Connection(t)',
@@ -151,6 +158,7 @@ export const ESSENCE_BLOCKS: EssenceBlock[] = [
     id: 'cre_subversion',
     name: '전복', nameEn: 'Subversion', emoji: '🔄',
     category: 'creativity',
+    operatorType: 'restructure', // 전제 구조를 뒤집어 재배열
     description: '당연한 것을 뒤집는 창의적 반란',
     descriptionEn: 'Creative rebellion that overturns the obvious',
     funcNotation: 'Δ_Subversion(t)',
@@ -165,6 +173,7 @@ export const ESSENCE_BLOCKS: EssenceBlock[] = [
     id: 'cre_imagination',
     name: '상상', nameEn: 'Imagination', emoji: '✨',
     category: 'creativity',
+    operatorType: 'amplify',    // 가능성 공간을 넓고 강하게 증폭
     description: '없는 세계를 그려내는 능력',
     descriptionEn: 'The power to paint worlds that do not exist',
     funcNotation: 'Δ_Imagination(t)',
@@ -183,6 +192,7 @@ export const ESSENCE_BLOCKS: EssenceBlock[] = [
     id: 'exp_questioning',
     name: '질문법', nameEn: 'Questioning', emoji: '❓',
     category: 'expression',
+    operatorType: 'gate',       // 질문이 적절한 상황인지 판단 후 발동
     description: '소크라테스적 질문으로 이끄는 대화',
     descriptionEn: 'Conversations led by Socratic questions',
     funcNotation: 'Σ_Questioning(t)',
@@ -197,6 +207,7 @@ export const ESSENCE_BLOCKS: EssenceBlock[] = [
     id: 'exp_metaphor',
     name: '은유', nameEn: 'Metaphor', emoji: '🪞',
     category: 'expression',
+    operatorType: 'transform',  // 직접 표현 → 은유적 표현으로 변환
     description: '직접 말하지 않고 보여주는 기술',
     descriptionEn: 'The art of showing without telling',
     funcNotation: 'Σ_Metaphor(t)',
@@ -211,6 +222,7 @@ export const ESSENCE_BLOCKS: EssenceBlock[] = [
     id: 'exp_humor',
     name: '유머', nameEn: 'Humor', emoji: '😄',
     category: 'expression',
+    operatorType: 'amplify',    // 가벼움·유머 에너지 강도 증폭
     description: '가벼움으로 무거움을 녹이는 힘',
     descriptionEn: 'The power to dissolve heaviness with lightness',
     funcNotation: 'Σ_Humor(t)',
@@ -229,6 +241,7 @@ export const ESSENCE_BLOCKS: EssenceBlock[] = [
     id: 'sys_planning',
     name: '기획', nameEn: 'Planning', emoji: '📐',
     category: 'systems',
+    operatorType: 'restructure', // 무질서한 정보를 계획 구조로 재편
     description: '목표에서 역산하여 구조를 설계하는 사고',
     descriptionEn: 'Designing structure by working backward from goals',
     funcNotation: 'Λ_Planning(t)',
@@ -243,6 +256,7 @@ export const ESSENCE_BLOCKS: EssenceBlock[] = [
     id: 'sys_analysis',
     name: '분석', nameEn: 'Analysis', emoji: '🔬',
     category: 'systems',
+    operatorType: 'gate',       // 분석이 필요한 상황인지 판단 후 발동
     description: '복잡한 것을 쪼개어 본질을 드러내는 힘',
     descriptionEn: 'Breaking complexity to reveal essence',
     funcNotation: 'Λ_Analysis(t)',
@@ -257,6 +271,7 @@ export const ESSENCE_BLOCKS: EssenceBlock[] = [
     id: 'sys_logic',
     name: '논리', nameEn: 'Logic', emoji: '🧩',
     category: 'systems',
+    operatorType: 'gate',       // 논리적 엄밀성이 필요한지 판단
     description: '모순 없는 추론의 사슬을 잇는 능력',
     descriptionEn: 'Building chains of consistent reasoning',
     funcNotation: 'Λ_Logic(t)',
@@ -271,6 +286,7 @@ export const ESSENCE_BLOCKS: EssenceBlock[] = [
     id: 'sys_coding',
     name: '코딩', nameEn: 'Coding', emoji: '💻',
     category: 'systems',
+    operatorType: 'transform',  // 문제 상태 → 알고리즘/구현으로 변환
     description: '문제를 알고리즘으로 번역하는 사고',
     descriptionEn: 'Translating problems into algorithms',
     funcNotation: 'Λ_Coding(t)',
@@ -285,6 +301,7 @@ export const ESSENCE_BLOCKS: EssenceBlock[] = [
     id: 'sys_architecture',
     name: '설계', nameEn: 'Architecture', emoji: '🏗️',
     category: 'systems',
+    operatorType: 'restructure', // 전체를 시스템 구조로 재편
     description: '시스템 전체를 조감하는 구조적 시야',
     descriptionEn: 'Structural vision that oversees the whole system',
     funcNotation: 'Λ_Architecture(t)',
