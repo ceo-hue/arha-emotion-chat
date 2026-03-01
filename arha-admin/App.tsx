@@ -239,10 +239,10 @@ export default function App() {
           <button
             onClick={() => setShowPromptModal(true)}
             disabled={!selectedPersonaId}
-            className="flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] text-white/30 hover:text-violet-400 hover:bg-violet-500/10 disabled:opacity-20 disabled:cursor-not-allowed transition-all"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold text-violet-300 bg-violet-500/15 border border-violet-400/30 hover:bg-violet-500/25 hover:border-violet-400/50 disabled:opacity-20 disabled:cursor-not-allowed transition-all"
           >
-            <FileText size={10} />
-            <span className="hidden sm:inline">{t.generatePrompt ?? '프롬프트 생성'}</span>
+            <FileText size={11} />
+            <span>{t.generatePrompt ?? '프롬프트 생성'}</span>
           </button>
 
           {/* Export */}
