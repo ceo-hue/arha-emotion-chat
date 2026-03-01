@@ -73,6 +73,14 @@ export const OPERATOR_META: Record<OperatorType, {
 /** 연산자 타입 순환 순서 */
 export const OPERATOR_CYCLE: OperatorType[] = ['transform', 'gate', 'amplify', 'restructure'];
 
+/** 연산자 타입별 LLM 행동 지시문 (프롬프트 주입용) */
+export const OPERATOR_DIRECTIVES: Record<OperatorType, string> = {
+  transform:   'TRANSFORM: Convert the input state into a distinctly new output state. Actively shift the perspective, framing, or emotional register of the response.',
+  gate:        'GATE: Evaluate conditions before engaging. Only apply this dimension fully when the threshold is reached. Hold back if conditions are not met.',
+  amplify:     'AMPLIFY: Intensify what is already present — do not change direction or add new content. Increase magnitude, depth, and resonance.',
+  restructure: 'RESTRUCTURE: Deconstruct the premise. Break down implicit assumptions, then reassemble into a new structural configuration.',
+};
+
 export interface ValueChainItem {
   id: string;
   name: string;

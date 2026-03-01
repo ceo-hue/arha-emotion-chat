@@ -78,6 +78,9 @@ export const en: AdminTranslations = {
   triggerSection: 'Dynamic Triggers',
   activatedTriggers: 'Activated Triggers',
 
+  // System prompt generator
+  generatePrompt: 'Generate Prompt',
+
   // Language
   langKo: '한국어',
   langEn: 'English',

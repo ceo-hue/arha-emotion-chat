@@ -5,8 +5,9 @@ import AuthGate from './components/AuthGate';
 import BlockLibrary from './components/BlockLibrary';
 import SkeletonCanvas from './components/SkeletonCanvas';
 import LiveOutput from './components/LiveOutput';
+import SystemPromptModal from './components/SystemPromptModal';
 import { PERSONA_PRESETS } from './data/personaPresets';
-import { ArrowLeft, Globe, Download, LogOut, FlaskConical, Loader2, Layers, PenTool, Zap } from 'lucide-react';
+import { ArrowLeft, Globe, Download, LogOut, FlaskConical, Loader2, Layers, PenTool, Zap, FileText } from 'lucide-react';
 import type { EssenceBlock, ActiveEssenceBlock, TestResult, VectorXYZ, BlockRole, OperatorType } from './types';
 import { INFLUENCE_MAP, MAX_SUPPORTERS, OPERATOR_CYCLE } from './types';
 
@@ -22,6 +23,7 @@ export default function App() {
   const [testResult, setTestResult] = useState<TestResult | null>(null);
   const [isTesting, setIsTesting] = useState(false);
   const [mobileTab, setMobileTab] = useState<'library' | 'canvas' | 'output'>('canvas');
+  const [showPromptModal, setShowPromptModal] = useState(false);
 
   // Derived
   const activeBlockIds = useMemo(() => new Set(activeBlocks.map(b => b.id)), [activeBlocks]);
@@ -233,6 +235,16 @@ export default function App() {
             {lang.toUpperCase()}
           </button>
 
+          {/* System Prompt Generator */}
+          <button
+            onClick={() => setShowPromptModal(true)}
+            disabled={!selectedPersonaId}
+            className="flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] text-white/30 hover:text-violet-400 hover:bg-violet-500/10 disabled:opacity-20 disabled:cursor-not-allowed transition-all"
+          >
+            <FileText size={10} />
+            <span className="hidden sm:inline">{t.generatePrompt ?? '프롬프트 생성'}</span>
+          </button>
+
           {/* Export */}
           <button
             onClick={exportJson}
@@ -304,6 +316,18 @@ export default function App() {
           />
         </div>
       </div>
+
+      {/* System Prompt Modal */}
+      {showPromptModal && (() => {
+        const persona = PERSONA_PRESETS.find(p => p.id === selectedPersonaId);
+        return persona ? (
+          <SystemPromptModal
+            persona={persona}
+            activeBlocks={activeBlocks}
+            onClose={() => setShowPromptModal(false)}
+          />
+        ) : null;
+      })()}
     </div>
   );
 }

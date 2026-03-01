@@ -76,6 +76,9 @@ export const ko = {
   triggerSection: '동적 트리거',
   activatedTriggers: '활성 트리거',
 
+  // System prompt generator
+  generatePrompt: '프롬프트 생성',
+
   // Language
   langKo: '한국어',
   langEn: 'English',
