@@ -8,20 +8,19 @@
  * 모든 요청에 Authorization: Bearer <Firebase ID Token> 필요
  */
 
-import { getAdminDb, verifyIdToken } from './_firebaseAdmin.js';
 import crypto from 'crypto';
+import { getAdminDb, verifyIdToken } from './_firebaseAdmin.js';
 
-const CORS_HEADERS = {
+export const config = { maxDuration: 30 };
+
+const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
-function json(data, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
-  });
+function setCors(res) {
+  Object.entries(CORS).forEach(([k, v]) => res.setHeader(k, v));
 }
 
 function generateApiKey() {
@@ -29,90 +28,101 @@ function generateApiKey() {
   return `arha_sk_${rand}`;
 }
 
-export default async function handler(req) {
+export default async function handler(req, res) {
+  setCors(res);
+
   // CORS preflight
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers: CORS_HEADERS });
-  }
+  if (req.method === 'OPTIONS') return res.status(204).end();
 
   // Firebase ID 토큰 검증
   let uid;
   try {
-    uid = await verifyIdToken(req.headers.get('Authorization'));
+    uid = await verifyIdToken(req.headers['authorization']);
   } catch (e) {
-    return json({ error: 'Unauthorized: ' + e.message }, 401);
+    return res.status(401).json({ error: 'Unauthorized: ' + e.message });
   }
 
   const db = getAdminDb();
 
   // ── GET: 키 목록 ──────────────────────────────────
   if (req.method === 'GET') {
-    const snap = await db.collection('apiKeys')
-      .where('ownerId', '==', uid)
-      .orderBy('createdAt', 'desc')
-      .get();
+    try {
+      const snap = await db.collection('apiKeys')
+        .where('ownerId', '==', uid)
+        .orderBy('createdAt', 'desc')
+        .get();
 
-    const keys = snap.docs.map(doc => {
-      const d = doc.data();
-      return {
-        id: doc.id,
-        name: d.name,
-        keyPreview: d.key.slice(0, 14) + '••••••••••••••••',
-        isActive: d.isActive,
-        callCount: d.callCount ?? 0,
-        dailyLimit: d.dailyLimit ?? 100,
-        createdAt: d.createdAt?.toMillis?.() ?? Date.now(),
-        lastUsed: d.lastUsed?.toMillis?.() ?? null,
-      };
-    });
+      const keys = snap.docs.map(doc => {
+        const d = doc.data();
+        return {
+          id: doc.id,
+          name: d.name,
+          keyPreview: d.key.slice(0, 14) + '••••••••••••••••',
+          isActive: d.isActive,
+          callCount: d.callCount ?? 0,
+          dailyLimit: d.dailyLimit ?? 100,
+          createdAt: d.createdAt?.toMillis?.() ?? Date.now(),
+          lastUsed: d.lastUsed?.toMillis?.() ?? null,
+        };
+      });
 
-    return json({ keys });
+      return res.status(200).json({ keys });
+    } catch (e) {
+      return res.status(500).json({ error: e.message || 'Failed to fetch keys' });
+    }
   }
 
   // ── POST: 키 생성 ─────────────────────────────────
   if (req.method === 'POST') {
-    const body = await req.json().catch(() => ({}));
-    const name = (body.name ?? '').trim() || 'My API Key';
-    const dailyLimit = Number(body.dailyLimit) || 100;
+    try {
+      const body = req.body || {};
+      const name = (body.name ?? '').trim() || 'My API Key';
+      const dailyLimit = Number(body.dailyLimit) || 100;
 
-    const key = generateApiKey();
+      const key = generateApiKey();
 
-    const docRef = await db.collection('apiKeys').add({
-      key,
-      name,
-      ownerId: uid,
-      isActive: true,
-      callCount: 0,
-      dailyCallCount: 0,
-      dailyLimit,
-      createdAt: new Date(),
-      lastUsed: null,
-    });
+      const docRef = await db.collection('apiKeys').add({
+        key,
+        name,
+        ownerId: uid,
+        isActive: true,
+        callCount: 0,
+        dailyCallCount: 0,
+        dailyLimit,
+        createdAt: new Date(),
+        lastUsed: null,
+      });
 
-    // 키는 생성 직후 1회만 전체 공개
-    return json({
-      id: docRef.id,
-      key,          // ← 이 응답 이후로는 전체 키를 다시 볼 수 없음
-      name,
-      dailyLimit,
-    }, 201);
+      // 키는 생성 직후 1회만 전체 공개
+      return res.status(201).json({
+        id: docRef.id,
+        key,          // ← 이 응답 이후로는 전체 키를 다시 볼 수 없음
+        name,
+        dailyLimit,
+      });
+    } catch (e) {
+      return res.status(500).json({ error: e.message || 'Failed to create key' });
+    }
   }
 
   // ── DELETE: 키 비활성화 ────────────────────────────
   if (req.method === 'DELETE') {
-    const url = new URL(req.url);
-    const id = url.searchParams.get('id');
-    if (!id) return json({ error: 'Missing id param' }, 400);
+    try {
+      const id = req.query?.id;
+      if (!id) return res.status(400).json({ error: 'Missing id param' });
 
-    const docRef = db.collection('apiKeys').doc(id);
-    const doc = await docRef.get();
+      const docRef = db.collection('apiKeys').doc(id);
+      const doc = await docRef.get();
 
-    if (!doc.exists) return json({ error: 'Key not found' }, 404);
-    if (doc.data().ownerId !== uid) return json({ error: 'Forbidden' }, 403);
+      if (!doc.exists) return res.status(404).json({ error: 'Key not found' });
+      if (doc.data().ownerId !== uid) return res.status(403).json({ error: 'Forbidden' });
 
-    await docRef.update({ isActive: false });
-    return json({ success: true });
+      await docRef.update({ isActive: false });
+      return res.status(200).json({ success: true });
+    } catch (e) {
+      return res.status(500).json({ error: e.message || 'Failed to deactivate key' });
+    }
   }
 
-  return json({ error: 'Method not allowed' }, 405);
+  return res.status(405).json({ error: 'Method not allowed' });
 }
