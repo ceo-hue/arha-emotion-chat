@@ -6,8 +6,9 @@ import BlockLibrary from './components/BlockLibrary';
 import SkeletonCanvas from './components/SkeletonCanvas';
 import LiveOutput from './components/LiveOutput';
 import SystemPromptModal from './components/SystemPromptModal';
+import ApiKeyManager from './components/ApiKeyManager';
 import { PERSONA_PRESETS } from './data/personaPresets';
-import { ArrowLeft, Globe, Download, LogOut, FlaskConical, Loader2, Layers, PenTool, Zap, FileText } from 'lucide-react';
+import { ArrowLeft, Globe, Download, LogOut, FlaskConical, Loader2, Layers, PenTool, Zap, FileText, Key } from 'lucide-react';
 import type { EssenceBlock, ActiveEssenceBlock, TestResult, VectorXYZ, BlockRole, OperatorType } from './types';
 import { INFLUENCE_MAP, MAX_SUPPORTERS, OPERATOR_CYCLE } from './types';
 
@@ -16,6 +17,9 @@ const ARHA_URL = 'https://arha-emotion-chat.vercel.app';
 export default function App() {
   const { user, loading, handleSignOut } = useAuth();
   const { t, lang, setLang } = useI18n();
+
+  // Top-level page
+  const [mainTab, setMainTab] = useState<'builder' | 'apikeys'>('builder');
 
   // Canvas state
   const [selectedPersonaId, setSelectedPersonaId] = useState('arha');
@@ -226,6 +230,32 @@ export default function App() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Main tab toggle */}
+          <div className="flex items-center gap-0.5 bg-white/5 rounded-xl p-0.5 border border-white/8">
+            <button
+              onClick={() => setMainTab('builder')}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-[10px] text-[10px] font-bold transition-all ${
+                mainTab === 'builder'
+                  ? 'bg-violet-500/25 text-violet-300 border border-violet-400/30'
+                  : 'text-white/30 hover:text-white/50'
+              }`}
+            >
+              <FlaskConical size={10} />
+              <span className="hidden sm:inline">Builder</span>
+            </button>
+            <button
+              onClick={() => setMainTab('apikeys')}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-[10px] text-[10px] font-bold transition-all ${
+                mainTab === 'apikeys'
+                  ? 'bg-violet-500/25 text-violet-300 border border-violet-400/30'
+                  : 'text-white/30 hover:text-white/50'
+              }`}
+            >
+              <Key size={10} />
+              <span className="hidden sm:inline">API Keys</span>
+            </button>
+          </div>
+
           {/* Language toggle */}
           <button
             onClick={() => setLang(lang === 'ko' ? 'en' : 'ko')}
@@ -235,25 +265,29 @@ export default function App() {
             {lang.toUpperCase()}
           </button>
 
-          {/* System Prompt Generator */}
-          <button
-            onClick={() => setShowPromptModal(true)}
-            disabled={!selectedPersonaId}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold text-violet-300 bg-violet-500/15 border border-violet-400/30 hover:bg-violet-500/25 hover:border-violet-400/50 disabled:opacity-20 disabled:cursor-not-allowed transition-all"
-          >
-            <FileText size={11} />
-            <span>{t.generatePrompt ?? '프롬프트 생성'}</span>
-          </button>
+          {/* System Prompt Generator — builder only */}
+          {mainTab === 'builder' && (
+            <button
+              onClick={() => setShowPromptModal(true)}
+              disabled={!selectedPersonaId}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold text-violet-300 bg-violet-500/15 border border-violet-400/30 hover:bg-violet-500/25 hover:border-violet-400/50 disabled:opacity-20 disabled:cursor-not-allowed transition-all"
+            >
+              <FileText size={11} />
+              <span>{t.generatePrompt ?? '프롬프트 생성'}</span>
+            </button>
+          )}
 
-          {/* Export */}
-          <button
-            onClick={exportJson}
-            disabled={activeBlocks.length === 0}
-            className="flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] text-white/30 hover:text-emerald-400 hover:bg-emerald-500/10 disabled:opacity-20 disabled:cursor-not-allowed transition-all"
-          >
-            <Download size={10} />
-            {t.exportJson}
-          </button>
+          {/* Export — builder only */}
+          {mainTab === 'builder' && (
+            <button
+              onClick={exportJson}
+              disabled={activeBlocks.length === 0}
+              className="flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] text-white/30 hover:text-emerald-400 hover:bg-emerald-500/10 disabled:opacity-20 disabled:cursor-not-allowed transition-all"
+            >
+              <Download size={10} />
+              {t.exportJson}
+            </button>
+          )}
 
           {/* User + sign out */}
           <div className="flex items-center gap-2 pl-2 border-l border-white/10">
@@ -267,6 +301,16 @@ export default function App() {
           </div>
         </div>
       </header>
+
+      {/* ── API Keys page ── */}
+      {mainTab === 'apikeys' && (
+        <div className="flex-1 min-h-0 max-w-2xl mx-auto w-full">
+          <ApiKeyManager />
+        </div>
+      )}
+
+      {/* ── Builder page ── */}
+      {mainTab === 'builder' && <>
 
       {/* ── Mobile tab bar (< lg) ── */}
       <div className="lg:hidden flex items-center gap-1.5 px-2 py-1.5 shrink-0 bg-white/5 border-b border-white/10">
@@ -328,6 +372,8 @@ export default function App() {
           />
         ) : null;
       })()}
+
+      </> /* end builder */}
     </div>
   );
 }

@@ -3,10 +3,14 @@
   "outputDirectory": "dist",
   "framework": "vite",
   "functions": {
-    "api/test-persona.js": { "maxDuration": 60 }
+    "api/test-persona.js": { "maxDuration": 60 },
+    "api/arha.js":         { "maxDuration": 60 },
+    "api/arha-keys.js":    { "maxDuration": 10 }
   },
   "rewrites": [
     { "source": "/api/test-persona", "destination": "/api/test-persona" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/api/arha",         "destination": "/api/arha" },
+    { "source": "/api/arha-keys",    "destination": "/api/arha-keys" },
+    { "source": "/(.*)",             "destination": "/index.html" }
   ]
 }
