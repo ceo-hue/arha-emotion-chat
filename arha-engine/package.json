@@ -1,0 +1,28 @@
+{
+  "name": "@ceo-hue/arha-engine",
+  "version": "1.0.0",
+  "description": "ARHA Emotion Vector Engine — Self-hosted package",
+  "type": "module",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "files": [
+    "src/",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": ["arha", "persona", "emotion", "vector", "ai", "claude"],
+  "license": "SEE LICENSE IN LICENSE",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com",
+    "access": "restricted"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ceo-hue/arha-emotion-chat.git",
+    "directory": "arha-engine"
+  }
+}

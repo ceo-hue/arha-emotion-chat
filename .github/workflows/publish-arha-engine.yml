@@ -1,0 +1,30 @@
+name: Publish @ceo-hue/arha-engine
+
+# arha-engine/v* 태그 푸시 시 자동 배포
+# 사용법: git tag arha-engine/v1.0.1 && git push origin arha-engine/v1.0.1
+on:
+  push:
+    tags:
+      - 'arha-engine/v*'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@ceo-hue'
+
+      - name: Publish to GitHub Packages
+        working-directory: arha-engine
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
