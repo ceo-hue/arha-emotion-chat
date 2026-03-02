@@ -2,15 +2,15 @@
  * Firebase Admin SDK 공유 헬퍼
  * Vercel 서버리스 함수에서 공통으로 사용
  */
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
-import { getAuth } from 'firebase-admin/auth';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const admin = require('firebase-admin');
 
 let _db = null;
 let _auth = null;
 
 function initAdminApp() {
-  if (getApps().length) return;
+  if (admin.apps.length) return;
   const raw = process.env.FIREBASE_SERVICE_ACCOUNT;
   if (!raw) throw new Error('FIREBASE_SERVICE_ACCOUNT env var is missing');
   const serviceAccount = JSON.parse(raw);
@@ -18,20 +18,20 @@ function initAdminApp() {
   if (serviceAccount.private_key) {
     serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
   }
-  initializeApp({ credential: cert(serviceAccount) });
+  admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
 }
 
 export function getAdminDb() {
   if (_db) return _db;
   initAdminApp();
-  _db = getFirestore();
+  _db = admin.firestore();
   return _db;
 }
 
 export function getAdminAuth() {
   if (_auth) return _auth;
   initAdminApp();
-  _auth = getAuth();
+  _auth = admin.auth();
   return _auth;
 }
 

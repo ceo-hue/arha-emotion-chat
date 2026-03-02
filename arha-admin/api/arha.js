@@ -28,8 +28,10 @@
  * }
  */
 
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const { FieldValue } = require('firebase-admin/firestore');
 import { verifyApiKey, getAdminDb } from './_firebaseAdmin.js';
-import { FieldValue } from 'firebase-admin/firestore';
 
 export const config = { maxDuration: 60 };
 
