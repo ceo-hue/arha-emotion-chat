@@ -139,23 +139,24 @@ export default function LicenseManager() {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
       {/* 헤더 */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Shield className="w-5 h-5 text-purple-500" />
-          <h2 className="text-lg font-semibold text-gray-800">Licenses</h2>
-          <span className="text-sm text-gray-400">(self-hosted npm 패키지용)</span>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <Shield className="w-4 h-4 sm:w-5 sm:h-5 text-purple-500 shrink-0" />
+          <h2 className="text-base sm:text-lg font-semibold text-gray-800 truncate">Licenses</h2>
+          <span className="text-sm text-gray-400 hidden sm:inline">(self-hosted npm 패키지용)</span>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-1.5 sm:gap-2 shrink-0">
           <button onClick={loadLicenses} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500" title="새로고침">
             <RefreshCw className="w-4 h-4" />
           </button>
           <button
             onClick={() => { setShowForm(true); setCreateError(null); }}
-            className="flex items-center gap-1.5 px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-lg font-medium"
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-lg font-medium"
           >
-            <Plus className="w-4 h-4" /> 새 라이선스 발급
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">새 라이선스 발급</span>
           </button>
         </div>
       </div>
@@ -285,7 +286,7 @@ export default function LicenseManager() {
                   </div>
                   <p className="text-xs text-gray-500">{lic.email}</p>
                   <code className="text-xs font-mono text-gray-400">{lic.keyPreview}</code>
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400 mt-1">
+                  <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-400 mt-1">
                     <span>총 {lic.callCount.toLocaleString()}회 검증</span>
                     <span>일일 한도 {lic.dailyLimit.toLocaleString()}회</span>
                     {lic.expiresAt && (

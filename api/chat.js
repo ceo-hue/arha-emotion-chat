@@ -127,6 +127,25 @@ r3 active_values: Use the provided value chain. Set activated:true for values cl
 When current information, news, weather, or real-time data is needed, use the web_search tool.`;
 }
 
+// PRO mode supplement — appended to system prompt when proData is present
+// Returns '' when proData is undefined/empty → system prompt completely unchanged
+function buildProSupplement(proData) {
+  if (!proData || !proData.techExperts?.length) return '';
+  const experts = proData.techExperts
+    .map((e, i) => {
+      const badge = i === 0 ? '🔬' : i === 1 ? '🛡️' : '⚡';
+      return `### ${badge} ${e.name}\nMission: ${e.mission}\nKey Actions: ${e.actions.slice(0, 3).join(' → ')}\nGuardrails: ${e.guardrails.slice(0, 2).join(' | ')}`;
+    })
+    .join('\n\n');
+  const ev = proData.emotionResult?.vector ?? {};
+  const emotionLine = proData.emotionResult
+    ? `**Emotional Context:** ${proData.emotionResult.primaryEmotion} (valence: ${(ev.valence ?? 0).toFixed(2)}, arousal: ${(ev.arousal ?? 0).toFixed(2)})`
+    : '';
+  const ctxLine = proData.contextSummary && proData.contextSummary !== 'general'
+    ? `Tech stack: ${proData.contextSummary}\n\n` : '';
+  return `\n\n---\n## 🔬 PRO Mode — Expert Panel\n\n${ctxLine}${experts}\n\n${emotionLine}\n\n> Apply the expertise above to enhance response quality and precision.\n---`;
+}
+
 // Assemble final system prompt
 function buildSystemPrompt(muMode, personaPrompt, personaValueChain) {
   const today = new Date().toLocaleDateString('ko-KR', {
@@ -182,13 +201,14 @@ const tools = [
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { messages, personaPrompt, personaValueChain, userMode } = req.body;
+  const { messages, personaPrompt, personaValueChain, userMode, proData } = req.body;
 
   const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')?.content ?? '';
   const muMode = userMode || detectMode(lastUserMsg);
   console.log(`🔀 Pipeline v2: ${muMode} ${userMode ? '(user)' : `(auto: "${lastUserMsg.slice(0, 40)}")`}`);
 
-  const finalSystemPrompt = buildSystemPrompt(muMode, personaPrompt, personaValueChain);
+  const finalSystemPrompt = buildSystemPrompt(muMode, personaPrompt, personaValueChain)
+    + buildProSupplement(proData); // PRO: '' when proData undefined → no change
 
   try {
     // Normalize message format: embed media as vision/document blocks

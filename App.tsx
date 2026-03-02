@@ -1,7 +1,8 @@
 
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { Message, AnalysisData, ChatSession, TaskType, ArtifactContent, MuMode, PipelineData, SearchResultItem } from './types';
+import { Message, AnalysisData, ChatSession, TaskType, ArtifactContent, MuMode, PipelineData, SearchResultItem, ProModeData } from './types';
 import { chatWithClaudeStream } from './services/claudeService';
+import { analyzeForPro, resetProSession } from './src/pro';
 import { generateArhaVideo } from './services/geminiService';
 import { getPersonaValueChain, buildPersonaSystemPrompt } from './services/personaRegistry';
 import { GoogleGenAI, Modality } from '@google/genai';
@@ -538,6 +539,7 @@ const App: React.FC = () => {
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [weatherInfo, setWeatherInfo] = useState<{ temp: number; code: number; label: string } | null>(null);
   const [showMenu, setShowMenu] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
 
   // ── Theme toggle (Adaptive Glass) ──
@@ -564,11 +566,16 @@ const App: React.FC = () => {
   const liveSessionRef = useRef<any>(null);
   const nextStartTimeRef = useRef(0);
   const menuRef = useRef<HTMLDivElement>(null);
+  const settingsRef = useRef<HTMLDivElement>(null);
   const pendingSearchResultsRef = useRef<SearchResultItem[]>([]);
 
   // ── visualViewport: keep layout stable when mobile keyboard opens ──
   const [vvHeight, setVvHeight] = useState<number>(() => window.visualViewport?.height ?? window.innerHeight);
   const [vvOffsetTop, setVvOffsetTop] = useState<number>(0);
+
+  // PRO mode
+  const [isProMode, setIsProMode] = useState(() => localStorage.getItem('arha-pro') === 'true');
+  const [proData, setProData] = useState<ProModeData | null>(null);
   useEffect(() => {
     const vv = window.visualViewport;
     if (!vv) return;
@@ -655,6 +662,18 @@ const App: React.FC = () => {
     });
     return () => cancelAnimationFrame(scrollRaf.current!);
   }, [messages]);
+
+  // ── Close settings dropdown when clicking outside ──
+  useEffect(() => {
+    if (!showSettings) return;
+    const handler = (e: MouseEvent) => {
+      if (settingsRef.current && !settingsRef.current.contains(e.target as Node)) {
+        setShowSettings(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showSettings]);
 
   // ── Close hamburger menu when clicking outside ──
   useEffect(() => {
@@ -784,6 +803,8 @@ const App: React.FC = () => {
     }
     setMessages([{ id: '1', role: 'assistant', content: t.resetMsg, timestamp: Date.now() }]);
     setCurrentAnalysis(null);
+    setProData(null);
+    resetProSession(); // Reset accumulated tech context for PRO mode
   }, [messages, currentAnalysis, user, t.resetMsg]);
 
   const handleDeleteHistory = useCallback((e: React.MouseEvent, sessionId: string) => {
@@ -844,6 +865,16 @@ const App: React.FC = () => {
     setMessages(prev => [...prev, { id: assistantMsgId, role: 'assistant', content: '', timestamp: Date.now() }]);
 
     try {
+      // PRO mode: analyze before sending (browser-local, no extra API call)
+      let currentProData: ProModeData | undefined;
+      if (isProMode) {
+        currentProData = await analyzeForPro(
+          input.trim(),
+          messages.filter(m => m.role === 'user').slice(-5).map(m => m.content),
+        );
+        setProData(currentProData);
+      }
+
       let currentContent = '';
       await chatWithClaudeStream(
         [...messages, userMsg],
@@ -883,6 +914,8 @@ const App: React.FC = () => {
         (item) => {
           pendingSearchResultsRef.current = [...pendingSearchResultsRef.current, item];
         },
+        // proData: PRO mode expert context — undefined in STANDARD mode (no change)
+        currentProData,
       );
       // Attach accumulated search results to the assistant message
       if (pendingSearchResultsRef.current.length > 0) {
@@ -1495,7 +1528,7 @@ const App: React.FC = () => {
       {/* ── Center glass card ── */}
       <div
         style={cardStyle}
-        className={`${isMobile ? '' : 'relative z-10'} w-full max-w-3xl ${isMobile ? '' : 'md:h-[98dvh]'} glass-panel md:rounded-[2.5rem] overflow-hidden flex flex-col transition-shadow duration-500`}
+        className={`${isMobile ? '' : 'relative z-10'} w-full max-w-3xl ${isMobile ? '' : 'md:mx-4 lg:mx-auto md:h-[98dvh]'} glass-panel md:rounded-[2.5rem] overflow-hidden flex flex-col transition-shadow duration-500`}
       >
         {/* Header */}
         <header className="h-12 md:h-16 px-4 md:px-6 flex items-center shrink-0 relative">
@@ -1513,45 +1546,98 @@ const App: React.FC = () => {
 
           {/* Right-side header controls */}
           <div className="ml-auto flex items-center gap-2">
-            {/* Network status (circle glass button) */}
-            {internetStatus !== 'checking' && (
+
+            {/* ── Unified settings dropdown ── */}
+            <div className="block relative" ref={settingsRef}>
               <button
-                title={internetStatus === 'online' ? 'Online' : 'Offline'}
-                className="hidden md:flex relative items-center justify-center w-9 h-9 rounded-full bg-white/15 dark:bg-white/10 backdrop-blur-sm border border-white/30 dark:border-white/20 shadow-lg hover:bg-white/25 hover:scale-105 active:scale-95 transition-all"
+                onClick={() => setShowSettings(p => !p)}
+                title="Settings"
+                className={`flex items-center justify-center w-9 h-9 rounded-full backdrop-blur-sm border shadow-lg hover:scale-105 active:scale-95 transition-all
+                  ${showSettings
+                    ? 'bg-white/25 dark:bg-white/15 border-white/50 dark:border-white/30'
+                    : 'bg-white/15 dark:bg-white/10 border-white/30 dark:border-white/20'}`}
               >
-                <Wifi size={16} className={internetStatus === 'online' ? 'text-emerald-400' : 'text-slate-400 dark:text-slate-500'} />
-                <span className={`absolute bottom-0.5 right-0.5 w-2 h-2 rounded-full border border-white/50 ${internetStatus === 'online' ? 'bg-emerald-400 animate-pulse' : 'bg-slate-400'}`} />
+                <span className="text-base leading-none">{personaConfig.emoji}</span>
               </button>
-            )}
 
-            {/* Theme toggle (circle glass button) */}
-            <button
-              onClick={() => setIsDark(!isDark)}
-              title={isDark ? 'Light mode' : 'Dark mode'}
-              className="hidden md:flex items-center justify-center w-9 h-9 rounded-full bg-white/15 dark:bg-white/10 backdrop-blur-sm border border-white/30 dark:border-white/20 shadow-lg hover:bg-white/25 hover:scale-105 active:scale-95 transition-all"
-            >
-              {isDark ? <Moon size={16} className="text-slate-300" /> : <Sun size={16} className="text-amber-500" />}
-            </button>
+              {showSettings && (
+                <div className="absolute right-0 top-full mt-2 w-56 max-w-[calc(100vw-2rem)] rounded-2xl overflow-hidden shadow-2xl z-50
+                  bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl border border-black/8 dark:border-white/10">
 
-            {/* Language switcher (circle glass button) */}
-            <button
-              onClick={() => setLang(lang === 'ko' ? 'en' : 'ko')}
-              title={lang === 'ko' ? t.langEn : t.langKo}
-              className="hidden md:flex items-center justify-center w-9 h-9 rounded-full bg-white/15 dark:bg-white/10 backdrop-blur-sm border border-white/30 dark:border-white/20 shadow-lg hover:bg-white/25 hover:scale-105 active:scale-95 transition-all"
-            >
-              <Globe size={16} className={lang === 'en' ? 'text-sky-400' : 'text-white/60 dark:text-white/50'} />
-            </button>
+                  {/* Network status row */}
+                  <div className="flex items-center gap-3 px-4 py-3 border-b border-black/5 dark:border-white/5">
+                    <Wifi size={14} className={internetStatus === 'online' ? 'text-emerald-400' : 'text-slate-400'} />
+                    <span className="text-[12px] font-semibold text-slate-600 dark:text-white/60 flex-1">
+                      {internetStatus === 'online' ? 'Online' : 'Offline'}
+                    </span>
+                    <span className={`w-1.5 h-1.5 rounded-full ${internetStatus === 'online' ? 'bg-emerald-400 animate-pulse' : 'bg-slate-400'}`} />
+                  </div>
 
-            {/* Persona toggle (oval glass button) */}
+                  {/* Theme toggle row */}
+                  <button
+                    onClick={() => { setIsDark(!isDark); setShowSettings(false); }}
+                    className="w-full flex items-center gap-3 px-4 py-3 border-b border-black/5 dark:border-white/5
+                      hover:bg-black/5 dark:hover:bg-white/5 active:bg-black/8 dark:active:bg-white/8 transition-colors"
+                  >
+                    {isDark
+                      ? <Moon size={14} className="text-indigo-400" />
+                      : <Sun size={14} className="text-amber-500" />}
+                    <span className="text-[12px] font-semibold text-slate-700 dark:text-white/70 flex-1 text-left">
+                      {isDark ? 'Dark Mode' : 'Light Mode'}
+                    </span>
+                    <span className="text-[10px] text-slate-400 dark:text-white/25 font-bold">
+                      {isDark ? '→ Light' : '→ Dark'}
+                    </span>
+                  </button>
+
+                  {/* Language toggle row */}
+                  <button
+                    onClick={() => { setLang(lang === 'ko' ? 'en' : 'ko'); setShowSettings(false); }}
+                    className="w-full flex items-center gap-3 px-4 py-3 border-b border-black/5 dark:border-white/5
+                      hover:bg-black/5 dark:hover:bg-white/5 active:bg-black/8 dark:active:bg-white/8 transition-colors"
+                  >
+                    <Globe size={14} className={lang === 'en' ? 'text-sky-400' : 'text-slate-400 dark:text-white/40'} />
+                    <span className="text-[12px] font-semibold text-slate-700 dark:text-white/70 flex-1 text-left">
+                      {lang === 'ko' ? '한국어' : 'English'}
+                    </span>
+                    <span className="text-[10px] text-slate-400 dark:text-white/25 font-bold">
+                      {lang === 'ko' ? '→ EN' : '→ KO'}
+                    </span>
+                  </button>
+
+                  {/* Persona row */}
+                  <button
+                    onClick={() => { setShowDashboard(true); setSidebarTab('persona'); setShowSettings(false); }}
+                    className="w-full flex items-center gap-3 px-4 py-3
+                      hover:bg-black/5 dark:hover:bg-white/5 active:bg-black/8 dark:active:bg-white/8 transition-colors"
+                  >
+                    <span className="text-sm leading-none">{personaConfig.emoji}</span>
+                    <span className="text-[12px] font-semibold text-slate-700 dark:text-white/70 flex-1 text-left">
+                      {personaLabel(t, personaConfig.id) || personaConfig.label}
+                    </span>
+                    <ChevronRight size={13} className="text-slate-400 dark:text-white/25" />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* PRO mode toggle button */}
             <button
-              onClick={() => { setShowDashboard(true); setSidebarTab('persona'); }}
-              title={personaLabel(t, personaConfig.id) || personaConfig.label}
-              className="hidden md:flex items-center justify-center gap-1.5 h-9 px-3 rounded-full bg-white/15 dark:bg-white/10 backdrop-blur-sm border border-white/30 dark:border-white/20 shadow-lg hover:bg-white/25 hover:scale-105 active:scale-95 transition-all"
+              onClick={() => setIsProMode(p => {
+                const next = !p;
+                localStorage.setItem('arha-pro', String(next));
+                return next;
+              })}
+              title={isProMode ? 'PRO Mode ON — 기술 전문가 패널 활성' : 'PRO Mode OFF'}
+              className={`flex items-center justify-center w-9 h-9 rounded-full backdrop-blur-sm border shadow-lg hover:scale-105 active:scale-95 transition-all relative
+                ${isProMode
+                  ? 'bg-violet-500/30 border-violet-400/50 text-violet-300 dark:bg-violet-600/30 dark:border-violet-400/40'
+                  : 'bg-white/15 dark:bg-white/10 border-white/30 dark:border-white/20 text-white/60 dark:text-white/40'}`}
             >
-              <span className="text-sm leading-none">{personaConfig.emoji}</span>
-              <span className="text-[10px] font-bold text-slate-700 dark:text-white/70 uppercase tracking-wide">
-                {personaLabel(t, personaConfig.id) || personaConfig.label}
-              </span>
+              <FlaskConical size={16} />
+              {isProMode && (
+                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-violet-400 border border-white/30" />
+              )}
             </button>
 
             {/* Artifact toggle button (P_MODE) */}
@@ -1710,24 +1796,24 @@ const App: React.FC = () => {
 
                 <div className="border-t border-black/10 dark:border-white/10 my-2" />
 
-                {/* Theme toggle (mobile — also shown in menu) */}
+                {/* PRO mode toggle */}
                 <button
-                  onClick={() => { setIsDark(!isDark); setShowMenu(false); }}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[11px] font-bold text-slate-500 dark:text-white/50 hover:text-amber-500 hover:bg-amber-500/10 active:bg-amber-500/10 transition-all"
+                  onClick={() => {
+                    const next = !isProMode;
+                    setIsProMode(next);
+                    localStorage.setItem('arha-pro', String(next));
+                    setShowMenu(false);
+                  }}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-[11px] font-bold transition-all
+                    ${isProMode
+                      ? 'text-violet-400 bg-violet-500/10 hover:bg-violet-500/15'
+                      : 'text-slate-500 dark:text-white/50 hover:text-violet-400 hover:bg-violet-500/10'}`}
                 >
-                  {isDark ? <Moon size={14} className="text-slate-400 shrink-0" /> : <Sun size={14} className="text-amber-400 shrink-0" />}
-                  {isDark ? 'Light Mode' : 'Dark Mode'}
-                  <span className="ml-auto text-[8px] text-slate-300 dark:text-white/20 font-black tracking-widest">{isDark ? '☀️' : '🌙'}</span>
-                </button>
-
-                {/* Language switcher (mobile — also shown in menu) */}
-                <button
-                  onClick={() => { setLang(lang === 'ko' ? 'en' : 'ko'); setShowMenu(false); }}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[11px] font-bold text-slate-500 dark:text-white/50 hover:text-sky-400 hover:bg-sky-500/10 active:bg-sky-500/10 transition-all"
-                >
-                  <Globe size={14} className="text-sky-400 shrink-0" />
-                  {lang === 'ko' ? t.langEn : t.langKo}
-                  <span className="ml-auto text-[8px] text-slate-300 dark:text-white/20 font-black tracking-widest">{lang.toUpperCase()}</span>
+                  <FlaskConical size={14} className={`shrink-0 ${isProMode ? 'text-violet-400' : 'text-slate-400 dark:text-white/30'}`} />
+                  PRO Mode
+                  <span className={`ml-auto text-[8px] font-black tracking-widest ${isProMode ? 'text-violet-400' : 'text-slate-300 dark:text-white/20'}`}>
+                    {isProMode ? 'ON ●' : 'OFF'}
+                  </span>
                 </button>
 
                 <div className="border-t border-black/10 dark:border-white/10 my-2" />

@@ -213,8 +213,8 @@ export default function App() {
   return (
     <div className="h-[100dvh] w-full bg-black text-white flex flex-col">
       {/* ── Header bar ── */}
-      <header className="shrink-0 h-12 flex items-center justify-between px-4 border-b border-white/10 glass-panel">
-        <div className="flex items-center gap-3">
+      <header className="shrink-0 h-12 flex items-center justify-between px-2 sm:px-4 border-b border-white/10 glass-panel">
+        <div className="flex items-center gap-1.5 sm:gap-3">
           <a
             href={ARHA_URL}
             className="flex items-center gap-1.5 text-white/30 hover:text-white/60 text-[10px] transition-colors"
@@ -230,7 +230,7 @@ export default function App() {
           </span>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2">
           {/* Main tab toggle */}
           <div className="flex items-center gap-0.5 bg-white/5 rounded-xl p-0.5 border border-white/8">
             <button
@@ -282,10 +282,10 @@ export default function App() {
             <button
               onClick={() => setShowPromptModal(true)}
               disabled={!selectedPersonaId}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold text-violet-300 bg-violet-500/15 border border-violet-400/30 hover:bg-violet-500/25 hover:border-violet-400/50 disabled:opacity-20 disabled:cursor-not-allowed transition-all"
+              className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg text-[10px] font-bold text-violet-300 bg-violet-500/15 border border-violet-400/30 hover:bg-violet-500/25 hover:border-violet-400/50 disabled:opacity-20 disabled:cursor-not-allowed transition-all"
             >
               <FileText size={11} />
-              <span>{t.generatePrompt ?? '프롬프트 생성'}</span>
+              <span className="hidden sm:inline">{t.generatePrompt ?? '프롬프트 생성'}</span>
             </button>
           )}
 
@@ -297,7 +297,7 @@ export default function App() {
               className="flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] text-white/30 hover:text-emerald-400 hover:bg-emerald-500/10 disabled:opacity-20 disabled:cursor-not-allowed transition-all"
             >
               <Download size={10} />
-              {t.exportJson}
+              <span className="hidden sm:inline">{t.exportJson}</span>
             </button>
           )}
 

@@ -1,4 +1,4 @@
-import { Message, AnalysisData, ArtifactContent, PipelineData, ValueChainItem, SearchResultItem } from '../types';
+import { Message, AnalysisData, ArtifactContent, PipelineData, ValueChainItem, SearchResultItem, ProModeData } from '../types';
 
 export type ChatCallbacks = {
   onChunk: (chunk: string) => void;
@@ -88,6 +88,8 @@ export const chatWithClaudeStream = async (
   /** 페르소나별 가치 체인 — 서버 PIPELINE r3 템플릿에 동적 주입 */
   personaValueChain?: ValueChainItem[],
   onSearchResult?: (item: SearchResultItem) => void,
+  /** PRO 모드 분석 결과 — undefined이면 STANDARD 동작과 완전 동일 */
+  proData?: ProModeData,
 ) => {
   const payload = messages.map(msg => ({
     role: msg.role,
@@ -102,7 +104,7 @@ export const chatWithClaudeStream = async (
   const response = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages: payload, personaPrompt, personaValueChain, userMode }),
+    body: JSON.stringify({ messages: payload, personaPrompt, personaValueChain, userMode, ...(proData ? { proData } : {}) }),
   });
 
   if (!response.ok) {

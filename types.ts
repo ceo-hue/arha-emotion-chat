@@ -138,3 +138,29 @@ export interface PipelineData {
     expression_style: string;      // 표현 스타일 레이블
   };
 }
+
+// ── PRO MODE TYPES (STANDARD 모드는 참조 안 함) ──────────────────────────────
+
+export interface ProEmotionResult {
+  primaryEmotion: string;
+  vector: { valence: number; arousal: number; intensity: number };
+  confidence: number;
+  emotionTags: string[];
+  processingMode: string;
+}
+
+export interface ProTechExpert {
+  name: string;       // 'SeniorDebugTracer' 등 15개 페르소나 중 하나
+  mission: string;
+  actions: string[];
+  guardrails: string[];
+  kpis: string[];
+  score: number;      // 트리거 점수 0~1
+}
+
+export interface ProModeData {
+  emotionResult: ProEmotionResult;
+  techExperts: ProTechExpert[];   // 최대 3개, 선택 없으면 []
+  contextSummary: string;         // 기술 스택 요약 (프레임워크/언어)
+  reasoning: string;              // 트리거 선택 이유
+}
