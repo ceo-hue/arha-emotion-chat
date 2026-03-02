@@ -5,7 +5,7 @@
   "functions": {
     "api/test-persona.js": { "maxDuration": 60 },
     "api/arha.js":         { "maxDuration": 60 },
-    "api/arha-keys.js":    { "maxDuration": 10 }
+    "api/arha-keys.js":    { "maxDuration": 30 }
   },
   "rewrites": [
     { "source": "/api/test-persona", "destination": "/api/test-persona" },

@@ -9,25 +9,28 @@ import { getAuth } from 'firebase-admin/auth';
 let _db = null;
 let _auth = null;
 
+function initAdminApp() {
+  if (getApps().length) return;
+  const raw = process.env.FIREBASE_SERVICE_ACCOUNT;
+  if (!raw) throw new Error('FIREBASE_SERVICE_ACCOUNT env var is missing');
+  const serviceAccount = JSON.parse(raw);
+  // Vercel 환경변수에서 \\n 이 이중 이스케이프될 수 있어 보정
+  if (serviceAccount.private_key) {
+    serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
+  }
+  initializeApp({ credential: cert(serviceAccount) });
+}
+
 export function getAdminDb() {
   if (_db) return _db;
-
-  // 이미 초기화된 앱이 있으면 재사용
-  if (!getApps().length) {
-    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-    initializeApp({ credential: cert(serviceAccount) });
-  }
-
+  initAdminApp();
   _db = getFirestore();
   return _db;
 }
 
 export function getAdminAuth() {
   if (_auth) return _auth;
-  if (!getApps().length) {
-    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-    initializeApp({ credential: cert(serviceAccount) });
-  }
+  initAdminApp();
   _auth = getAuth();
   return _auth;
 }
