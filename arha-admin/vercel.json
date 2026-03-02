@@ -3,14 +3,20 @@
   "outputDirectory": "dist",
   "framework": "vite",
   "functions": {
-    "api/test-persona.js": { "maxDuration": 60 },
-    "api/arha.js":         { "maxDuration": 60 },
-    "api/arha-keys.js":    { "maxDuration": 30 }
+    "api/test-persona.js":    { "maxDuration": 60 },
+    "api/arha.js":            { "maxDuration": 60 },
+    "api/arha-keys.js":       { "maxDuration": 30 },
+    "api/license/verify.js":  { "maxDuration": 15 },
+    "api/license/issue.js":   { "maxDuration": 15 },
+    "api/license/list.js":    { "maxDuration": 15 }
   },
   "rewrites": [
-    { "source": "/api/test-persona", "destination": "/api/test-persona" },
-    { "source": "/api/arha",         "destination": "/api/arha" },
-    { "source": "/api/arha-keys",    "destination": "/api/arha-keys" },
-    { "source": "/(.*)",             "destination": "/index.html" }
+    { "source": "/api/test-persona",    "destination": "/api/test-persona" },
+    { "source": "/api/arha",            "destination": "/api/arha" },
+    { "source": "/api/arha-keys",       "destination": "/api/arha-keys" },
+    { "source": "/api/license/verify",  "destination": "/api/license/verify" },
+    { "source": "/api/license/issue",   "destination": "/api/license/issue" },
+    { "source": "/api/license/list",    "destination": "/api/license/list" },
+    { "source": "/(.*)",                "destination": "/index.html" }
   ]
 }
