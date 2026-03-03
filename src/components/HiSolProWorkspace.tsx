@@ -241,12 +241,20 @@ const HiSolProWorkspace: React.FC<HiSolProWorkspaceProps> = ({ onClose, user }) 
             <aside className="w-[320px] border-r border-white/10 bg-slate-900/70 p-4 overflow-y-auto">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-[11px] font-black text-slate-300 uppercase tracking-[0.16em]">Chat History</h3>
-                <button
-                  onClick={handleNewChat}
-                  className="h-7 px-2 rounded-lg border border-emerald-300/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-[10px] font-bold text-emerald-200 flex items-center gap-1"
-                >
-                  <Plus size={12} /> 새 채팅
-                </button>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={handleNewChat}
+                    className="h-7 px-2 rounded-lg border border-emerald-300/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-[10px] font-bold text-emerald-200 flex items-center gap-1"
+                  >
+                    <Plus size={12} /> 새 채팅
+                  </button>
+                  <button
+                    onClick={handleDeleteConversation}
+                    className="h-7 px-2 rounded-lg border border-rose-300/30 bg-rose-500/10 hover:bg-rose-500/20 text-[10px] font-bold text-rose-200 flex items-center gap-1"
+                  >
+                    <Trash2 size={11} /> 대화 삭제
+                  </button>
+                </div>
               </div>
 
               {historySessions.length === 0 ? (
@@ -280,20 +288,8 @@ const HiSolProWorkspace: React.FC<HiSolProWorkspaceProps> = ({ onClose, user }) 
               <div className="h-full flex flex-col xl:flex-row">
                 <section className="flex-1 min-w-0 p-4 md:p-6 overflow-y-auto">
                   <div className="max-w-4xl mx-auto space-y-4 md:space-y-5">
-                    <div className="rounded-2xl border border-white/10 bg-white/5 p-3 flex items-center gap-2">
-                      <button
-                        onClick={handleNewChat}
-                        className="h-8 px-3 rounded-lg border border-emerald-300/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-[11px] font-bold text-emerald-200 flex items-center gap-1.5"
-                      >
-                        <Plus size={13} /> 새 채팅
-                      </button>
-                      <button
-                        onClick={handleDeleteConversation}
-                        className="h-8 px-3 rounded-lg border border-rose-300/30 bg-rose-500/10 hover:bg-rose-500/20 text-[11px] font-bold text-rose-200 flex items-center gap-1.5"
-                      >
-                        <Trash2 size={13} /> 대화 삭제
-                      </button>
-                      <span className="ml-auto text-[10px] text-slate-400">메시지 {messages.length}개</span>
+                    <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-[10px] text-slate-400">
+                      메시지 {messages.length}개
                     </div>
 
                     {messages.length === 0 && !isLoading && (
