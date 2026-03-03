@@ -1,9 +1,15 @@
-﻿import React, { useMemo, useState } from 'react';
-import { Activity, CheckCircle2, CircleDashed, Database, House, LayoutDashboard, Send, X } from 'lucide-react';
+﻿import React, { useEffect, useMemo, useState } from 'react';
+import { Activity, CheckCircle2, CircleDashed, Database, House, Plus, RefreshCcw, Send, Trash2, X } from 'lucide-react';
 import { OrchestrationService } from '../pro-engine/OrchestrationService';
 import { MemoryService } from '../pro-engine/MemoryService';
 
 type Tab = 'chat' | 'memory';
+
+type ProMessage = {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+};
 
 type PipelineStep = {
   id: string;
@@ -20,14 +26,46 @@ interface HiSolProWorkspaceProps {
 const HiSolProWorkspace: React.FC<HiSolProWorkspaceProps> = ({ onClose, user }) => {
   const [activeTab, setActiveTab] = useState<Tab>('chat');
   const [input, setInput] = useState('');
-  const [messages, setMessages] = useState<Array<{ id: string; role: 'user' | 'assistant'; content: string }>>([]);
+  const [messages, setMessages] = useState<ProMessage[]>([]);
   const [thoughtTrace, setThoughtTrace] = useState<string[]>([]);
+  const [valueProfile, setValueProfile] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(false);
 
-  const orchestrator = useMemo(() => {
-    const memory = new MemoryService(user?.uid);
-    return new OrchestrationService(memory);
-  }, [user?.uid]);
+  const sessionStorageKey = useMemo(() => `hisol-pro:session:${user?.uid || 'guest'}`, [user?.uid]);
+
+  const memory = useMemo(() => new MemoryService(user?.uid), [user?.uid]);
+  const orchestrator = useMemo(() => new OrchestrationService(memory), [memory]);
+
+  const loadValueProfile = async () => {
+    const profile = await memory.getProfile();
+    setValueProfile(profile);
+  };
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(sessionStorageKey);
+      if (raw) {
+        const parsed = JSON.parse(raw) as { messages?: ProMessage[]; thoughtTrace?: string[] };
+        setMessages(parsed.messages ?? []);
+        setThoughtTrace(parsed.thoughtTrace ?? []);
+      }
+    } catch {
+      setMessages([]);
+      setThoughtTrace([]);
+    }
+
+    loadValueProfile();
+  }, [sessionStorageKey]);
+
+  useEffect(() => {
+    localStorage.setItem(
+      sessionStorageKey,
+      JSON.stringify({
+        messages,
+        thoughtTrace,
+      }),
+    );
+  }, [sessionStorageKey, messages, thoughtTrace]);
 
   const pipelineSteps = useMemo<PipelineStep[]>(() => {
     const defaults: PipelineStep[] = [
@@ -50,8 +88,26 @@ const HiSolProWorkspace: React.FC<HiSolProWorkspaceProps> = ({ onClose, user }) 
     return defaults;
   }, [thoughtTrace]);
 
+  const valueEntries = useMemo(() => {
+    return Object.entries(valueProfile)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 12);
+  }, [valueProfile]);
+
   const completedSteps = pipelineSteps.filter((s) => s.done).length;
   const pipelineProgress = Math.round((completedSteps / pipelineSteps.length) * 100);
+
+  const handleNewChat = () => {
+    setMessages([]);
+    setThoughtTrace([]);
+    setInput('');
+  };
+
+  const handleDeleteConversation = () => {
+    setMessages([]);
+    setThoughtTrace([]);
+    localStorage.removeItem(sessionStorageKey);
+  };
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
@@ -74,6 +130,7 @@ const HiSolProWorkspace: React.FC<HiSolProWorkspaceProps> = ({ onClose, user }) 
         history,
       );
       setThoughtTrace(result.thoughtTrace ?? []);
+      await loadValueProfile();
     } catch (err) {
       console.error(err);
     } finally {
@@ -113,14 +170,9 @@ const HiSolProWorkspace: React.FC<HiSolProWorkspaceProps> = ({ onClose, user }) 
         <div className="flex-1 min-h-0 flex">
           <aside className="w-16 md:w-20 border-r border-white/10 bg-slate-900/55 flex flex-col items-center py-4 md:py-6 gap-3">
             <button
-              onClick={() => setActiveTab('chat')}
-              className={`w-11 h-11 md:w-12 md:h-12 rounded-2xl flex items-center justify-center transition-all ${activeTab === 'chat' ? 'bg-violet-500/25 text-violet-200 border border-violet-300/40' : 'text-slate-400 hover:bg-white/10'}`}
-            >
-              <LayoutDashboard size={20} />
-            </button>
-            <button
               onClick={() => setActiveTab('memory')}
               className={`w-11 h-11 md:w-12 md:h-12 rounded-2xl flex items-center justify-center transition-all ${activeTab === 'memory' ? 'bg-violet-500/25 text-violet-200 border border-violet-300/40' : 'text-slate-400 hover:bg-white/10'}`}
+              title="Value Chain Intelligence"
             >
               <Database size={20} />
             </button>
@@ -131,6 +183,22 @@ const HiSolProWorkspace: React.FC<HiSolProWorkspaceProps> = ({ onClose, user }) 
               <div className="h-full flex flex-col xl:flex-row">
                 <section className="flex-1 min-w-0 p-4 md:p-6 overflow-y-auto">
                   <div className="max-w-4xl mx-auto space-y-4 md:space-y-5">
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-3 flex items-center gap-2">
+                      <button
+                        onClick={handleNewChat}
+                        className="h-8 px-3 rounded-lg border border-emerald-300/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-[11px] font-bold text-emerald-200 flex items-center gap-1.5"
+                      >
+                        <Plus size={13} /> 새 채팅
+                      </button>
+                      <button
+                        onClick={handleDeleteConversation}
+                        className="h-8 px-3 rounded-lg border border-rose-300/30 bg-rose-500/10 hover:bg-rose-500/20 text-[11px] font-bold text-rose-200 flex items-center gap-1.5"
+                      >
+                        <Trash2 size={13} /> 대화 삭제
+                      </button>
+                      <span className="ml-auto text-[10px] text-slate-400">메시지 {messages.length}개</span>
+                    </div>
+
                     {messages.length === 0 && !isLoading && (
                       <div className="rounded-3xl border border-white/10 bg-white/5 p-6 md:p-8">
                         <p className="text-sm md:text-base text-slate-200 leading-7">기술 이슈를 입력하면 HiSol PRO가 가치 문맥 기반으로 분석해 답변합니다.</p>
@@ -188,6 +256,38 @@ const HiSolProWorkspace: React.FC<HiSolProWorkspaceProps> = ({ onClose, user }) 
                   </div>
 
                   <div className="mt-4">
+                    <div className="mb-4 rounded-2xl border border-violet-400/20 bg-violet-500/8 p-3.5">
+                      <div className="flex items-center justify-between mb-2.5">
+                        <p className="text-[10px] font-black text-violet-200 uppercase tracking-[0.16em]">Live Value Chain</p>
+                        <button
+                          onClick={() => setActiveTab('memory')}
+                          className="text-[10px] px-2 py-1 rounded-lg border border-violet-300/25 bg-violet-500/15 hover:bg-violet-500/25 text-violet-200 font-bold"
+                        >
+                          자세히 보기
+                        </button>
+                      </div>
+                      {valueEntries.length === 0 ? (
+                        <p className="text-[11px] text-slate-300/70">아직 누적된 가치가 없습니다.</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {valueEntries.slice(0, 6).map(([term, weight], idx) => {
+                            const max = valueEntries[0]?.[1] ?? 1;
+                            const width = Math.max(12, Math.round((weight / max) * 100));
+                            return (
+                              <div key={`live-${term}`} className="flex items-center gap-2">
+                                <span className="text-[10px] w-4 text-slate-400">{idx + 1}</span>
+                                <span className="text-[11px] text-slate-100 w-16 truncate">{term}</span>
+                                <div className="flex-1 h-1.5 rounded-full bg-white/10 overflow-hidden">
+                                  <div className="h-full rounded-full bg-gradient-to-r from-violet-300 to-emerald-300" style={{ width: `${width}%` }} />
+                                </div>
+                                <span className="text-[10px] text-violet-200 font-bold w-6 text-right">{weight}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.16em] mb-2">Raw Trace</p>
                     <div className="space-y-2">
                       {thoughtTrace.length === 0 ? (
@@ -207,14 +307,39 @@ const HiSolProWorkspace: React.FC<HiSolProWorkspaceProps> = ({ onClose, user }) 
 
             {activeTab === 'memory' && (
               <div className="h-full p-6 md:p-10 overflow-y-auto">
-                <h2 className="text-2xl md:text-3xl font-black tracking-tight mb-6">Value Chain Intelligence</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-                  <div className="rounded-3xl border border-violet-400/30 bg-gradient-to-br from-violet-500/20 to-indigo-500/10 p-6 md:p-8">
-                    <p className="text-[11px] font-black text-violet-300 uppercase tracking-[0.16em]">Primary Node</p>
-                    <p className="text-2xl font-black mt-3">SECURITY</p>
-                    <p className="text-sm text-slate-300 mt-3 leading-6">최근 대화에서 핵심 가치로 식별되었습니다.</p>
+                <div className="flex items-center justify-between mb-6 gap-3">
+                  <h2 className="text-2xl md:text-3xl font-black tracking-tight">Value Chain Intelligence</h2>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setActiveTab('chat')}
+                      className="h-9 px-3 rounded-xl border border-emerald-300/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-xs font-bold text-emerald-200"
+                    >
+                      채팅으로
+                    </button>
+                    <button
+                      onClick={loadValueProfile}
+                      className="h-9 px-3 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-xs font-bold text-slate-200 flex items-center gap-1.5"
+                    >
+                      <RefreshCcw size={13} /> 새로고침
+                    </button>
                   </div>
                 </div>
+
+                {valueEntries.length === 0 ? (
+                  <div className="rounded-3xl border border-white/10 bg-white/5 p-6 text-sm text-slate-300">
+                    아직 누적된 가치가 없습니다. PRO 대화를 진행하면 가치 체인이 자동 누적됩니다.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+                    {valueEntries.map(([term, weight], index) => (
+                      <div key={term} className="rounded-3xl border border-violet-400/30 bg-gradient-to-br from-violet-500/20 to-indigo-500/10 p-6 md:p-8">
+                        <p className="text-[11px] font-black text-violet-300 uppercase tracking-[0.16em]">Node #{index + 1}</p>
+                        <p className="text-2xl font-black mt-3 break-words">{term}</p>
+                        <p className="text-sm text-slate-300 mt-3 leading-6">누적 강도: {weight}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </main>
