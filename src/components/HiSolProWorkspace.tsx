@@ -1,5 +1,5 @@
 ﻿import React, { useEffect, useMemo, useState } from 'react';
-import { Activity, CheckCircle2, CircleDashed, Database, House, Plus, RefreshCcw, Send, Trash2, X } from 'lucide-react';
+import { Activity, CheckCircle2, ChevronRight, CircleDashed, Database, History, House, Plus, RefreshCcw, Send, Trash2, X } from 'lucide-react';
 import { OrchestrationService } from '../pro-engine/OrchestrationService';
 import { MemoryService } from '../pro-engine/MemoryService';
 
@@ -9,6 +9,14 @@ type ProMessage = {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+};
+
+type ProHistorySession = {
+  id: string;
+  title: string;
+  updatedAt: number;
+  messages: ProMessage[];
+  thoughtTrace: string[];
 };
 
 type PipelineStep = {
@@ -25,13 +33,16 @@ interface HiSolProWorkspaceProps {
 
 const HiSolProWorkspace: React.FC<HiSolProWorkspaceProps> = ({ onClose, user }) => {
   const [activeTab, setActiveTab] = useState<Tab>('chat');
+  const [showHistoryPanel, setShowHistoryPanel] = useState(false);
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<ProMessage[]>([]);
   const [thoughtTrace, setThoughtTrace] = useState<string[]>([]);
+  const [historySessions, setHistorySessions] = useState<ProHistorySession[]>([]);
   const [valueProfile, setValueProfile] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(false);
 
   const sessionStorageKey = useMemo(() => `hisol-pro:session:${user?.uid || 'guest'}`, [user?.uid]);
+  const historyStorageKey = useMemo(() => `hisol-pro:history:${user?.uid || 'guest'}`, [user?.uid]);
 
   const memory = useMemo(() => new MemoryService(user?.uid), [user?.uid]);
   const orchestrator = useMemo(() => new OrchestrationService(memory), [memory]);
@@ -48,14 +59,29 @@ const HiSolProWorkspace: React.FC<HiSolProWorkspaceProps> = ({ onClose, user }) 
         const parsed = JSON.parse(raw) as { messages?: ProMessage[]; thoughtTrace?: string[] };
         setMessages(parsed.messages ?? []);
         setThoughtTrace(parsed.thoughtTrace ?? []);
+      } else {
+        setMessages([]);
+        setThoughtTrace([]);
       }
     } catch {
       setMessages([]);
       setThoughtTrace([]);
     }
 
+    try {
+      const rawHistory = localStorage.getItem(historyStorageKey);
+      if (rawHistory) {
+        const parsed = JSON.parse(rawHistory) as ProHistorySession[];
+        setHistorySessions(Array.isArray(parsed) ? parsed : []);
+      } else {
+        setHistorySessions([]);
+      }
+    } catch {
+      setHistorySessions([]);
+    }
+
     loadValueProfile();
-  }, [sessionStorageKey]);
+  }, [sessionStorageKey, historyStorageKey]);
 
   useEffect(() => {
     localStorage.setItem(
@@ -66,6 +92,10 @@ const HiSolProWorkspace: React.FC<HiSolProWorkspaceProps> = ({ onClose, user }) 
       }),
     );
   }, [sessionStorageKey, messages, thoughtTrace]);
+
+  useEffect(() => {
+    localStorage.setItem(historyStorageKey, JSON.stringify(historySessions));
+  }, [historyStorageKey, historySessions]);
 
   const pipelineSteps = useMemo<PipelineStep[]>(() => {
     const defaults: PipelineStep[] = [
@@ -97,16 +127,45 @@ const HiSolProWorkspace: React.FC<HiSolProWorkspaceProps> = ({ onClose, user }) 
   const completedSteps = pipelineSteps.filter((s) => s.done).length;
   const pipelineProgress = Math.round((completedSteps / pipelineSteps.length) * 100);
 
+  const archiveCurrentSession = () => {
+    const userMessages = messages.filter((m) => m.role === 'user');
+    if (userMessages.length === 0) return;
+
+    const title = userMessages[0].content.slice(0, 36) || 'PRO Conversation';
+    const session: ProHistorySession = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      title,
+      updatedAt: Date.now(),
+      messages,
+      thoughtTrace,
+    };
+
+    setHistorySessions((prev) => [session, ...prev].slice(0, 30));
+  };
+
   const handleNewChat = () => {
+    archiveCurrentSession();
     setMessages([]);
     setThoughtTrace([]);
     setInput('');
+    setActiveTab('chat');
   };
 
   const handleDeleteConversation = () => {
     setMessages([]);
     setThoughtTrace([]);
     localStorage.removeItem(sessionStorageKey);
+  };
+
+  const handleLoadHistory = (session: ProHistorySession) => {
+    setMessages(session.messages);
+    setThoughtTrace(session.thoughtTrace);
+    setActiveTab('chat');
+    setShowHistoryPanel(false);
+  };
+
+  const handleDeleteHistoryItem = (id: string) => {
+    setHistorySessions((prev) => prev.filter((s) => s.id !== id));
   };
 
   const handleSend = async () => {
@@ -170,13 +229,51 @@ const HiSolProWorkspace: React.FC<HiSolProWorkspaceProps> = ({ onClose, user }) 
         <div className="flex-1 min-h-0 flex">
           <aside className="w-16 md:w-20 border-r border-white/10 bg-slate-900/55 flex flex-col items-center py-4 md:py-6 gap-3">
             <button
-              onClick={() => setActiveTab('memory')}
-              className={`w-11 h-11 md:w-12 md:h-12 rounded-2xl flex items-center justify-center transition-all ${activeTab === 'memory' ? 'bg-violet-500/25 text-violet-200 border border-violet-300/40' : 'text-slate-400 hover:bg-white/10'}`}
-              title="Value Chain Intelligence"
+              onClick={() => setShowHistoryPanel((p) => !p)}
+              className={`w-11 h-11 md:w-12 md:h-12 rounded-2xl flex items-center justify-center transition-all ${showHistoryPanel ? 'bg-emerald-500/25 text-emerald-200 border border-emerald-300/40' : 'text-slate-400 hover:bg-white/10'}`}
+              title="Chat History"
             >
-              <Database size={20} />
+              <History size={20} />
             </button>
           </aside>
+
+          {showHistoryPanel && (
+            <aside className="w-[320px] border-r border-white/10 bg-slate-900/70 p-4 overflow-y-auto">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-[11px] font-black text-slate-300 uppercase tracking-[0.16em]">Chat History</h3>
+                <button
+                  onClick={handleNewChat}
+                  className="h-7 px-2 rounded-lg border border-emerald-300/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-[10px] font-bold text-emerald-200 flex items-center gap-1"
+                >
+                  <Plus size={12} /> 새 채팅
+                </button>
+              </div>
+
+              {historySessions.length === 0 ? (
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-3 text-xs text-slate-400">저장된 히스토리가 없습니다.</div>
+              ) : (
+                <div className="space-y-2.5">
+                  {historySessions.map((s) => (
+                    <div key={s.id} className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                      <button onClick={() => handleLoadHistory(s)} className="w-full text-left">
+                        <p className="text-[12px] font-bold text-slate-100 truncate">{s.title}</p>
+                        <div className="mt-1 flex items-center justify-between">
+                          <span className="text-[10px] text-slate-400">{new Date(s.updatedAt).toLocaleString()}</span>
+                          <ChevronRight size={13} className="text-slate-500" />
+                        </div>
+                      </button>
+                      <button
+                        onClick={() => handleDeleteHistoryItem(s.id)}
+                        className="mt-2 h-7 px-2 rounded-lg border border-rose-300/30 bg-rose-500/10 hover:bg-rose-500/20 text-[10px] font-bold text-rose-200 flex items-center gap-1"
+                      >
+                        <Trash2 size={11} /> 삭제
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </aside>
+          )}
 
           <main className="flex-1 min-w-0 bg-slate-900/35">
             {activeTab === 'chat' && (
