@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useState } from 'react';
+﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Activity, CheckCircle2, ChevronRight, CircleDashed, Database, History, House, Plus, RefreshCcw, Send, Trash2, X } from 'lucide-react';
 import { OrchestrationService } from '../pro-engine/OrchestrationService';
 import { MemoryService } from '../pro-engine/MemoryService';
@@ -40,6 +40,7 @@ const HiSolProWorkspace: React.FC<HiSolProWorkspaceProps> = ({ onClose, user }) 
   const [historySessions, setHistorySessions] = useState<ProHistorySession[]>([]);
   const [valueProfile, setValueProfile] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(false);
+  const chatScrollRef = useRef<HTMLElement | null>(null);
 
   const sessionStorageKey = useMemo(() => `hisol-pro:session:${user?.uid || 'guest'}`, [user?.uid]);
   const historyStorageKey = useMemo(() => `hisol-pro:history:${user?.uid || 'guest'}`, [user?.uid]);
@@ -96,6 +97,13 @@ const HiSolProWorkspace: React.FC<HiSolProWorkspaceProps> = ({ onClose, user }) 
   useEffect(() => {
     localStorage.setItem(historyStorageKey, JSON.stringify(historySessions));
   }, [historyStorageKey, historySessions]);
+
+  useEffect(() => {
+    if (activeTab !== 'chat') return;
+    const el = chatScrollRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: isLoading ? 'auto' : 'smooth' });
+  }, [messages, isLoading, activeTab]);
 
   const pipelineSteps = useMemo<PipelineStep[]>(() => {
     const defaults: PipelineStep[] = [
@@ -286,7 +294,7 @@ const HiSolProWorkspace: React.FC<HiSolProWorkspaceProps> = ({ onClose, user }) 
           <main className="flex-1 min-w-0 bg-slate-900/35">
             {activeTab === 'chat' && (
               <div className="h-full flex flex-col xl:flex-row">
-                <section className="flex-1 min-w-0 p-4 md:p-6 overflow-y-auto">
+                <section ref={chatScrollRef} className="flex-1 min-w-0 p-4 md:p-6 overflow-y-auto">
                   <div className="max-w-4xl mx-auto space-y-4 md:space-y-5">
                     <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-[10px] text-slate-400">
                       메시지 {messages.length}개
@@ -466,3 +474,5 @@ const HiSolProWorkspace: React.FC<HiSolProWorkspaceProps> = ({ onClose, user }) 
 };
 
 export default HiSolProWorkspace;
+
+
