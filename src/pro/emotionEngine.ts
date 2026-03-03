@@ -1,4 +1,4 @@
-// Adapted from: hisol-unified-mcp/src/engines/C-001_ARHAEmotionEngine.ts @ v1.0
+// Adapted from: hisol-unified-mcp/src/engines/C-001_HISOLEmotionEngine.ts @ v1.0
 // 7-layer emotion processing — pure algorithm, no external API calls
 
 import type { EmotionProcessInput, EmotionProcessResult, EmotionVector } from './types';

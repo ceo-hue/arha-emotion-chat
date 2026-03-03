@@ -1,4 +1,4 @@
-// Adapted from: hisol-unified-mcp/src/types/arha-emotion.ts + core/types.ts @ v1.0
+// Adapted from: hisol-unified-mcp/src/types/hisol-emotion.ts + core/types.ts @ v1.0
 // Browser-compatible internal types for PRO mode engines
 
 export interface EmotionVector {
