@@ -1882,6 +1882,16 @@ const App: React.FC = () => {
           </div>
         </footer>
       </div>
+
+      {isProMode && (
+        <HiSolProWorkspace
+          user={user}
+          onClose={() => {
+            setIsProMode(false);
+            localStorage.setItem('arha-pro', 'false');
+          }}
+        />
+      )}
     </div>
   );
 };

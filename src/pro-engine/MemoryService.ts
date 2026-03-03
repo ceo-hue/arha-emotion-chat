@@ -1,29 +1,39 @@
-import { loadValueProfile, updateValueProfile } from '../services/firestoreService';
-import { ValueChain, ValueNode } from './types';
+ï»¿import { loadValueProfile, updateValueProfile } from '../../services/firestoreService';
 
 export class MemoryService {
-  private userId: string;
+  private userId?: string;
 
-  constructor(userId: string) {
+  constructor(userId?: string) {
     this.userId = userId;
   }
 
-  async recall(input: string): Promise<{ primaryValues: string[]; narrative: string }> {
-    const profile = await loadValueProfile(this.userId) as any;
-    const terms = Object.keys(profile || {}).sort((a, b) => profile[b] - profile[a]);
-    const top = terms.slice(0, 3);
-    
+  async recall(_input: string): Promise<{ primaryValues: string[]; narrative: string }> {
+    if (!this.userId) {
+      return {
+        primaryValues: [],
+        narrative: 'ìƒˆë¡œìš´ ê°€ì¹˜ ì§€ë„ë¥¼ ê·¸ë ¤ ë‚˜ê°€ëŠ” ì¤‘ì…ë‹ˆë‹¤.',
+      };
+    }
+
+    const profile = (await loadValueProfile(this.userId)) ?? {};
+    const ranked = Object.entries(profile)
+      .sort((a, b) => b[1] - a[1])
+      .map(([term]) => term);
+
+    const top = ranked.slice(0, 3);
+
     return {
       primaryValues: top,
-      narrative: top.length > 0 
-        ? »ç¿ëÀÚ´Ô²²¼­´Â ±×µ¿¾È \ µîÀÇ °¡Ä¡¸¦ °¡Àå Áß¿äÇÏ°Ô ¿©±â¼Ì½À´Ï´Ù. 
-        : "»õ·Î¿î °¡Ä¡ Áöµµ¸¦ ±×·Á ³ª°¡´Â ÁßÀÔ´Ï´Ù."
+      narrative:
+        top.length > 0
+          ? `ì‚¬ìš©ìë‹˜ê»˜ì„œëŠ” ê·¸ë™ì•ˆ ${top.join(', ')} ë“±ì˜ ê°€ì¹˜ë¥¼ ê°€ì¥ ì¤‘ìš”í•˜ê²Œ ì—¬ê¸°ì…¨ìŠµë‹ˆë‹¤.`
+          : 'ìƒˆë¡œìš´ ê°€ì¹˜ ì§€ë„ë¥¼ ê·¸ë ¤ ë‚˜ê°€ëŠ” ì¤‘ì…ë‹ˆë‹¤.',
     };
   }
 
   async store(terms: string[]): Promise<void> {
-    if (this.userId && terms.length > 0) {
-      await updateValueProfile(this.userId, terms);
-    }
+    if (!this.userId || terms.length === 0) return;
+    await updateValueProfile(this.userId, terms);
   }
 }
+
