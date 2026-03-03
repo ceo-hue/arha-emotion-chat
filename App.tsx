@@ -11,7 +11,7 @@ import {
   Send, Heart, Image as ImageIcon,
   Mic, RotateCcw, LayoutDashboard,
   Menu, Video, X, History, ChevronRight, Database, Trash2,
-  Cpu, Sparkles, Paperclip, FileText, Activity, Globe, FlaskConical, Sun, Moon, Wifi, House
+  Cpu, Sparkles, Paperclip, FileText, Activity, Globe, FlaskConical, Sun, Moon, Wifi
 } from 'lucide-react';
 import EmotionalDashboard from './components/EmotionalDashboard';
 import ArtifactPanel from './components/ArtifactPanel';
@@ -808,17 +808,6 @@ const App: React.FC = () => {
     resetProSession(); // Reset accumulated tech context for PRO mode
   }, [messages, currentAnalysis, user, t.resetMsg]);
 
-  const handleReturnHome = useCallback(() => {
-    handleReset();
-    setShowHistory(false);
-    setShowDashboard(false);
-    setShowArtifact(false);
-    setShowMenu(false);
-    setShowSettings(false);
-    setIsProMode(false);
-    localStorage.setItem('arha-pro', 'false');
-  }, [handleReset]);
-
   const handleDeleteHistory = useCallback((e: React.MouseEvent, sessionId: string) => {
     e.stopPropagation();
     setHistory(prev => prev.filter(s => s.id !== sessionId));
@@ -1059,7 +1048,6 @@ const App: React.FC = () => {
 
   // Overlay mode on screens narrower than 1280 px (mobile / tablet)
   const isOverlayMode = viewW < 1280;
-  const focusShiftActive = showHistory || showDashboard || showArtifact || showMenu || showSettings;
 
   const btnActive = 'bg-emerald-600 text-white';
   const btnIdle   = 'bg-black/5 dark:bg-white/20 text-slate-700 dark:text-white/80 border border-black/10 dark:border-white/40';
@@ -1105,7 +1093,7 @@ const App: React.FC = () => {
     >
       {/* Full-screen background image — sharp & vivid */}
       <div
-        className={`absolute inset-0 z-0 bg-cover bg-center transition-all duration-700 scale-105 ${isDark ? 'opacity-60' : 'opacity-80'} ${focusShiftActive ? 'blur-[1.5px] saturate-90 brightness-90' : 'blur-0 saturate-110 brightness-100'}`}
+        className={`absolute inset-0 z-0 bg-cover bg-center transition-all duration-[4000ms] scale-105 ${isDark ? 'opacity-60' : 'opacity-80'}`}
         style={{ backgroundImage: `url(${bgImageUrl})` }}
       />
       {/* Subtle mesh tint overlay — light mode only adds gentle color wash */}
@@ -1541,26 +1529,16 @@ const App: React.FC = () => {
       {/* ── Center glass card ── */}
       <div
         style={cardStyle}
-        className={`${isMobile ? '' : 'relative z-10'} w-full max-w-[1120px] ${isMobile ? '' : 'md:mx-4 lg:mx-auto md:h-[96dvh]'} glass-panel md:rounded-[2.5rem] overflow-hidden flex flex-col transition-all duration-500 ${focusShiftActive ? 'shadow-[0_40px_110px_rgba(2,6,23,0.5)] ring-1 ring-white/35' : 'shadow-[0_28px_70px_rgba(2,6,23,0.38)]'}`}
+        className={`${isMobile ? '' : 'relative z-10'} w-full max-w-3xl ${isMobile ? '' : 'md:mx-4 lg:mx-auto md:h-[98dvh]'} glass-panel md:rounded-[2.5rem] overflow-hidden flex flex-col transition-shadow duration-500`}
       >
         {/* Header */}
-        <header className="h-14 md:h-16 px-4 md:px-6 flex items-center shrink-0 relative border-b border-white/15 dark:border-white/10 bg-white/12 dark:bg-white/5 backdrop-blur-xl">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowHistory(!showHistory)}
-              className={`w-9 h-9 md:w-10 md:h-10 rounded-xl flex items-center justify-center transition-all active:scale-95 ${showHistory ? btnActive : btnIdle}`}
-            >
-              <History size={16} />
-            </button>
-            <button
-              onClick={handleReturnHome}
-              className="h-9 md:h-10 px-3 md:px-3.5 rounded-xl flex items-center gap-1.5 border border-emerald-400/30 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/25 transition-all active:scale-95 text-[11px] md:text-xs font-black tracking-wide"
-              title="Home"
-            >
-              <House size={14} />
-              HOME
-            </button>
-          </div>
+        <header className="h-12 md:h-16 px-4 md:px-6 flex items-center shrink-0 relative">
+          <button
+            onClick={() => setShowHistory(!showHistory)}
+            className={`w-9 h-9 md:w-10 md:h-10 rounded-xl flex items-center justify-center transition-all active:scale-95 ${showHistory ? btnActive : btnIdle}`}
+          >
+            <History size={16} />
+          </button>
 
           {/* Centered title */}
           <div className="absolute left-1/2 -translate-x-1/2 text-center pointer-events-none">
@@ -1685,11 +1663,11 @@ const App: React.FC = () => {
         </header>
 
         {/* Message area */}
-        <div ref={scrollRef} className="flex-1 overflow-y-auto py-4 md:py-7 px-4 md:px-7 space-y-4 md:space-y-5 scroll-hide min-h-0">
+        <div ref={scrollRef} className="flex-1 overflow-y-auto py-3 md:py-6 px-4 md:px-6 space-y-4 md:space-y-5 scroll-hide min-h-0">
           {messages.map((msg) => (
             <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2`}>
-              <div className={`max-w-[92%] md:max-w-[74%] flex flex-col gap-1.5 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-                <div className={`px-4 md:px-5 py-3 md:py-3.5 rounded-2xl text-[14px] md:text-[15px] leading-7 shadow-sm ${msg.role === 'user' ? 'chat-bubble-user' : 'chat-bubble-ai'}`}>
+              <div className={`max-w-[88%] md:max-w-[80%] flex flex-col gap-1.5 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                <div className={`px-4 md:px-5 py-2.5 md:py-3 rounded-2xl text-[14px] md:text-[15px] shadow-sm ${msg.role === 'user' ? 'chat-bubble-user' : 'chat-bubble-ai'}`}>
                   {/* Loading state: search indicator or bouncing dots */}
                   {msg.role === 'assistant' && msg.content === '' && isLoading ? (
                     searchingQuery ? (
@@ -1753,7 +1731,7 @@ const App: React.FC = () => {
         </div>
 
         {/* Footer / input area */}
-        <footer className="px-3 md:px-6 py-3 md:py-4 shrink-0 safe-bottom border-t border-white/15 dark:border-white/10 bg-white/10 dark:bg-white/5 backdrop-blur-xl">
+        <footer className="px-3 md:px-6 py-2 md:py-4 shrink-0 safe-bottom">
           <div className="flex items-center gap-2 md:gap-3 relative" ref={menuRef}>
             <button
               onClick={() => setShowMenu(!showMenu)}
@@ -1890,12 +1868,12 @@ const App: React.FC = () => {
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
                 placeholder={t.inputPlaceholder}
-                className="w-full h-11 md:h-12 bg-white/20 dark:bg-white/20 border border-white/40 dark:border-white/40 rounded-2xl py-0 pl-3 md:pl-5 pr-12 text-[14px] md:text-base text-slate-900 dark:text-white placeholder:text-slate-500/70 dark:placeholder:text-white/30 focus:outline-none focus:border-emerald-400 transition-all backdrop-blur-sm"
+                className="w-full h-9 md:h-11 bg-white/10 dark:bg-white/20 border border-white/30 dark:border-white/40 rounded-2xl py-0 pl-3 md:pl-5 pr-12 text-[14px] md:text-base text-slate-900 dark:text-white placeholder:text-slate-500/70 dark:placeholder:text-white/30 focus:outline-none focus:border-emerald-400 transition-all backdrop-blur-sm"
               />
               <button
                 onClick={handleSend}
                 disabled={isLoading || (!input.trim() && !selectedMedia)}
-                className={`absolute right-2 w-9 h-9 rounded-xl flex items-center justify-center transition-all active:scale-95 ${input.trim() || selectedMedia ? 'text-emerald-500 bg-emerald-500/10' : 'text-slate-400/40'}`}
+                className={`absolute right-2 w-8 h-8 flex items-center justify-center transition-all active:scale-95 ${input.trim() || selectedMedia ? 'text-emerald-500' : 'text-slate-400/40'}`}
               >
                 <Send size={15} />
               </button>

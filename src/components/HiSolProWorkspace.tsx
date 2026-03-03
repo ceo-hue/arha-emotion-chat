@@ -1,5 +1,5 @@
 ﻿import React, { useMemo, useState } from 'react';
-import { Activity, Cpu, Database, House, LayoutDashboard, Send, X } from 'lucide-react';
+import { Activity, Cpu, Database, LayoutDashboard, Send, X } from 'lucide-react';
 import { OrchestrationService } from '../pro-engine/OrchestrationService';
 import { MemoryService } from '../pro-engine/MemoryService';
 
@@ -59,19 +59,9 @@ const HiSolProWorkspace: React.FC<HiSolProWorkspaceProps> = ({ onClose, user }) 
             </span>
           </h1>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={onClose}
-            className="h-9 px-3 rounded-xl flex items-center gap-1.5 border border-emerald-400/35 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25 transition-all text-xs font-black tracking-wide"
-            aria-label="Back to home"
-          >
-            <House size={14} />
-            HOME
-          </button>
-          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-all text-slate-400" aria-label="Close PRO workspace">
-            <X size={20} />
-          </button>
-        </div>
+        <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-all text-slate-400" aria-label="Close PRO workspace">
+          <X size={20} />
+        </button>
       </div>
 
       <div className="flex-1 flex overflow-hidden">
