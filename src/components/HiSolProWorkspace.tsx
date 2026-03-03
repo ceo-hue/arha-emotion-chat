@@ -1,9 +1,16 @@
 ﻿import React, { useMemo, useState } from 'react';
-import { Activity, Cpu, Database, House, LayoutDashboard, Send, X } from 'lucide-react';
+import { Activity, CheckCircle2, CircleDashed, Database, House, LayoutDashboard, Send, X } from 'lucide-react';
 import { OrchestrationService } from '../pro-engine/OrchestrationService';
 import { MemoryService } from '../pro-engine/MemoryService';
 
 type Tab = 'chat' | 'memory';
+
+type PipelineStep = {
+  id: string;
+  title: string;
+  summary: string;
+  done: boolean;
+};
 
 interface HiSolProWorkspaceProps {
   onClose: () => void;
@@ -22,6 +29,30 @@ const HiSolProWorkspace: React.FC<HiSolProWorkspaceProps> = ({ onClose, user }) 
     return new OrchestrationService(memory);
   }, [user?.uid]);
 
+  const pipelineSteps = useMemo<PipelineStep[]>(() => {
+    const defaults: PipelineStep[] = [
+      { id: 'C-001', title: 'Emotion Engine', summary: '감정 벡터 분석 대기', done: false },
+      { id: 'C-002', title: 'Auto Trigger', summary: '전문가 선택 대기', done: false },
+      { id: 'C-003', title: 'Context Manager', summary: '기술 문맥 추출 대기', done: false },
+      { id: 'C-004', title: 'Prompt Composer', summary: '전문가 패널 프롬프트 조립 대기', done: false },
+      { id: 'C-005', title: 'Orchestrator', summary: '응답 생성 대기', done: false },
+    ];
+
+    for (const log of thoughtTrace) {
+      const m = log.match(/^(C-\d{3})\s+([^:]+):\s*(.*)$/);
+      if (!m) continue;
+      const id = m[1];
+      const summary = m[3];
+      const idx = defaults.findIndex((s) => s.id === id);
+      if (idx >= 0) defaults[idx] = { ...defaults[idx], summary, done: true };
+    }
+
+    return defaults;
+  }, [thoughtTrace]);
+
+  const completedSteps = pipelineSteps.filter((s) => s.done).length;
+  const pipelineProgress = Math.round((completedSteps / pipelineSteps.length) * 100);
+
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
 
@@ -34,9 +65,14 @@ const HiSolProWorkspace: React.FC<HiSolProWorkspaceProps> = ({ onClose, user }) 
     setIsLoading(true);
 
     try {
-      const result = await orchestrator.process(userInput, (chunk) => {
-        setMessages((prev) => prev.map((m) => (m.id === assistantId ? { ...m, content: `${m.content}${chunk}` } : m)));
-      });
+      const history = messages.filter((m) => m.role === 'user').slice(-5).map((m) => m.content);
+      const result = await orchestrator.process(
+        userInput,
+        (chunk) => {
+          setMessages((prev) => prev.map((m) => (m.id === assistantId ? { ...m, content: `${m.content}${chunk}` } : m)));
+        },
+        history,
+      );
       setThoughtTrace(result.thoughtTrace ?? []);
     } catch (err) {
       console.error(err);
@@ -50,34 +86,28 @@ const HiSolProWorkspace: React.FC<HiSolProWorkspaceProps> = ({ onClose, user }) 
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(16,185,129,0.12),transparent_35%),radial-gradient(circle_at_80%_10%,rgba(99,102,241,0.16),transparent_30%),radial-gradient(circle_at_50%_100%,rgba(15,23,42,0.6),transparent_45%)]" />
 
       <div className="relative h-full flex flex-col backdrop-blur-xl">
-        <header className="h-16 px-4 md:px-6 border-b border-white/10 bg-slate-900/70 flex items-center justify-between">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-violet-600/80 flex items-center justify-center border border-violet-300/30 shadow-lg shadow-violet-700/30">
-              <Cpu size={19} />
-            </div>
-            <div className="min-w-0">
-              <h1 className="text-base md:text-lg font-black tracking-tight truncate">HISOL PRO WORKSPACE</h1>
-              <p className="text-[10px] md:text-xs text-slate-300/80 truncate">Focus Mode for Deep Technical Conversations</p>
-            </div>
+        <header className="h-16 px-4 md:px-6 border-b border-white/10 bg-slate-900/70 grid grid-cols-[auto_1fr_auto] items-center gap-3">
+          <button
+            onClick={onClose}
+            className="h-9 px-3 rounded-xl border border-emerald-300/30 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 text-xs font-bold tracking-wide flex items-center gap-1.5"
+            aria-label="Back to home"
+          >
+            <House size={14} />
+            HOME
+          </button>
+
+          <div className="min-w-0 text-center">
+            <h1 className="text-base md:text-lg font-black tracking-tight truncate">HISOL PRO WORKSPACE</h1>
+            <p className="text-[10px] md:text-xs text-slate-300/80 truncate">Focus Mode for Deep Technical Conversations</p>
           </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={onClose}
-              className="h-9 px-3 rounded-xl border border-emerald-300/30 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 text-xs font-bold tracking-wide flex items-center gap-1.5"
-              aria-label="Back to home"
-            >
-              <House size={14} />
-              HOME
-            </button>
-            <button
-              onClick={onClose}
-              className="w-9 h-9 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-slate-300 flex items-center justify-center"
-              aria-label="Close PRO workspace"
-            >
-              <X size={18} />
-            </button>
-          </div>
+          <button
+            onClick={onClose}
+            className="w-9 h-9 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-slate-300 flex items-center justify-center"
+            aria-label="Close PRO workspace"
+          >
+            <X size={18} />
+          </button>
         </header>
 
         <div className="flex-1 min-h-0 flex">
@@ -122,20 +152,54 @@ const HiSolProWorkspace: React.FC<HiSolProWorkspaceProps> = ({ onClose, user }) 
                   </div>
                 </section>
 
-                <aside className="xl:w-[360px] border-t xl:border-t-0 xl:border-l border-white/10 bg-black/20 p-4 md:p-6 overflow-y-auto">
-                  <h3 className="text-[11px] font-black text-slate-300 uppercase tracking-[0.16em] flex items-center gap-2 mb-4">
-                    <Activity size={13} /> Agent Trace
+                <aside className="xl:w-[380px] border-t xl:border-t-0 xl:border-l border-white/10 bg-black/20 p-4 md:p-6 overflow-y-auto">
+                  <h3 className="text-[11px] font-black text-slate-300 uppercase tracking-[0.16em] flex items-center gap-2 mb-3">
+                    <Activity size={13} /> Pipeline Analysis
                   </h3>
-                  <div className="space-y-3">
-                    {thoughtTrace.length === 0 ? (
-                      <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-xs text-slate-400">추론 로그가 여기에 표시됩니다.</div>
-                    ) : (
-                      thoughtTrace.map((log, i) => (
-                        <div key={`${i}-${log.slice(0, 8)}`} className="text-[11px] font-mono leading-6 text-emerald-200/90 bg-emerald-500/8 p-3.5 rounded-2xl border border-emerald-400/20">
-                          {log}
+
+                  <div className="mb-4 rounded-2xl border border-white/10 bg-white/5 p-3.5">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-slate-300/90 font-bold">Pipeline Progress</span>
+                      <span className="text-emerald-300 font-black">{pipelineProgress}%</span>
+                    </div>
+                    <div className="mt-2 h-2 rounded-full bg-white/10 overflow-hidden">
+                      <div className="h-full bg-gradient-to-r from-emerald-400 to-violet-400 transition-all duration-500" style={{ width: `${pipelineProgress}%` }} />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2.5">
+                    {pipelineSteps.map((step) => (
+                      <div key={step.id} className={`rounded-2xl border p-3 ${step.done ? 'border-emerald-400/25 bg-emerald-500/10' : 'border-white/10 bg-white/5'}`}>
+                        <div className="flex items-center gap-2">
+                          {step.done ? (
+                            <CheckCircle2 size={14} className="text-emerald-300 shrink-0" />
+                          ) : (
+                            <CircleDashed size={14} className="text-slate-400 shrink-0" />
+                          )}
+                          <p className="text-[11px] font-black text-slate-200 tracking-wide">
+                            {step.id} {step.title}
+                          </p>
                         </div>
-                      ))
-                    )}
+                        <p className={`mt-1.5 text-[11px] leading-5 ${step.done ? 'text-emerald-100/90' : 'text-slate-400'}`}>
+                          {step.summary}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-4">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.16em] mb-2">Raw Trace</p>
+                    <div className="space-y-2">
+                      {thoughtTrace.length === 0 ? (
+                        <div className="rounded-2xl border border-white/10 bg-white/5 p-3 text-xs text-slate-400">실행 후 단계 로그가 표시됩니다.</div>
+                      ) : (
+                        thoughtTrace.map((log, i) => (
+                          <div key={`${i}-${log.slice(0, 8)}`} className="text-[10px] font-mono leading-5 text-slate-300 bg-slate-900/60 p-2.5 rounded-xl border border-white/10">
+                            {log}
+                          </div>
+                        ))
+                      )}
+                    </div>
                   </div>
                 </aside>
               </div>
