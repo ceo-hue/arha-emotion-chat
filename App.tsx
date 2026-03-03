@@ -20,9 +20,10 @@ import { useI18n } from './contexts/I18nContext';
 import type { Language } from './contexts/I18nContext';
 import LoginScreen from './components/LoginScreen';
 import ProfileSection from './components/ProfileSection';
-import {
-  savePersona, loadPersona,
-  saveAutosave, loadAutosave,
+import HiSolProWorkspace from './src/components/HiSolProWorkspace';
+
+  import {
+    savePersona, loadPersona,  saveAutosave, loadAutosave,
   addSession, loadSessions, deleteSession, clearAllSessions,
   loadValueProfile, updateValueProfile, getTopKeywords,
   ValueProfile,
