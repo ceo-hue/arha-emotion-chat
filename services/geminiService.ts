@@ -3,7 +3,8 @@ import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { ARHA_SYSTEM_PROMPT } from "../constants";
 import { Message, AnalysisData, GroundingSource } from "../types";
 
-const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
+const getMediaApiKey = () => process.env.GEMINI_MEDIA_API_KEY || process.env.API_KEY;
+const getAI = () => new GoogleGenAI({ apiKey: getMediaApiKey() });
 
 // Retry utility with enhanced error detection for quota issues
 async function withRetry<T>(fn: () => Promise<T>, maxRetries = 5, delay = 2000): Promise<T> {
@@ -187,7 +188,7 @@ export const generateArhaVideo = async (prompt: string, aspectRatio: '16:9' | '9
     }
 
     const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
-    const response = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
+    const response = await fetch(`${downloadLink}&key=${getMediaApiKey()}`);
     const blob = await response.blob();
     return URL.createObjectURL(blob);
   });
