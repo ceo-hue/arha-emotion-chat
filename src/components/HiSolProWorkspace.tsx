@@ -42,6 +42,7 @@ const HiSolProWorkspace: React.FC<HiSolProWorkspaceProps> = ({ onClose, user }) 
   const [historySessions, setHistorySessions] = useState<ProHistorySession[]>([]);
   const [valueProfile, setValueProfile] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(false);
+  const [showMobileAnalysisPanel, setShowMobileAnalysisPanel] = useState(false);
   const [internetStatus, setInternetStatus] = useState<'checking' | 'online' | 'offline'>('checking');
   const [searchingQuery, setSearchingQuery] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -247,6 +248,91 @@ const HiSolProWorkspace: React.FC<HiSolProWorkspaceProps> = ({ onClose, user }) 
     }
   };
 
+  const analysisPanel = (
+    <>
+      <h3 className="text-[11px] font-black text-slate-300 uppercase tracking-[0.16em] flex items-center gap-2 mb-3">
+        <Activity size={13} /> Pipeline Analysis
+      </h3>
+
+      <div className="mb-4 rounded-2xl border border-white/10 bg-white/5 p-3.5">
+        <div className="flex items-center justify-between text-[11px]">
+          <span className="text-slate-300/90 font-bold">Pipeline Progress</span>
+          <span className="text-emerald-300 font-black">{pipelineProgress}%</span>
+        </div>
+        <div className="mt-2 h-2 rounded-full bg-white/10 overflow-hidden">
+          <div className="h-full bg-gradient-to-r from-emerald-400 to-violet-400 transition-all duration-500" style={{ width: `${pipelineProgress}%` }} />
+        </div>
+      </div>
+
+      <div className="space-y-2.5">
+        {pipelineSteps.map((step) => (
+          <div key={step.id} className={`rounded-2xl border p-3 ${step.done ? 'border-emerald-400/25 bg-emerald-500/10' : 'border-white/10 bg-white/5'}`}>
+            <div className="flex items-center gap-2">
+              {step.done ? (
+                <CheckCircle2 size={14} className="text-emerald-300 shrink-0" />
+              ) : (
+                <CircleDashed size={14} className="text-slate-400 shrink-0" />
+              )}
+              <p className="text-[11px] font-black text-slate-200 tracking-wide">
+                {step.id} {step.title}
+              </p>
+            </div>
+            <p className={`mt-1.5 text-[11px] leading-5 ${step.done ? 'text-emerald-100/90' : 'text-slate-400'}`}>
+              {step.summary}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-4">
+        <div className="mb-4 rounded-2xl border border-violet-400/20 bg-violet-500/8 p-3.5">
+          <div className="flex items-center justify-between mb-2.5">
+            <p className="text-[10px] font-black text-violet-200 uppercase tracking-[0.16em]">Live Value Chain</p>
+            <button
+              onClick={() => setActiveTab('memory')}
+              className="text-[10px] px-2 py-1 rounded-lg border border-violet-300/25 bg-violet-500/15 hover:bg-violet-500/25 text-violet-200 font-bold"
+            >
+              자세히 보기
+            </button>
+          </div>
+          {valueEntries.length === 0 ? (
+            <p className="text-[11px] text-slate-300/70">아직 누적된 가치가 없습니다.</p>
+          ) : (
+            <div className="space-y-2">
+              {valueEntries.slice(0, 6).map(([term, weight], idx) => {
+                const max = valueEntries[0]?.[1] ?? 1;
+                const width = Math.max(12, Math.round((weight / max) * 100));
+                return (
+                  <div key={`live-${term}`} className="flex items-center gap-2">
+                    <span className="text-[10px] w-4 text-slate-400">{idx + 1}</span>
+                    <span className="text-[11px] text-slate-100 w-16 truncate">{term}</span>
+                    <div className="flex-1 h-1.5 rounded-full bg-white/10 overflow-hidden">
+                      <div className="h-full rounded-full bg-gradient-to-r from-violet-300 to-emerald-300" style={{ width: `${width}%` }} />
+                    </div>
+                    <span className="text-[10px] text-violet-200 font-bold w-6 text-right">{weight}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.16em] mb-2">Raw Trace</p>
+        <div className="space-y-2">
+          {thoughtTrace.length === 0 ? (
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-3 text-xs text-slate-400">실행 후 단계 로그가 표시됩니다.</div>
+          ) : (
+            thoughtTrace.map((log, i) => (
+              <div key={`${i}-${log.slice(0, 8)}`} className="text-[10px] font-mono leading-5 text-slate-300 bg-slate-900/60 p-2.5 rounded-xl border border-white/10">
+                {log}
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </>
+  );
+
   return (
     <div className="fixed inset-0 z-[200] text-white bg-slate-950 overflow-hidden">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(16,185,129,0.12),transparent_35%),radial-gradient(circle_at_80%_10%,rgba(99,102,241,0.16),transparent_30%),radial-gradient(circle_at_50%_100%,rgba(15,23,42,0.6),transparent_45%)]" />
@@ -284,6 +370,13 @@ const HiSolProWorkspace: React.FC<HiSolProWorkspaceProps> = ({ onClose, user }) 
               title="Chat History"
             >
               <History size={20} />
+            </button>
+            <button
+              onClick={() => setShowMobileAnalysisPanel(true)}
+              className="xl:hidden w-11 h-11 md:w-12 md:h-12 rounded-2xl flex items-center justify-center text-slate-400 hover:bg-white/10"
+              title="Pipeline Analysis"
+            >
+              <Activity size={20} />
             </button>
           </aside>
 
@@ -414,88 +507,31 @@ const HiSolProWorkspace: React.FC<HiSolProWorkspaceProps> = ({ onClose, user }) 
                   </div>
                 </section>
 
-                <aside className="xl:w-[380px] border-t xl:border-t-0 xl:border-l border-white/10 bg-black/20 p-4 md:p-6 overflow-y-auto">
-                  <h3 className="text-[11px] font-black text-slate-300 uppercase tracking-[0.16em] flex items-center gap-2 mb-3">
-                    <Activity size={13} /> Pipeline Analysis
-                  </h3>
+                <aside className="hidden xl:block xl:w-[380px] border-t xl:border-t-0 xl:border-l border-white/10 bg-black/20 p-4 md:p-6 overflow-y-auto">
+                  {analysisPanel}
+                </aside>
 
-                  <div className="mb-4 rounded-2xl border border-white/10 bg-white/5 p-3.5">
-                    <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-slate-300/90 font-bold">Pipeline Progress</span>
-                      <span className="text-emerald-300 font-black">{pipelineProgress}%</span>
-                    </div>
-                    <div className="mt-2 h-2 rounded-full bg-white/10 overflow-hidden">
-                      <div className="h-full bg-gradient-to-r from-emerald-400 to-violet-400 transition-all duration-500" style={{ width: `${pipelineProgress}%` }} />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2.5">
-                    {pipelineSteps.map((step) => (
-                      <div key={step.id} className={`rounded-2xl border p-3 ${step.done ? 'border-emerald-400/25 bg-emerald-500/10' : 'border-white/10 bg-white/5'}`}>
-                        <div className="flex items-center gap-2">
-                          {step.done ? (
-                            <CheckCircle2 size={14} className="text-emerald-300 shrink-0" />
-                          ) : (
-                            <CircleDashed size={14} className="text-slate-400 shrink-0" />
-                          )}
-                          <p className="text-[11px] font-black text-slate-200 tracking-wide">
-                            {step.id} {step.title}
-                          </p>
-                        </div>
-                        <p className={`mt-1.5 text-[11px] leading-5 ${step.done ? 'text-emerald-100/90' : 'text-slate-400'}`}>
-                          {step.summary}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="mt-4">
-                    <div className="mb-4 rounded-2xl border border-violet-400/20 bg-violet-500/8 p-3.5">
-                      <div className="flex items-center justify-between mb-2.5">
-                        <p className="text-[10px] font-black text-violet-200 uppercase tracking-[0.16em]">Live Value Chain</p>
+                {showMobileAnalysisPanel && (
+                  <>
+                    <button
+                      onClick={() => setShowMobileAnalysisPanel(false)}
+                      className="xl:hidden absolute inset-0 z-10 bg-black/55"
+                      aria-label="Close analysis panel backdrop"
+                    />
+                    <aside className="xl:hidden absolute left-3 right-3 top-3 bottom-3 z-20 rounded-2xl border border-white/15 bg-slate-900/96 p-4 overflow-y-auto">
+                      <div className="mb-3 flex items-center justify-end">
                         <button
-                          onClick={() => setActiveTab('memory')}
-                          className="text-[10px] px-2 py-1 rounded-lg border border-violet-300/25 bg-violet-500/15 hover:bg-violet-500/25 text-violet-200 font-bold"
+                          onClick={() => setShowMobileAnalysisPanel(false)}
+                          className="w-8 h-8 rounded-lg border border-white/15 bg-white/5 text-slate-300 flex items-center justify-center"
+                          aria-label="Close analysis panel"
                         >
-                          자세히 보기
+                          <X size={16} />
                         </button>
                       </div>
-                      {valueEntries.length === 0 ? (
-                        <p className="text-[11px] text-slate-300/70">아직 누적된 가치가 없습니다.</p>
-                      ) : (
-                        <div className="space-y-2">
-                          {valueEntries.slice(0, 6).map(([term, weight], idx) => {
-                            const max = valueEntries[0]?.[1] ?? 1;
-                            const width = Math.max(12, Math.round((weight / max) * 100));
-                            return (
-                              <div key={`live-${term}`} className="flex items-center gap-2">
-                                <span className="text-[10px] w-4 text-slate-400">{idx + 1}</span>
-                                <span className="text-[11px] text-slate-100 w-16 truncate">{term}</span>
-                                <div className="flex-1 h-1.5 rounded-full bg-white/10 overflow-hidden">
-                                  <div className="h-full rounded-full bg-gradient-to-r from-violet-300 to-emerald-300" style={{ width: `${width}%` }} />
-                                </div>
-                                <span className="text-[10px] text-violet-200 font-bold w-6 text-right">{weight}</span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.16em] mb-2">Raw Trace</p>
-                    <div className="space-y-2">
-                      {thoughtTrace.length === 0 ? (
-                        <div className="rounded-2xl border border-white/10 bg-white/5 p-3 text-xs text-slate-400">실행 후 단계 로그가 표시됩니다.</div>
-                      ) : (
-                        thoughtTrace.map((log, i) => (
-                          <div key={`${i}-${log.slice(0, 8)}`} className="text-[10px] font-mono leading-5 text-slate-300 bg-slate-900/60 p-2.5 rounded-xl border border-white/10">
-                            {log}
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                </aside>
+                      {analysisPanel}
+                    </aside>
+                  </>
+                )}
               </div>
             )}
 

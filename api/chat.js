@@ -235,10 +235,10 @@ export default async function handler(req, res) {
     let finalText = null;
     const searchResults = [];
 
-    // Tool-use loop — up to 3 search iterations
+    // Tool-use loop — up to 5 search iterations
     // - stop_reason === 'tool_use': run Tavily → repeat
     // - stop_reason === 'end_turn': extract text → break
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 5; i++) {
       const apiResponse = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
@@ -291,8 +291,35 @@ export default async function handler(req, res) {
       break;
     }
 
-    // Fallback if all iterations exhausted without a text response
-    if (finalText === null) finalText = 'Sorry, I was unable to generate a response.';
+    // Fallback if all iterations exhausted without a text response:
+    // re-call Claude without tools to force a final text answer.
+    if (finalText === null) {
+      const fallbackResponse = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key': process.env.ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 4096,
+          system: finalSystemPrompt,
+          // no tools: guarantees final text turn
+          messages: currentMessages,
+        }),
+      });
+
+      if (!fallbackResponse.ok) {
+        const fallbackErr = await fallbackResponse.text();
+        console.error('Anthropic fallback API Error:', fallbackResponse.status, fallbackErr);
+        finalText = '죄송해요. 검색 결과를 정리하는 중 문제가 발생했어요. 잠시 후 다시 시도해주세요.';
+      } else {
+        const fallbackData = await fallbackResponse.json();
+        const fallbackTextBlock = fallbackData.content?.find?.((b) => b.type === 'text');
+        finalText = fallbackTextBlock?.text ?? '죄송해요. 검색 결과를 정리하는 중 문제가 발생했어요. 잠시 후 다시 시도해주세요.';
+      }
+    }
     res.status(200).json({ text: finalText, muMode, searchResults });
   } catch (error) {
     console.error('Server Error:', error);
