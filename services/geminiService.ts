@@ -5,6 +5,8 @@ import { Message, AnalysisData, GroundingSource } from "../types";
 
 const getMediaApiKey = () => process.env.GEMINI_MEDIA_API_KEY || process.env.API_KEY;
 const getAI = () => new GoogleGenAI({ apiKey: getMediaApiKey() });
+const getImageModel = () => process.env.GEMINI_IMAGE_MODEL || 'gemini-2.0-flash-exp-image-generation';
+const getImagenFallbackModel = () => process.env.GEMINI_IMAGE_FALLBACK_MODEL || 'imagen-4.0-generate-001';
 
 // Retry utility with enhanced error detection for quota issues
 async function withRetry<T>(fn: () => Promise<T>, maxRetries = 5, delay = 2000): Promise<T> {
@@ -191,5 +193,43 @@ export const generateArhaVideo = async (prompt: string, aspectRatio: '16:9' | '9
     const response = await fetch(`${downloadLink}&key=${getMediaApiKey()}`);
     const blob = await response.blob();
     return URL.createObjectURL(blob);
+  });
+};
+
+export const generateArhaImage = async (prompt: string, aspectRatio: '1:1' | '16:9' | '9:16' = '1:1') => {
+  const ai = getAI();
+  return await withRetry(async () => {
+    const styledPrompt = `In the style of a thoughtful 20-something Korean student named Arha: ${prompt}`;
+
+    try {
+      const geminiImageResp: any = await ai.models.generateContent({
+        model: getImageModel(),
+        contents: styledPrompt,
+        config: { responseModalities: ['IMAGE'] },
+      });
+      const parts = geminiImageResp?.candidates?.[0]?.content?.parts ?? [];
+      const inlineImage = parts.find((p: any) => p?.inlineData?.data);
+      if (inlineImage?.inlineData?.data) {
+        const mime = inlineImage.inlineData.mimeType || 'image/png';
+        return `data:${mime};base64,${inlineImage.inlineData.data}`;
+      }
+    } catch {
+      // Fall through to Imagen generateImages fallback.
+    }
+
+    const imagenResp = await ai.models.generateImages({
+      model: getImagenFallbackModel(),
+      prompt: styledPrompt,
+      config: {
+        numberOfImages: 1,
+        aspectRatio,
+        outputMimeType: 'image/png',
+      },
+    });
+    const generated = imagenResp.generatedImages?.[0]?.image;
+    const imageBytes = generated?.imageBytes;
+    if (!imageBytes) throw new Error('Image generation returned no image bytes');
+    const mimeType = generated?.mimeType || 'image/png';
+    return `data:${mimeType};base64,${imageBytes}`;
   });
 };

@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { Message, AnalysisData, ChatSession, TaskType, ArtifactContent, MuMode, PipelineData, SearchResultItem, ProModeData } from './types';
 import { chatWithClaudeStream } from './services/claudeService';
 import { analyzeForPro, resetProSession } from './src/pro';
-import { generateArhaVideo } from './services/geminiService';
+import { generateArhaVideo, generateArhaImage } from './services/geminiService';
 import { getPersonaValueChain, buildPersonaSystemPrompt } from './services/personaRegistry';
 import { GoogleGenAI, Modality } from '@google/genai';
 import { ARHA_SYSTEM_PROMPT } from './constants';
@@ -957,6 +957,28 @@ const App: React.FC = () => {
     }
   }, [input, isLoading, t]);
 
+  const handleGenerateImage = useCallback(async () => {
+    if (!input.trim() || isLoading) return;
+    setIsLoading(true);
+    setShowMenu(false);
+    const assistantMsgId = Date.now().toString();
+    setMessages(prev => [...prev, { id: assistantMsgId, role: 'assistant', content: t.imageGenerating, timestamp: Date.now() }]);
+    try {
+      const imageUrl = await generateArhaImage(input, '1:1');
+      setMessages(prev => prev.map(m =>
+        m.id === assistantMsgId
+          ? { ...m, content: t.imageReady, media: { type: 'image', mimeType: 'image/png', url: imageUrl } }
+          : m,
+      ));
+    } catch (error) {
+      setMessages(prev => prev.map(m =>
+        m.id === assistantMsgId ? { ...m, content: t.imageFailed } : m,
+      ));
+    } finally {
+      setIsLoading(false);
+    }
+  }, [input, isLoading, t]);
+
   // ── Live voice (Gemini) ────────────────────────────────────────────────
   const startLiveVoice = useCallback(async () => {
     if (isLiveActive) {
@@ -1784,12 +1806,31 @@ const App: React.FC = () => {
 
                 <div className="border-t border-black/10 dark:border-white/10 my-2" />
 
-                {/* Coming soon features */}
-                <p className="text-[9px] font-black uppercase tracking-widest text-slate-300 dark:text-white/20 px-1 mb-1">{t.menuComingSoon}</p>
-                <button disabled className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[11px] font-bold text-slate-400 dark:text-white/30 opacity-50 cursor-not-allowed">
-                  <Video size={14} className="text-orange-400/60" /> Cinema Lab
-                  <span className="ml-auto text-[8px] text-slate-300 dark:text-white/20 font-black tracking-widest">SOON</span>
+                {/* Media generation */}
+                <p className="text-[9px] font-black uppercase tracking-widest text-slate-300 dark:text-white/20 px-1 mb-1">{t.menuCreateTitle}</p>
+                <button
+                  onClick={() => void handleGenerateImage()}
+                  disabled={isLoading || !input.trim()}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-[11px] font-bold transition-all ${
+                    isLoading || !input.trim()
+                      ? 'text-slate-400 dark:text-white/30 opacity-50 cursor-not-allowed'
+                      : 'text-slate-600 dark:text-white/70 hover:bg-black/5 dark:hover:bg-white/10'
+                  }`}
+                >
+                  <Sparkles size={14} className="text-fuchsia-400 shrink-0" /> {t.menuGenerateImage}
                 </button>
+                <button
+                  onClick={() => void handleGenerateVideo()}
+                  disabled={isLoading || !input.trim()}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-[11px] font-bold transition-all ${
+                    isLoading || !input.trim()
+                      ? 'text-slate-400 dark:text-white/30 opacity-50 cursor-not-allowed'
+                      : 'text-slate-600 dark:text-white/70 hover:bg-black/5 dark:hover:bg-white/10'
+                  }`}
+                >
+                  <Video size={14} className="text-orange-400 shrink-0" /> {t.menuGenerateVideo}
+                </button>
+                <p className="text-[9px] font-black uppercase tracking-widest text-slate-300 dark:text-white/20 px-1 mt-1 mb-1">{t.menuComingSoon}</p>
                 <button disabled className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[11px] font-bold text-slate-400 dark:text-white/30 opacity-50 cursor-not-allowed">
                   <Mic size={14} className="text-emerald-400/60" /> Live Sync
                   <span className="ml-auto text-[8px] text-slate-300 dark:text-white/20 font-black tracking-widest">SOON</span>

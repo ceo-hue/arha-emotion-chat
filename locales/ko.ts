@@ -6,6 +6,9 @@ export const ko = {
   videoGenerating: '영상으로 투영하고 있어요.',
   videoReady: '영상이 완성되었어요.',
   videoFailed: '영상 생성에 실패했어요.',
+  imageGenerating: '이미지를 그리고 있어요.',
+  imageReady: '이미지가 완성되었어요.',
+  imageFailed: '이미지 생성에 실패했어요.',
   newChat: '새 채팅',
 
   // ── Search indicator ──
@@ -67,6 +70,9 @@ export const ko = {
   menuBgTitle: '배경 변경',
   menuUploadPhoto: '내 사진 업로드',
   menuRestoreWeather: '기본 배경으로 복원',
+  menuCreateTitle: '미디어 생성',
+  menuGenerateImage: '이미지 생성',
+  menuGenerateVideo: '영상 생성',
   menuComingSoon: '준비중인 기능',
   adminPage: '관리자 페이지',
 

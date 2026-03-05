@@ -8,6 +8,9 @@ export const en: Translations = {
   videoGenerating: 'Projecting into film...',
   videoReady: 'Your video is ready.',
   videoFailed: 'Video generation failed.',
+  imageGenerating: 'Drawing your image...',
+  imageReady: 'Your image is ready.',
+  imageFailed: 'Image generation failed.',
   newChat: 'New Chat',
 
   // ── Search indicator ──
@@ -69,6 +72,9 @@ export const en: Translations = {
   menuBgTitle: 'Background',
   menuUploadPhoto: 'Upload Photo',
   menuRestoreWeather: 'Restore Default BG',
+  menuCreateTitle: 'Create Media',
+  menuGenerateImage: 'Generate Image',
+  menuGenerateVideo: 'Generate Video',
   menuComingSoon: 'Coming Soon',
   adminPage: 'Admin Page',
 
