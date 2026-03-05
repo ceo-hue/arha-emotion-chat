@@ -69,6 +69,9 @@ export const ko = {
   // ── Menu ──
   menuBgTitle: '배경 변경',
   menuUploadPhoto: '내 사진 업로드',
+  menuBgPromptPlaceholder: '배경 프롬프트 입력 (예: 안개 낀 새벽 숲)',
+  menuGenerateBg: 'AI 배경 생성',
+  menuBgGenerating: 'AI 배경 생성 중...',
   menuRestoreWeather: '기본 배경으로 복원',
   menuCreateTitle: '미디어 생성',
   menuGenerateImage: '이미지 생성',
@@ -96,6 +99,11 @@ export const ko = {
   bgBokehLight: '보케 라이트',
   bgDarkForest: '어두운 숲',
   bgMountainMist: '안개 산',
+  bgDesert4k: '4K 사막',
+  bgLake4k: '4K 호수',
+  bgAlps4k: '4K 설산',
+  bgNightRoad4k: '4K 야간도로',
+  bgSunrise4k: '4K 일출',
   bgAppleWater: '사과 워터',
   bgAppleSplash: '사과 스플래시',
 

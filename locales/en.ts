@@ -71,6 +71,9 @@ export const en: Translations = {
   // ── Menu ──
   menuBgTitle: 'Background',
   menuUploadPhoto: 'Upload Photo',
+  menuBgPromptPlaceholder: 'Describe a background (e.g., misty dawn forest)',
+  menuGenerateBg: 'Generate AI Background',
+  menuBgGenerating: 'Generating AI Background...',
   menuRestoreWeather: 'Restore Default BG',
   menuCreateTitle: 'Create Media',
   menuGenerateImage: 'Generate Image',
@@ -98,6 +101,11 @@ export const en: Translations = {
   bgBokehLight: 'Bokeh Light',
   bgDarkForest: 'Dark Forest',
   bgMountainMist: 'Mountain Mist',
+  bgDesert4k: '4K Desert',
+  bgLake4k: '4K Lake',
+  bgAlps4k: '4K Alps',
+  bgNightRoad4k: '4K Night Road',
+  bgSunrise4k: '4K Sunrise',
   bgAppleWater: 'Apple in Water',
   bgAppleSplash: 'Apple Splash',
 

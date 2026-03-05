@@ -540,6 +540,8 @@ const App: React.FC = () => {
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [weatherInfo, setWeatherInfo] = useState<{ temp: number; code: number; label: string } | null>(null);
   const [showMenu, setShowMenu] = useState(false);
+  const [bgPrompt, setBgPrompt] = useState('');
+  const [isBgGenerating, setIsBgGenerating] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
 
@@ -719,6 +721,11 @@ const App: React.FC = () => {
     { id: 'bokehLight',     label: t.bgBokehLight,    url: 'https://images.unsplash.com/photo-1493552152660-f915ab47ae9d?auto=format&fit=crop&w=1920&q=80' },
     { id: 'darkForest',     label: t.bgDarkForest,    url: 'https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=1920&q=80' },
     { id: 'mountainMist',   label: t.bgMountainMist,  url: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=1920&q=80' },
+    { id: 'desert4k',       label: t.bgDesert4k,      url: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=3840&q=85' },
+    { id: 'lake4k',         label: t.bgLake4k,        url: 'https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=3840&q=85' },
+    { id: 'alps4k',         label: t.bgAlps4k,        url: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=3840&q=85' },
+    { id: 'nightroad4k',    label: t.bgNightRoad4k,   url: 'https://images.unsplash.com/photo-1470252649378-9c29740c9fa8?auto=format&fit=crop&w=3840&q=85' },
+    { id: 'sunrise4k',      label: t.bgSunrise4k,     url: 'https://images.unsplash.com/photo-1470770841072-f978cf4d019e?auto=format&fit=crop&w=3840&q=85' },
     { id: 'appleWater',     label: t.bgAppleWater,    url: APPLE_BG },
     { id: 'appleSplash',    label: t.bgAppleSplash,   url: APPLE_SPLASH_BG },
   ], [t]);
@@ -736,6 +743,24 @@ const App: React.FC = () => {
     };
     reader.readAsDataURL(file);
   }, []);
+
+  const handleGenerateBackground = useCallback(async () => {
+    if (isBgGenerating) return;
+    const promptSeed = bgPrompt.trim() || input.trim();
+    if (!promptSeed) return;
+
+    setIsBgGenerating(true);
+    try {
+      const bgImage = await generateArhaImage(
+        `${promptSeed}. 4K cinematic background wallpaper, highly detailed, no text, no watermark`,
+        '16:9',
+      );
+      setCustomBg(bgImage);
+      setBgPrompt('');
+    } finally {
+      setIsBgGenerating(false);
+    }
+  }, [bgPrompt, input, isBgGenerating]);
 
   // ── Persona handlers ───────────────────────────────────────────────────
 
@@ -1774,6 +1799,27 @@ const App: React.FC = () => {
                   {t.menuUploadPhoto}
                   <input type="file" accept="image/*" className="hidden" onChange={handleBgUpload} />
                 </label>
+
+                <div className="mt-1 px-1 flex flex-col gap-1.5">
+                  <input
+                    value={bgPrompt}
+                    onChange={(e) => setBgPrompt(e.target.value)}
+                    placeholder={t.menuBgPromptPlaceholder}
+                    className="w-full h-8 rounded-lg px-2.5 text-[10px] bg-white/10 dark:bg-white/10 border border-white/20 text-slate-700 dark:text-white/80 placeholder:text-slate-400 dark:placeholder:text-white/30 focus:outline-none focus:border-fuchsia-400"
+                  />
+                  <button
+                    onClick={() => void handleGenerateBackground()}
+                    disabled={isBgGenerating || !(bgPrompt.trim() || input.trim())}
+                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[10px] font-black transition-all ${
+                      isBgGenerating || !(bgPrompt.trim() || input.trim())
+                        ? 'text-slate-400 dark:text-white/30 opacity-50 cursor-not-allowed'
+                        : 'text-fuchsia-500 dark:text-fuchsia-300 hover:bg-fuchsia-500/10'
+                    }`}
+                  >
+                    <Sparkles size={12} className="shrink-0" />
+                    {isBgGenerating ? t.menuBgGenerating : t.menuGenerateBg}
+                  </button>
+                </div>
 
                 {/* Preset thumbnails */}
                 <div className="grid grid-cols-5 gap-1.5 px-1 mt-1 mb-2 max-h-[132px] overflow-y-auto scrollbar-none">
