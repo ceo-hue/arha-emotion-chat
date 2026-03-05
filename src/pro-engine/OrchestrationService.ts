@@ -1,5 +1,5 @@
 ﻿import { chatWithClaudeStream } from '../../services/claudeService';
-import { Message, ProTechExpert } from '../../types';
+import { Message, ProTechExpert, SearchResultItem } from '../../types';
 import { MemoryService } from './MemoryService';
 import { AgentResponse } from './types';
 import { EmotionEngine } from '../pro/emotionEngine';
@@ -51,7 +51,15 @@ export class OrchestrationService {
     this.contextManager = new ContextManager();
   }
 
-  async process(input: string, onUpdate: (chunk: string) => void, history: string[] = []): Promise<AgentResponse> {
+  async process(
+    input: string,
+    onUpdate: (chunk: string) => void,
+    history: string[] = [],
+    options?: {
+      onSearching?: (query: string) => void;
+      onSearchResult?: (item: SearchResultItem) => void;
+    },
+  ): Promise<AgentResponse> {
     this.logger = ['C-000 Bootstrap: Initialize PRO workspace orchestration'];
 
     const emotionEngine = new EmotionEngine();
@@ -132,6 +140,13 @@ export class OrchestrationService {
         // PRO workspace does not consume structured analysis yet.
       },
       `${PRO_SYSTEM_PROMPT}${expertPrompt}`,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      options?.onSearching,
+      undefined,
+      options?.onSearchResult,
     );
 
     const qualityGrade: AgentResponse['qualityGrade'] = currentContent.length > 180 ? 'A' : currentContent.length > 90 ? 'B+' : 'B';

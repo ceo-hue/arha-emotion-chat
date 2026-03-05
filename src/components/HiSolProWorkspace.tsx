@@ -1,7 +1,8 @@
 ﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Activity, CheckCircle2, ChevronRight, CircleDashed, Database, History, House, Plus, RefreshCcw, Send, Trash2, X } from 'lucide-react';
+import { Activity, AlertCircle, CheckCircle2, ChevronRight, CircleDashed, Database, History, House, Plus, RefreshCcw, Send, Trash2, X } from 'lucide-react';
 import { OrchestrationService } from '../pro-engine/OrchestrationService';
 import { MemoryService } from '../pro-engine/MemoryService';
+import type { SearchResultItem } from '../../types';
 
 type Tab = 'chat' | 'memory';
 
@@ -9,6 +10,7 @@ type ProMessage = {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+  searchResults?: SearchResultItem[];
 };
 
 type ProHistorySession = {
@@ -40,7 +42,11 @@ const HiSolProWorkspace: React.FC<HiSolProWorkspaceProps> = ({ onClose, user }) 
   const [historySessions, setHistorySessions] = useState<ProHistorySession[]>([]);
   const [valueProfile, setValueProfile] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(false);
+  const [internetStatus, setInternetStatus] = useState<'checking' | 'online' | 'offline'>('checking');
+  const [searchingQuery, setSearchingQuery] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const chatScrollRef = useRef<HTMLElement | null>(null);
+  const pendingSearchResultsRef = useRef<SearchResultItem[]>([]);
 
   const sessionStorageKey = useMemo(() => `hisol-pro:session:${user?.uid || 'guest'}`, [user?.uid]);
   const historyStorageKey = useMemo(() => `hisol-pro:history:${user?.uid || 'guest'}`, [user?.uid]);
@@ -83,6 +89,26 @@ const HiSolProWorkspace: React.FC<HiSolProWorkspaceProps> = ({ onClose, user }) 
 
     loadValueProfile();
   }, [sessionStorageKey, historyStorageKey]);
+
+  useEffect(() => {
+    let mounted = true;
+    const checkInternet = async () => {
+      try {
+        const response = await fetch('/api/internet-status');
+        const data = await response.json();
+        if (mounted) setInternetStatus(data.available ? 'online' : 'offline');
+      } catch {
+        if (mounted) setInternetStatus('offline');
+      }
+    };
+
+    checkInternet();
+    const timer = window.setInterval(checkInternet, 60000);
+    return () => {
+      mounted = false;
+      window.clearInterval(timer);
+    };
+  }, []);
 
   useEffect(() => {
     localStorage.setItem(
@@ -186,6 +212,9 @@ const HiSolProWorkspace: React.FC<HiSolProWorkspaceProps> = ({ onClose, user }) 
     setMessages((prev) => [...prev, { id: userId, role: 'user', content: userInput }, { id: assistantId, role: 'assistant', content: '' }]);
     setInput('');
     setIsLoading(true);
+    setErrorMessage(null);
+    setSearchingQuery(null);
+    pendingSearchResultsRef.current = [];
 
     try {
       const history = messages.filter((m) => m.role === 'user').slice(-5).map((m) => m.content);
@@ -195,13 +224,26 @@ const HiSolProWorkspace: React.FC<HiSolProWorkspaceProps> = ({ onClose, user }) 
           setMessages((prev) => prev.map((m) => (m.id === assistantId ? { ...m, content: `${m.content}${chunk}` } : m)));
         },
         history,
+        {
+          onSearching: (query) => setSearchingQuery(query),
+          onSearchResult: (item) => {
+            pendingSearchResultsRef.current = [...pendingSearchResultsRef.current, item];
+          },
+        },
       );
       setThoughtTrace(result.thoughtTrace ?? []);
+      if (pendingSearchResultsRef.current.length > 0) {
+        const collected = pendingSearchResultsRef.current;
+        setMessages((prev) => prev.map((m) => (m.id === assistantId ? { ...m, searchResults: collected } : m)));
+      }
       await loadValueProfile();
     } catch (err) {
       console.error(err);
+      setErrorMessage(err instanceof Error ? err.message : 'API connection failed');
     } finally {
       setIsLoading(false);
+      setSearchingQuery(null);
+      pendingSearchResultsRef.current = [];
     }
   };
 
@@ -234,7 +276,7 @@ const HiSolProWorkspace: React.FC<HiSolProWorkspaceProps> = ({ onClose, user }) 
           </button>
         </header>
 
-        <div className="flex-1 min-h-0 flex">
+        <div className="flex-1 min-h-0 flex relative">
           <aside className="w-16 md:w-20 border-r border-white/10 bg-slate-900/55 flex flex-col items-center py-4 md:py-6 gap-3">
             <button
               onClick={() => setShowHistoryPanel((p) => !p)}
@@ -246,7 +288,13 @@ const HiSolProWorkspace: React.FC<HiSolProWorkspaceProps> = ({ onClose, user }) 
           </aside>
 
           {showHistoryPanel && (
-            <aside className="w-[320px] border-r border-white/10 bg-slate-900/70 p-4 overflow-y-auto">
+            <>
+              <button
+                onClick={() => setShowHistoryPanel(false)}
+                className="lg:hidden absolute inset-0 z-10 bg-black/55"
+                aria-label="Close history panel backdrop"
+              />
+              <aside className="absolute left-3 right-3 top-3 bottom-3 z-20 rounded-2xl border border-white/15 bg-slate-900/96 p-4 overflow-y-auto lg:static lg:left-auto lg:right-auto lg:top-auto lg:bottom-auto lg:z-auto lg:rounded-none lg:border-0 lg:border-r lg:border-white/10 lg:bg-slate-900/70 lg:w-[320px]">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-[11px] font-black text-slate-300 uppercase tracking-[0.16em]">Chat History</h3>
                 <div className="flex items-center gap-1.5">
@@ -288,7 +336,8 @@ const HiSolProWorkspace: React.FC<HiSolProWorkspaceProps> = ({ onClose, user }) 
                   ))}
                 </div>
               )}
-            </aside>
+              </aside>
+            </>
           )}
 
           <main className="flex-1 min-w-0 bg-slate-900/35">
@@ -296,8 +345,17 @@ const HiSolProWorkspace: React.FC<HiSolProWorkspaceProps> = ({ onClose, user }) 
               <div className="h-full flex flex-col xl:flex-row">
                 <section ref={chatScrollRef} className="flex-1 min-w-0 p-4 md:p-6 overflow-y-auto">
                   <div className="max-w-4xl mx-auto space-y-4 md:space-y-5">
-                    <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-[10px] text-slate-400">
-                      메시지 {messages.length}개
+                    <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-[10px] text-slate-400 flex items-center justify-between gap-2">
+                      <span>메시지 {messages.length}개</span>
+                      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-black tracking-wider ${
+                        internetStatus === 'online'
+                          ? 'bg-emerald-500/20 text-emerald-200 border border-emerald-300/30'
+                          : internetStatus === 'offline'
+                            ? 'bg-rose-500/20 text-rose-200 border border-rose-300/30'
+                            : 'bg-slate-500/20 text-slate-200 border border-slate-300/30'
+                      }`}>
+                        NET {internetStatus.toUpperCase()}
+                      </span>
                     </div>
 
                     {messages.length === 0 && !isLoading && (
@@ -310,12 +368,47 @@ const HiSolProWorkspace: React.FC<HiSolProWorkspaceProps> = ({ onClose, user }) 
                       <div key={m.id} className={`rounded-3xl border p-5 md:p-6 ${m.role === 'user' ? 'ml-auto max-w-[88%] bg-violet-500/12 border-violet-300/25' : 'max-w-[92%] bg-white/6 border-white/12'}`}>
                         <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400 font-bold mb-2">{m.role === 'user' ? 'You' : 'HiSol'}</p>
                         <p className="text-sm md:text-[15px] leading-7 text-slate-100 whitespace-pre-wrap">{m.content || '...'}</p>
+                        {m.role === 'assistant' && m.searchResults && m.searchResults.length > 0 && (
+                          <div className="mt-3 space-y-2 rounded-2xl border border-sky-300/20 bg-sky-500/10 p-3">
+                            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-sky-200">Search Sources</p>
+                            {m.searchResults.map((item, idx) => (
+                              <div key={`${m.id}-sr-${idx}`} className="space-y-1.5">
+                                <p className="text-[10px] text-sky-100/90 truncate">query: {item.query}</p>
+                                {item.urls.slice(0, 3).map((u) => (
+                                  <a
+                                    key={`${m.id}-url-${u.url}`}
+                                    href={u.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="block text-[11px] text-sky-200 hover:text-sky-100 underline underline-offset-2 truncate"
+                                  >
+                                    {u.title || u.url}
+                                  </a>
+                                ))}
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     ))}
 
                     {isLoading && (
-                      <div className="text-center py-6 text-emerald-300 animate-pulse text-xs font-bold tracking-[0.18em] uppercase">
-                        Orchestrator Processing
+                      <div className="space-y-2">
+                        <div className="text-center py-2 text-emerald-300 animate-pulse text-xs font-bold tracking-[0.18em] uppercase">
+                          Orchestrator Processing
+                        </div>
+                        {searchingQuery && (
+                          <div className="text-center text-[11px] text-sky-200">
+                            Web Search: <span className="font-bold">{searchingQuery}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {errorMessage && (
+                      <div className="rounded-2xl border border-rose-300/30 bg-rose-500/10 p-3 text-[11px] text-rose-100 flex items-start gap-2">
+                        <AlertCircle size={14} className="shrink-0 mt-0.5" />
+                        <span>{errorMessage}</span>
                       </div>
                     )}
                   </div>
