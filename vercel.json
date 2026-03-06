@@ -10,10 +10,12 @@
       "maxDuration": 10
     }
   },
+  "redirects": [
+    { "source": "/", "destination": "/landing.html", "permanent": false }
+  ],
   "rewrites": [
     { "source": "/api/chat", "destination": "/api/chat" },
     { "source": "/api/internet-status", "destination": "/api/internet-status" },
-    { "source": "/", "destination": "/landing.html" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
