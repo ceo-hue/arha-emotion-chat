@@ -15,7 +15,24 @@ export default defineConfig(({ mode }) => {
           }
         }
       },
-      plugins: [react()],
+      plugins: [
+        react(),
+        {
+          name: 'landing-redirect',
+          configureServer(server) {
+            server.middlewares.use((req, res, next) => {
+              // '/' 요청만 landing.html로 리다이렉트
+              // '/?q=...' 는 쿼리스트링이 있으므로 통과 → React 앱
+              if (req.url === '/' || req.url === '/index.html') {
+                res.writeHead(302, { Location: '/landing.html' });
+                res.end();
+                return;
+              }
+              next();
+            });
+          }
+        }
+      ],
       build: {
         rollupOptions: {
           output: {

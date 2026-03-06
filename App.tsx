@@ -559,6 +559,21 @@ const App: React.FC = () => {
     document.documentElement.classList.toggle('dark', isDark);
     localStorage.setItem('arha-theme', isDark ? 'dark' : 'light');
   }, [isDark]);
+
+  // ── 랜딩페이지 ?q= 파라미터 → 자동 입력 ──────────────────────────────
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const q = params.get('q')
+      || localStorage.getItem('arha-init-message')
+      || sessionStorage.getItem('arha-init-message');
+    if (q) {
+      try { localStorage.removeItem('arha-init-message'); } catch (_) {}
+      try { sessionStorage.removeItem('arha-init-message'); } catch (_) {}
+      window.history.replaceState({}, '', window.location.pathname);
+      pendingInitRef.current = q;
+      setInput(q);
+    }
+  }, []);
   const [valueProfile, setValueProfile] = useState<ValueProfile>({});
   const [selectedMedia, setSelectedMedia] = useState<{ file: File; type: 'image' | 'video' | 'pdf'; base64: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -571,6 +586,7 @@ const App: React.FC = () => {
   const menuRef = useRef<HTMLDivElement>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
   const pendingSearchResultsRef = useRef<SearchResultItem[]>([]);
+  const pendingInitRef = useRef<string | null>(null);
 
   // ── visualViewport: keep layout stable when mobile keyboard opens ──
   const [vvHeight, setVvHeight] = useState<number>(() => window.visualViewport?.height ?? window.innerHeight);
@@ -958,6 +974,15 @@ const App: React.FC = () => {
       pendingSearchResultsRef.current = [];
     }
   }, [input, selectedMedia, isLoading, messages, showDashboard, user, buildPersonaPrompt, t]);
+
+  // ── 랜딩페이지 → input 세팅 완료되면 자동 전송 ────────────────────────
+  useEffect(() => {
+    if (pendingInitRef.current && input === pendingInitRef.current) {
+      pendingInitRef.current = null;
+      const t = setTimeout(() => handleSend(), 80);
+      return () => clearTimeout(t);
+    }
+  }, [input, handleSend]);
 
   // ── Video generation ───────────────────────────────────────────────────
   const handleGenerateVideo = useCallback(async () => {
