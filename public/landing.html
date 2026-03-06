@@ -336,7 +336,7 @@
   ══════════════════════════════════════ */
   #s-problem::before {
     content: ''; position: absolute; inset: 0; z-index: 0;
-    background: radial-gradient(ellipse at 75% 65%, rgba(251,146,60,0.06) 0%, transparent 55%);
+    background: radial-gradient(ellipse at 70% 60%, rgba(100,116,139,0.05) 0%, transparent 55%);
     pointer-events: none;
   }
   .problem-cards {
@@ -346,30 +346,42 @@
   .problem-card {
     position: relative; overflow: hidden;
     background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 20px; padding: 28px 24px;
+    border-radius: 16px; padding: 32px 28px;
     backdrop-filter: blur(16px);
     transition: border-color 0.3s, transform 0.3s;
   }
   .problem-card:hover {
-    border-color: rgba(255,255,255,0.14); transform: translateY(-3px);
+    border-color: rgba(255,255,255,0.13); transform: translateY(-3px);
   }
+  /* 상단 1.5px 액센트 라인 — 카드별 색상 */
   .problem-card::before {
-    content: ''; position: absolute; inset: 0;
-    background: linear-gradient(135deg, rgba(251,146,60,0.06) 0%, transparent 60%);
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1.5px;
+    background: linear-gradient(90deg, rgba(6,182,212,0.6) 0%, transparent 75%);
   }
-  .problem-icon { font-size: 1.6rem; margin-bottom: 14px; display: block; }
+  .problem-card:nth-child(2)::before {
+    background: linear-gradient(90deg, rgba(139,92,246,0.6) 0%, transparent 75%);
+  }
+  .problem-card:nth-child(3)::before {
+    background: linear-gradient(90deg, rgba(148,163,184,0.5) 0%, transparent 75%);
+  }
+  /* 카테고리 레이블 */
+  .problem-label {
+    font-size: 0.6rem; font-weight: 600; letter-spacing: 0.18em;
+    text-transform: uppercase; color: rgba(6,182,212,0.75);
+    margin-bottom: 14px; display: block;
+  }
+  .problem-card:nth-child(2) .problem-label { color: rgba(139,92,246,0.75); }
+  .problem-card:nth-child(3) .problem-label { color: rgba(148,163,184,0.65); }
+  /* 구분선 */
+  .problem-rule {
+    height: 1px; background: rgba(255,255,255,0.07); margin-bottom: 20px;
+  }
   .problem-title {
-    font-size: 0.95rem; font-weight: 700;
-    color: var(--text); margin-bottom: 10px; line-height: 1.4;
+    font-size: 1.08rem; font-weight: 600;
+    color: var(--text); margin-bottom: 12px; line-height: 1.45;
   }
   .problem-desc {
-    font-size: 0.8rem; color: var(--muted); line-height: 1.7;
-  }
-  .problem-tag {
-    display: inline-block; margin-top: 14px;
-    padding: 2px 9px; border-radius: 100px;
-    background: rgba(251,146,60,0.1); border: 1px solid rgba(251,146,60,0.2);
-    font-size: 0.62rem; color: rgba(251,191,36,0.7); letter-spacing: 0.06em;
+    font-size: 0.83rem; color: var(--muted); line-height: 1.78;
   }
 
   /* ══════════════════════════════════════
@@ -690,22 +702,22 @@
 
     <div class="problem-cards">
       <div class="problem-card reveal reveal-d2">
-        <span class="problem-icon">😶</span>
+        <span class="problem-label">Temperature Gap</span>
+        <div class="problem-rule"></div>
         <div class="problem-title">답은 맞는데, 차갑게 느껴져</div>
         <div class="problem-desc">정확하지만 온도가 없는 응답들. 대화라기보다 검색에 가까운 느낌.</div>
-        <span class="problem-tag">온도 없는 정확성</span>
       </div>
       <div class="problem-card reveal reveal-d3">
-        <span class="problem-icon">💭</span>
+        <span class="problem-label">Emotional Blindness</span>
+        <div class="problem-rule"></div>
         <div class="problem-title">내 감정을 모르는 것 같아</div>
         <div class="problem-desc">기쁠 때도, 지쳐있을 때도 항상 같은 톤. 공감이 아닌 처리.</div>
-        <span class="problem-tag">감정 인식 부재</span>
       </div>
       <div class="problem-card reveal reveal-d4">
-        <span class="problem-icon">🔁</span>
+        <span class="problem-label">Context Drift</span>
+        <div class="problem-rule"></div>
         <div class="problem-title">맥락을 매번 설명해야 해</div>
         <div class="problem-desc">상황이 달라지면 이해 못하는 AI. 대화가 누적되지 않는 느낌.</div>
-        <span class="problem-tag">상황 적응 실패</span>
       </div>
     </div>
 
