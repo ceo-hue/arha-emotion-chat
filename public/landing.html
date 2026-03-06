@@ -408,28 +408,28 @@
   <div class="hero-text">
     <div class="hero-eyebrow">
       <span>✦</span>
-      <span>Emotional Intelligence AI</span>
+      <span>수학적 감성벡터 AI</span>
     </div>
     <h1 class="hero-title">ARHA</h1>
-    <p class="hero-sub">감성 벡터로 당신의 감정을 읽고,<br>가장 자연스러운 언어로 대화합니다.</p>
+    <p class="hero-sub">당신의 언어를 분석해 상황을 자동 감지하고,<br>감정선과 의도에 맞춘 가장 자연스러운 대화.</p>
   </div>
 
   <!-- 피처 뱃지 -->
   <div class="features">
-    <div class="feat"><div class="feat-dot"></div>7계층 감정 분석</div>
-    <div class="feat"><div class="feat-dot"></div>5개 페르소나</div>
-    <div class="feat"><div class="feat-dot"></div>실시간 스트리밍</div>
-    <div class="feat"><div class="feat-dot"></div>아티팩트 생성</div>
+    <div class="feat"><div class="feat-dot"></div>언어 자동 분석</div>
+    <div class="feat"><div class="feat-dot"></div>감정선 · 의도 감지</div>
+    <div class="feat"><div class="feat-dot"></div>상황 적응형 응답</div>
+    <div class="feat"><div class="feat-dot"></div>수학적 감성벡터</div>
   </div>
 
   <!-- 채팅 입력 -->
   <div class="chat-area">
-    <p class="chat-hint">무엇이든 입력하면 대화가 시작됩니다</p>
+    <p class="chat-hint">지금 어떤 상태인지 그냥 말해보세요</p>
     <div class="chat-box">
       <input
         id="chatInput"
         type="text"
-        placeholder="오늘 기분이 어때요? 무엇이든 말해보세요..."
+        placeholder="지금 어떤 상태인지 그냥 말해보세요..."
         autocomplete="off"
         autocorrect="off"
         spellcheck="false"
@@ -636,11 +636,11 @@ setTimeout(() => input.focus(), 400);
    플레이스홀더 순환 애니메이션
 ═══════════════════════════════════════════════════ */
 const placeholders = [
-  '오늘 기분이 어때요? 무엇이든 말해보세요...',
-  '코드 리뷰를 도와드릴까요?',
-  '지금 머릿속에 무슨 생각이 있나요?',
-  '어떤 아이디어든 함께 발전시켜볼게요.',
-  '분석이 필요한 자료가 있나요?',
+  '지금 어떤 상태인지 그냥 말해보세요...',
+  '오늘 하루 어떻게 흘러가고 있나요?',
+  '지금 막혀있는 문제가 있나요?',
+  '머릿속을 가득 채운 게 뭔가요?',
+  '어떤 아이디어를 갖고 계신가요?',
 ];
 let phIdx = 0;
 function cyclePlaceholder() {
