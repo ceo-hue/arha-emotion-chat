@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ARHA — 감성 AI 대화 시스템</title>
+<title>ARHA — 수학적 감성벡터 AI</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -15,49 +15,32 @@
     --violet2: #a78bfa;
     --drop:    rgba(103, 232, 249, 0.15);
     --drop-b:  rgba(103, 232, 249, 0.3);
-    --glass:   rgba(255, 255, 255, 0.06);
-    --gb:      rgba(255, 255, 255, 0.11);
     --text:    rgba(255, 255, 255, 0.92);
     --muted:   rgba(255, 255, 255, 0.42);
   }
 
-  html, body {
-    height: 100%;
-    overflow: hidden;
+  html { scroll-behavior: smooth; overflow-x: hidden; }
+  body {
     font-family: -apple-system, 'Segoe UI', BlinkMacSystemFont, sans-serif;
     background: #04080f;
     color: var(--text);
+    overflow-x: hidden;
   }
 
-  /* ─────────── 캔버스 배경 ─────────── */
-  #bgCanvas {
-    position: fixed; inset: 0; z-index: 0;
-  }
-
-  /* ─────────── 물방울 컨테이너 ─────────── */
-  .drops-wrap {
-    position: fixed; inset: 0; z-index: 1;
-    pointer-events: none; overflow: hidden;
-  }
+  /* ─────────── 고정 배경 레이어 ─────────── */
+  #bgCanvas { position: fixed; inset: 0; z-index: 0; }
+  .drops-wrap { position: fixed; inset: 0; z-index: 1; pointer-events: none; overflow: hidden; }
   .drop {
-    position: absolute;
-    bottom: -80px;
-    /* 물방울 모양: 아래 둥글고 위 뾰족 */
+    position: absolute; bottom: -80px;
     border-radius: 50% 50% 50% 50% / 40% 40% 60% 60%;
-    background: var(--drop);
-    border: 1px solid var(--drop-b);
+    background: var(--drop); border: 1px solid var(--drop-b);
     backdrop-filter: blur(6px);
     animation: dropRise linear infinite;
   }
-  /* 물방울 내부 하이라이트 */
   .drop::after {
-    content: '';
-    position: absolute;
-    top: 12%; left: 20%;
-    width: 28%; height: 18%;
-    background: rgba(255,255,255,0.35);
-    border-radius: 50%;
-    filter: blur(2px);
+    content: ''; position: absolute; top: 12%; left: 20%;
+    width: 28%; height: 18%; background: rgba(255,255,255,0.35);
+    border-radius: 50%; filter: blur(2px);
   }
   @keyframes dropRise {
     0%   { transform: translateY(0) translateX(0) scale(1);   opacity: 0; }
@@ -67,39 +50,30 @@
     100% { transform: translateY(-105vh) translateX(var(--dx2,0px)) scale(0.6); opacity: 0; }
   }
 
-  /* ─────────── 메인 페이지 ─────────── */
-  .page {
-    position: relative; z-index: 2;
-    height: 100vh;
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    padding: 88px 32px 64px;
-    gap: 0;
-    transition: transform 0.8s cubic-bezier(0.4,0,0.2,1),
-                opacity 0.5s ease 0.2s;
-  }
-  .page.exit {
-    transform: scale(1.18);
-    opacity: 0;
-    pointer-events: none;
+  /* ─────────── 스크롤 진행 바 ─────────── */
+  .progress-bar {
+    position: fixed; top: 0; left: 0; height: 2px; z-index: 100;
+    background: linear-gradient(90deg, var(--cyan), var(--violet2));
+    width: 0%; transition: width 0.1s linear;
+    box-shadow: 0 0 8px rgba(6,182,212,0.5);
   }
 
-  /* ─────────── 상단 네비 ─────────── */
+  /* ─────────── 네비 ─────────── */
   .nav {
     position: fixed; top: 0; left: 0; right: 0;
     padding: 22px 36px;
     display: flex; align-items: center; justify-content: space-between;
-    z-index: 20;
+    z-index: 80;
+    background: linear-gradient(to bottom, rgba(4,8,15,0.8) 0%, transparent 100%);
+    backdrop-filter: blur(0px);
   }
   .nav-logo {
     font-size: 1.3rem; font-weight: 900; letter-spacing: -0.04em;
     background: linear-gradient(135deg, var(--cyan3), var(--violet2));
     -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    background-clip: text;
+    background-clip: text; cursor: pointer;
   }
-  .nav-right {
-    display: flex; gap: 20px; align-items: center;
-  }
+  .nav-right { display: flex; gap: 20px; align-items: center; }
   .nav-link {
     color: var(--muted); font-size: 0.82rem; font-weight: 500;
     text-decoration: none; transition: color 0.2s;
@@ -114,61 +88,135 @@
     text-transform: uppercase;
   }
 
-  /* ─────────── 수구(물방울) 블롭 ─────────── */
+  /* ─────────── 섹션 점 네비 ─────────── */
+  .section-dots {
+    position: fixed; right: 24px; top: 50%; transform: translateY(-50%);
+    z-index: 80; display: flex; flex-direction: column; gap: 10px;
+  }
+  .sdot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: rgba(255,255,255,0.2); border: none; cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.16,1,0.3,1);
+    padding: 0;
+  }
+  .sdot.active {
+    background: var(--cyan2);
+    box-shadow: 0 0 10px rgba(103,232,249,0.6);
+    transform: scale(1.4);
+  }
+  .sdot:hover:not(.active) { background: rgba(255,255,255,0.45); transform: scale(1.2); }
+
+  /* ─────────── 섹션 공통 ─────────── */
+  .section {
+    position: relative; z-index: 2;
+    min-height: 100vh;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 100px 48px 80px;
+    overflow: hidden;
+  }
+  .section-inner {
+    width: 100%; max-width: 920px;
+    display: flex; flex-direction: column; align-items: center;
+  }
+
+  /* ─────────── Reveal 애니메이션 ─────────── */
+  .reveal {
+    opacity: 0; transform: translateY(36px);
+    transition: opacity 0.8s cubic-bezier(0.16,1,0.3,1),
+                transform 0.8s cubic-bezier(0.16,1,0.3,1);
+  }
+  .reveal.visible { opacity: 1; transform: translateY(0); }
+  .reveal-d1 { transition-delay: 0.1s; }
+  .reveal-d2 { transition-delay: 0.2s; }
+  .reveal-d3 { transition-delay: 0.3s; }
+  .reveal-d4 { transition-delay: 0.4s; }
+  .reveal-d5 { transition-delay: 0.5s; }
+  .reveal-d6 { transition-delay: 0.6s; }
+
+  /* ─────────── 섹션 레이블 ─────────── */
+  .section-label {
+    display: inline-flex; align-items: center; gap: 10px;
+    font-size: 0.62rem; font-weight: 700; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--cyan2); margin-bottom: 20px;
+  }
+  .section-label::before, .section-label::after {
+    content: ''; width: 28px; height: 1px;
+    background: rgba(103,232,249,0.35);
+  }
+
+  /* ─────────── 섹션 제목 ─────────── */
+  .section-title {
+    font-size: clamp(2rem, 5vw, 3.4rem);
+    font-weight: 900; letter-spacing: -0.04em; line-height: 1.1;
+    text-align: center; margin-bottom: 16px;
+  }
+  .section-title .grad {
+    background: linear-gradient(135deg, #ffffff 0%, var(--cyan2) 50%, var(--violet2) 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .section-desc {
+    color: var(--muted); font-size: 0.92rem; line-height: 1.8;
+    text-align: center; max-width: 440px; margin: 0 auto 52px;
+  }
+
+  /* ─────────── 스크롤 다운 지시자 ─────────── */
+  .scroll-down {
+    position: absolute; bottom: 32px; left: 50%; transform: translateX(-50%);
+    display: flex; flex-direction: column; align-items: center; gap: 5px;
+    color: rgba(255,255,255,0.28); font-size: 0.6rem; letter-spacing: 0.12em;
+    text-transform: uppercase; cursor: pointer;
+    animation: sdBounce 2.2s ease-in-out infinite;
+    transition: color 0.2s;
+  }
+  .scroll-down:hover { color: rgba(255,255,255,0.55); }
+  @keyframes sdBounce {
+    0%, 100% { transform: translateX(-50%) translateY(0); }
+    50% { transform: translateX(-50%) translateY(7px); }
+  }
+
+  /* ══════════════════════════════════════
+     SECTION 1: HERO
+  ══════════════════════════════════════ */
+  #s-hero { padding: 80px 48px 56px; }
+
   .blob-stage {
-    position: relative;
-    width: 216px; height: 216px;
+    position: relative; width: 216px; height: 216px;
     display: flex; align-items: center; justify-content: center;
-    flex-shrink: 0;
-    margin-bottom: 24px;
+    flex-shrink: 0; margin-bottom: 18px;
   }
-  .blob {
-    position: absolute; border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
-  }
+  .blob { position: absolute; border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%; }
   .blob-1 {
     width: 216px; height: 216px;
-    background: radial-gradient(ellipse at 35% 35%,
-      rgba(6,182,212,0.30) 0%, rgba(124,58,237,0.18) 55%, transparent 100%);
-    border: 1px solid rgba(103,232,249,0.18);
-    backdrop-filter: blur(16px);
+    background: radial-gradient(ellipse at 35% 35%, rgba(6,182,212,0.30) 0%, rgba(124,58,237,0.18) 55%, transparent 100%);
+    border: 1px solid rgba(103,232,249,0.18); backdrop-filter: blur(16px);
     animation: blobMorph 9s infinite alternate ease-in-out;
     box-shadow: 0 0 80px rgba(6,182,212,0.12);
   }
   .blob-2 {
     width: 158px; height: 158px;
-    background: radial-gradient(ellipse at 65% 25%,
-      rgba(103,232,249,0.22) 0%, rgba(167,139,250,0.12) 60%, transparent 100%);
+    background: radial-gradient(ellipse at 65% 25%, rgba(103,232,249,0.22) 0%, rgba(167,139,250,0.12) 60%, transparent 100%);
     border: 1px solid rgba(167,139,250,0.12);
-    animation: blobMorph 7s infinite alternate-reverse ease-in-out;
-    animation-delay: -3s;
+    animation: blobMorph 7s infinite alternate-reverse ease-in-out; animation-delay: -3s;
   }
   .blob-3 {
     width: 96px; height: 96px;
-    background: radial-gradient(ellipse at 45% 45%,
-      rgba(103,232,249,0.55) 0%, rgba(6,182,212,0.2) 70%, transparent 100%);
+    background: radial-gradient(ellipse at 45% 45%, rgba(103,232,249,0.55) 0%, rgba(6,182,212,0.2) 70%, transparent 100%);
     border: 1px solid rgba(103,232,249,0.35);
-    animation: blobMorph 5s infinite alternate ease-in-out;
-    animation-delay: -5s;
-    box-shadow: 0 0 50px rgba(6,182,212,0.35),
-                inset 0 0 30px rgba(255,255,255,0.06);
+    animation: blobMorph 5s infinite alternate ease-in-out; animation-delay: -5s;
+    box-shadow: 0 0 50px rgba(6,182,212,0.35), inset 0 0 30px rgba(255,255,255,0.06);
   }
-  /* 수면 반사 하이라이트 */
   .blob-3::before {
-    content: '';
-    position: absolute; top: 14%; left: 18%;
-    width: 32%; height: 20%;
-    background: rgba(255,255,255,0.4);
-    border-radius: 50%;
-    filter: blur(4px);
+    content: ''; position: absolute; top: 14%; left: 18%;
+    width: 32%; height: 20%; background: rgba(255,255,255,0.4);
+    border-radius: 50%; filter: blur(4px);
     animation: highlight 5s infinite alternate ease-in-out;
   }
   .blob-3::after {
-    content: '';
-    position: absolute; top: 38%; left: 55%;
-    width: 12%; height: 8%;
-    background: rgba(255,255,255,0.2);
-    border-radius: 50%;
-    filter: blur(3px);
+    content: ''; position: absolute; top: 38%; left: 55%;
+    width: 12%; height: 8%; background: rgba(255,255,255,0.2);
+    border-radius: 50%; filter: blur(3px);
     animation: highlight 5s infinite alternate-reverse ease-in-out;
   }
   @keyframes blobMorph {
@@ -182,36 +230,24 @@
     0%   { transform: translate(0,0) scale(1); opacity: 0.9; }
     100% { transform: translate(4px, 6px) scale(1.4); opacity: 0.3; }
   }
-  /* 블롭 위에 떠 있는 작은 물방울들 */
-  .blob-drops {
-    position: absolute; inset: 0;
-    animation: spinSlow 20s linear infinite;
-  }
+  .blob-drops { position: absolute; inset: 0; animation: spinSlow 20s linear infinite; }
   .mini-drop {
     position: absolute;
     border-radius: 50% 50% 50% 50% / 40% 40% 60% 60%;
-    background: rgba(103,232,249,0.25);
-    border: 1px solid rgba(103,232,249,0.4);
+    background: rgba(103,232,249,0.25); border: 1px solid rgba(103,232,249,0.4);
     backdrop-filter: blur(4px);
   }
   .mini-drop::after {
-    content: '';
-    position: absolute; top: 15%; left: 20%;
-    width: 25%; height: 15%;
-    background: rgba(255,255,255,0.5);
+    content: ''; position: absolute; top: 15%; left: 20%;
+    width: 25%; height: 15%; background: rgba(255,255,255,0.5);
     border-radius: 50%; filter: blur(1px);
   }
-  @keyframes spinSlow {
-    from { transform: rotate(0deg); }
-    to   { transform: rotate(360deg); }
-  }
+  @keyframes spinSlow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
-  /* ─────────── 히어로 텍스트 ─────────── */
   .hero-text { text-align: center; position: relative; z-index: 3; }
   .hero-eyebrow {
     display: inline-flex; align-items: center; gap: 7px;
-    background: rgba(6,182,212,0.08);
-    border: 1px solid rgba(103,232,249,0.2);
+    background: rgba(6,182,212,0.08); border: 1px solid rgba(103,232,249,0.2);
     border-radius: 100px; padding: 4px 13px;
     font-size: 0.65rem; font-weight: 700;
     letter-spacing: 0.13em; color: var(--cyan2);
@@ -222,19 +258,16 @@
     font-weight: 900; letter-spacing: -0.05em; line-height: 0.95;
     background: linear-gradient(135deg, #ffffff 0%, var(--cyan2) 45%, var(--violet2) 100%);
     -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    background-clip: text;
-    margin-bottom: 10px;
+    background-clip: text; margin-bottom: 10px;
   }
   .hero-sub {
     color: var(--muted); font-size: 0.875rem; line-height: 1.7;
-    max-width: 340px; margin: 0 auto 20px;
-    letter-spacing: 0.01em;
+    max-width: 340px; margin: 0 auto 16px; letter-spacing: 0.01em;
   }
 
-  /* ─────────── 피처 뱃지 ─────────── */
   .features {
     display: flex; gap: 6px; justify-content: center;
-    flex-wrap: wrap; margin-bottom: 24px;
+    flex-wrap: wrap; margin-bottom: 18px;
   }
   .feat {
     display: flex; align-items: center; gap: 5px;
@@ -246,64 +279,51 @@
   }
   .feat-dot {
     width: 5px; height: 5px; border-radius: 50%;
-    background: var(--cyan2); flex-shrink: 0;
-    box-shadow: 0 0 6px var(--cyan);
+    background: var(--cyan2); flex-shrink: 0; box-shadow: 0 0 6px var(--cyan);
   }
 
-  /* ─────────── 채팅 입력 ─────────── */
   .chat-area { width: 100%; max-width: 520px; }
   .chat-hint {
     text-align: center; font-size: 0.7rem;
-    color: rgba(255,255,255,0.3); margin-bottom: 8px;
-    letter-spacing: 0.04em;
+    color: rgba(255,255,255,0.3); margin-bottom: 8px; letter-spacing: 0.04em;
   }
   .chat-box {
     display: flex; align-items: center; gap: 8px;
     padding: 6px 6px 6px 22px;
-    background: rgba(255,255,255,0.065);
-    border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 100px;
-    backdrop-filter: blur(28px);
-    box-shadow: 0 8px 40px rgba(0,0,0,0.28),
-                0 0 0 0 rgba(6,182,212,0);
+    background: rgba(255,255,255,0.065); border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 100px; backdrop-filter: blur(28px);
+    box-shadow: 0 8px 40px rgba(0,0,0,0.28), 0 0 0 0 rgba(6,182,212,0);
     transition: border-color 0.25s, box-shadow 0.25s;
   }
   .chat-box:focus-within {
     border-color: rgba(103,232,249,0.32);
-    box-shadow: 0 8px 40px rgba(0,0,0,0.28),
-                0 0 0 3px rgba(6,182,212,0.1),
-                0 0 24px rgba(6,182,212,0.07);
+    box-shadow: 0 8px 40px rgba(0,0,0,0.28), 0 0 0 3px rgba(6,182,212,0.1), 0 0 24px rgba(6,182,212,0.07);
   }
-  #chatInput {
+  .chat-input {
     flex: 1; background: none; border: none; outline: none;
     font-size: 0.9rem; color: var(--text);
     padding: 10px 0; caret-color: var(--cyan2);
     min-width: 0; letter-spacing: 0.01em;
   }
-  #chatInput::placeholder { color: rgba(255,255,255,0.24); }
-  #sendBtn {
+  .chat-input::placeholder { color: rgba(255,255,255,0.24); }
+  .send-btn {
     width: 40px; height: 40px; border-radius: 50%; border: none;
     background: linear-gradient(135deg, var(--cyan), var(--violet));
     color: white; cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
     box-shadow: 0 3px 16px rgba(6,182,212,0.4);
     transition: transform 0.15s, box-shadow 0.15s, opacity 0.2s;
   }
-  #sendBtn:hover:not(:disabled) {
-    transform: scale(1.06);
-    box-shadow: 0 5px 22px rgba(6,182,212,0.55);
-  }
-  #sendBtn:active:not(:disabled) { transform: scale(0.93); }
-  #sendBtn:disabled { opacity: 0.3; cursor: default; }
+  .send-btn:hover:not(:disabled) { transform: scale(1.06); box-shadow: 0 5px 22px rgba(6,182,212,0.55); }
+  .send-btn:active:not(:disabled) { transform: scale(0.93); }
+  .send-btn:disabled { opacity: 0.3; cursor: default; }
 
-  /* 파문 효과 (전송 시) */
+  /* 파문 */
   .ripple-ring {
     position: fixed; border-radius: 50%;
     border: 2px solid rgba(6,182,212,0.6);
     pointer-events: none; z-index: 100;
-    transform: translate(-50%, -50%) scale(0);
-    opacity: 1;
+    transform: translate(-50%, -50%) scale(0); opacity: 1;
     animation: rippleOut 0.8s ease-out forwards;
   }
   @keyframes rippleOut {
@@ -311,111 +331,319 @@
     100% { transform: translate(-50%,-50%) scale(6);   opacity: 0; }
   }
 
-  /* ─────────── 하단 푸터 ─────────── */
-  .footer {
-    position: fixed; bottom: 0; left: 0; right: 0;
-    padding: 16px; text-align: center; z-index: 20;
-    display: flex; justify-content: center; gap: 24px;
+  /* ══════════════════════════════════════
+     SECTION 2: PROBLEM
+  ══════════════════════════════════════ */
+  #s-problem::before {
+    content: ''; position: absolute; inset: 0; z-index: 0;
+    background: radial-gradient(ellipse at 75% 65%, rgba(251,146,60,0.06) 0%, transparent 55%);
+    pointer-events: none;
   }
-  .footer a {
-    color: rgba(255,255,255,0.2); font-size: 0.72rem;
-    text-decoration: none; transition: color 0.2s;
+  .problem-cards {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 16px; width: 100%; max-width: 860px;
   }
-  .footer a:hover { color: rgba(255,255,255,0.45); }
+  .problem-card {
+    position: relative; overflow: hidden;
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 20px; padding: 28px 24px;
+    backdrop-filter: blur(16px);
+    transition: border-color 0.3s, transform 0.3s;
+  }
+  .problem-card:hover {
+    border-color: rgba(255,255,255,0.14); transform: translateY(-3px);
+  }
+  .problem-card::before {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(251,146,60,0.06) 0%, transparent 60%);
+  }
+  .problem-icon { font-size: 1.6rem; margin-bottom: 14px; display: block; }
+  .problem-title {
+    font-size: 0.95rem; font-weight: 700;
+    color: var(--text); margin-bottom: 10px; line-height: 1.4;
+  }
+  .problem-desc {
+    font-size: 0.8rem; color: var(--muted); line-height: 1.7;
+  }
+  .problem-tag {
+    display: inline-block; margin-top: 14px;
+    padding: 2px 9px; border-radius: 100px;
+    background: rgba(251,146,60,0.1); border: 1px solid rgba(251,146,60,0.2);
+    font-size: 0.62rem; color: rgba(251,191,36,0.7); letter-spacing: 0.06em;
+  }
 
-  /* ─────────── 다이브 오버레이 (전환 효과) ─────────── */
+  /* ══════════════════════════════════════
+     SECTION 3: HOW IT WORKS
+  ══════════════════════════════════════ */
+  #s-how::before {
+    content: ''; position: absolute; inset: 0; z-index: 0;
+    background: radial-gradient(ellipse at 15% 50%, rgba(6,182,212,0.07) 0%, transparent 55%);
+    pointer-events: none;
+  }
+  .steps { width: 100%; max-width: 660px; display: flex; flex-direction: column; }
+  .step {
+    display: flex; gap: 28px; align-items: flex-start;
+    padding: 28px 0; border-bottom: 1px solid rgba(255,255,255,0.05);
+    transition: opacity 0.3s;
+  }
+  .step:last-child { border-bottom: none; }
+  .step:hover .step-num { border-color: rgba(103,232,249,0.5); background: rgba(6,182,212,0.2); }
+  .step-num {
+    flex-shrink: 0; width: 46px; height: 46px; border-radius: 50%;
+    background: rgba(6,182,212,0.1); border: 1px solid rgba(103,232,249,0.2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.68rem; font-weight: 800; color: var(--cyan2); letter-spacing: 0.06em;
+    transition: all 0.3s;
+  }
+  .step-label {
+    font-size: 0.62rem; font-weight: 700; letter-spacing: 0.12em;
+    color: var(--cyan2); text-transform: uppercase; margin-bottom: 5px;
+  }
+  .step-title {
+    font-size: 1.05rem; font-weight: 700; color: var(--text); margin-bottom: 7px; line-height: 1.3;
+  }
+  .step-desc { font-size: 0.84rem; color: var(--muted); line-height: 1.75; }
+
+  /* ══════════════════════════════════════
+     SECTION 4: VECTOR Ψ
+  ══════════════════════════════════════ */
+  #s-vector::before {
+    content: ''; position: absolute; inset: 0; z-index: 0;
+    background: radial-gradient(ellipse at 50% 45%, rgba(124,58,237,0.12) 0%, transparent 60%);
+    pointer-events: none;
+  }
+  .vector-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 72px; width: 100%; max-width: 880px; align-items: center;
+  }
+  /* Left: Ψ + axis bars */
+  .vector-left { display: flex; flex-direction: column; align-items: center; gap: 32px; }
+  .psi-wrap { position: relative; text-align: center; }
+  .psi-symbol {
+    font-size: 6.5rem; font-weight: 900; line-height: 1;
+    background: linear-gradient(135deg, var(--cyan2), var(--violet2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    filter: drop-shadow(0 0 40px rgba(6,182,212,0.3));
+    animation: psiFloat 4s ease-in-out infinite alternate;
+    display: block;
+  }
+  @keyframes psiFloat {
+    from { transform: translateY(0) scale(1); filter: drop-shadow(0 0 30px rgba(6,182,212,0.25)); }
+    to   { transform: translateY(-10px) scale(1.04); filter: drop-shadow(0 0 50px rgba(6,182,212,0.45)); }
+  }
+  .psi-subtitle {
+    font-size: 0.65rem; color: var(--muted); letter-spacing: 0.12em;
+    text-transform: uppercase; margin-top: 4px;
+  }
+  /* Axis bars */
+  .axis-bars { width: 100%; display: flex; flex-direction: column; gap: 16px; }
+  .axis-bar {}
+  .axis-ends {
+    display: flex; justify-content: space-between;
+    font-size: 0.68rem; color: rgba(255,255,255,0.35); margin-bottom: 6px;
+    letter-spacing: 0.04em;
+  }
+  .axis-track {
+    height: 5px; border-radius: 100px;
+    background: rgba(255,255,255,0.06); position: relative; overflow: hidden;
+  }
+  .axis-fill {
+    position: absolute; top: 0; left: 0; height: 100%; border-radius: 100px;
+  }
+  .ax-x { background: linear-gradient(90deg, var(--cyan), var(--violet2)); animation: axX 9s ease-in-out infinite; }
+  .ax-y { background: linear-gradient(90deg, var(--violet), var(--cyan2)); animation: axY 12s ease-in-out infinite; animation-delay: 1.5s; }
+  .ax-z { background: linear-gradient(90deg, var(--cyan2), var(--violet)); animation: axZ 10s ease-in-out infinite; animation-delay: 3s; }
+  @keyframes axX { 0% { width:55%; } 20% { width:70%; } 45% { width:38%; } 70% { width:74%; } 100% { width:59%; } }
+  @keyframes axY { 0% { width:32%; } 25% { width:54%; } 55% { width:26%; } 80% { width:47%; } 100% { width:35%; } }
+  @keyframes axZ { 0% { width:68%; } 30% { width:44%; } 60% { width:79%; } 85% { width:52%; } 100% { width:71%; } }
+  /* Live indicator */
+  .axis-live {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 0.63rem; color: rgba(255,255,255,0.28); letter-spacing: 0.06em;
+  }
+  .live-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--cyan2); box-shadow: 0 0 8px var(--cyan);
+    animation: livePulse 1.3s ease-in-out infinite;
+  }
+  @keyframes livePulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.35; transform: scale(0.65); }
+  }
+  /* Right: descriptions */
+  .vector-right { display: flex; flex-direction: column; gap: 28px; }
+  .vdesc {
+    padding-left: 18px;
+    border-left: 2px solid rgba(103,232,249,0.18);
+    transition: border-color 0.3s;
+  }
+  .vdesc:hover { border-color: rgba(103,232,249,0.5); }
+  .vdesc-label {
+    font-size: 0.6rem; font-weight: 700; letter-spacing: 0.12em;
+    color: var(--cyan2); text-transform: uppercase; margin-bottom: 4px;
+  }
+  .vdesc-title {
+    font-size: 0.95rem; font-weight: 700; margin-bottom: 6px; line-height: 1.3;
+  }
+  .vdesc-text { font-size: 0.8rem; color: var(--muted); line-height: 1.7; }
+
+  /* ══════════════════════════════════════
+     SECTION 5: CTA
+  ══════════════════════════════════════ */
+  #s-cta { text-align: center; }
+  #s-cta::before {
+    content: ''; position: absolute; inset: 0; z-index: 0;
+    background: radial-gradient(ellipse at 50% 40%, rgba(6,182,212,0.1) 0%, rgba(124,58,237,0.07) 50%, transparent 75%);
+    pointer-events: none;
+  }
+  .cta-eyebrow {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: rgba(6,182,212,0.08); border: 1px solid rgba(103,232,249,0.2);
+    border-radius: 100px; padding: 4px 14px;
+    font-size: 0.65rem; font-weight: 700; letter-spacing: 0.13em;
+    color: var(--cyan2); text-transform: uppercase; margin-bottom: 20px;
+  }
+  .cta-title {
+    font-size: clamp(2.2rem, 5.5vw, 3.8rem);
+    font-weight: 900; letter-spacing: -0.04em; line-height: 1.1;
+    margin-bottom: 16px;
+    background: linear-gradient(135deg, #ffffff 0%, var(--cyan2) 50%, var(--violet2) 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .cta-sub {
+    color: var(--muted); font-size: 0.9rem; line-height: 1.8;
+    max-width: 380px; margin: 0 auto 36px;
+  }
+  .cta-chat { max-width: 560px; }
+  .cta-hint {
+    margin-top: 16px; font-size: 0.68rem;
+    color: rgba(255,255,255,0.2); letter-spacing: 0.05em;
+  }
+
+  /* ─────────── 다이브 오버레이 ─────────── */
   .dive-overlay {
     position: fixed; inset: 0; z-index: 50;
-    background: radial-gradient(circle at 50% 50%,
-      var(--cyan), var(--violet) 60%, #04080f);
-    transform: scale(0); border-radius: 50%;
-    opacity: 0;
-    pointer-events: none;
-    transition: none;
+    background: radial-gradient(circle at 50% 50%, var(--cyan), var(--violet) 60%, #04080f);
+    transform: scale(0); border-radius: 50%; opacity: 0; pointer-events: none;
   }
-  .dive-overlay.active {
-    animation: diveIn 0.9s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-  }
+  .dive-overlay.active { animation: diveIn 0.9s cubic-bezier(0.4,0,0.2,1) forwards; }
   @keyframes diveIn {
     0%   { transform: scale(0); opacity: 0.9; border-radius: 50%; }
     60%  { opacity: 1; }
     100% { transform: scale(4); opacity: 1; border-radius: 0%; }
   }
 
-  /* ─────────── 세로 공간 부족 시 (노트북 소형 등) ─────────── */
-  @media (max-height: 660px) {
-    .blob-stage { width: 160px; height: 160px; margin-bottom: 16px; }
-    .blob-1 { width: 160px; height: 160px; }
-    .blob-2 { width: 118px; height: 118px; }
-    .blob-3 { width: 70px; height: 70px; }
-    .hero-eyebrow { margin-bottom: 8px; padding: 3px 11px; font-size: 0.6rem; }
-    .hero-title { font-size: clamp(2.2rem, 7vw, 3.8rem); margin-bottom: 6px; }
-    .hero-sub { font-size: 0.8rem; margin-bottom: 14px; line-height: 1.55; }
-    .features { margin-bottom: 16px; gap: 5px; }
-    .feat { padding: 3px 9px; font-size: 0.65rem; }
-    .chat-hint { margin-bottom: 6px; }
-    .page { padding: 72px 24px 52px; }
+  /* ─────────── 섹션 구분선 ─────────── */
+  .section-divider {
+    position: relative; z-index: 2;
+    height: 1px;
+    background: linear-gradient(90deg, transparent 0%, rgba(103,232,249,0.12) 30%, rgba(167,139,250,0.12) 70%, transparent 100%);
   }
 
-  /* ─────────── 가로 좁은 모바일 ─────────── */
+  /* ─────────── 푸터 ─────────── */
+  .footer {
+    position: relative; z-index: 2;
+    padding: 28px 36px; text-align: center;
+    display: flex; justify-content: center; gap: 28px;
+    border-top: 1px solid rgba(255,255,255,0.05);
+  }
+  .footer a {
+    color: rgba(255,255,255,0.2); font-size: 0.72rem;
+    text-decoration: none; transition: color 0.2s;
+  }
+  .footer a:hover { color: rgba(255,255,255,0.45); }
+  .footer-copy {
+    width: 100%; text-align: center; font-size: 0.68rem;
+    color: rgba(255,255,255,0.12); margin-top: 10px; letter-spacing: 0.04em;
+  }
+
+  /* ─────────── 반응형 ─────────── */
+  @media (max-width: 768px) {
+    .problem-cards { grid-template-columns: 1fr; max-width: 400px; }
+    .vector-grid { grid-template-columns: 1fr; gap: 40px; }
+    .vector-left { order: 1; }
+    .vector-right { order: 2; }
+    .section-dots { display: none; }
+    .nav-right .nav-link { display: none; }
+    .section { padding: 100px 24px 70px; }
+  }
   @media (max-width: 520px) {
     .blob-stage { width: 176px; height: 176px; }
     .blob-1 { width: 176px; height: 176px; }
     .blob-2 { width: 130px; height: 130px; }
     .blob-3 { width: 78px; height: 78px; }
-    .nav-right { display: none; }
     .features { display: none; }
     .hero-sub { font-size: 0.84rem; }
-    .page { padding: 72px 20px 52px; }
     .chat-area { max-width: 100%; }
+    .psi-symbol { font-size: 5rem; }
+  }
+  @media (max-height: 660px) {
+    .blob-stage { width: 160px; height: 160px; margin-bottom: 16px; }
+    .blob-1 { width: 160px; height: 160px; }
+    .blob-2 { width: 118px; height: 118px; }
+    .blob-3 { width: 70px; height: 70px; }
+    .hero-title { font-size: clamp(2.2rem, 7vw, 3.8rem); }
+    .hero-sub { font-size: 0.8rem; margin-bottom: 14px; }
+    .features { margin-bottom: 16px; }
+    #s-hero { padding: 72px 24px 52px; }
+    .scroll-down { bottom: 16px; }
   }
 </style>
 </head>
 <body>
 
-<!-- 배경 캔버스 -->
+<!-- ── 고정 배경 레이어 ── -->
 <canvas id="bgCanvas"></canvas>
-
-<!-- 부유 물방울 -->
 <div class="drops-wrap" id="dropsWrap"></div>
-
-<!-- 다이브 전환 오버레이 -->
 <div class="dive-overlay" id="diveOverlay"></div>
+<div class="progress-bar" id="progressBar"></div>
 
-<!-- 네비 -->
+<!-- ── 네비 ── -->
 <nav class="nav">
-  <div class="nav-logo">ARHA</div>
+  <div class="nav-logo" onclick="window.scrollTo({top:0,behavior:'smooth'})">ARHA</div>
   <div class="nav-right">
     <a class="nav-link" href="https://github.com/ceo-hue/arha-emotion-chat" target="_blank">GitHub</a>
-    <a class="nav-link" href="#">Docs</a>
+    <a class="nav-link" href="#s-how">작동방식</a>
     <span class="nav-badge">v2.0 · Beta</span>
   </div>
 </nav>
 
-<!-- 메인 -->
-<main class="page" id="mainPage">
+<!-- ── 섹션 점 네비 ── -->
+<div class="section-dots" id="sectionDots">
+  <button class="sdot active" data-target="s-hero"    title="시작"></button>
+  <button class="sdot"        data-target="s-problem" title="문제"></button>
+  <button class="sdot"        data-target="s-how"     title="작동방식"></button>
+  <button class="sdot"        data-target="s-vector"  title="감성벡터"></button>
+  <button class="sdot"        data-target="s-cta"     title="시작하기"></button>
+</div>
 
-  <!-- 물방울 블롭 -->
-  <div class="blob-stage">
+<!-- ════════════════════════════════════════
+     SECTION 1 · HERO
+════════════════════════════════════════ -->
+<section class="section" id="s-hero">
+
+  <!-- 블롭 -->
+  <div class="blob-stage reveal">
     <div class="blob blob-1"></div>
     <div class="blob blob-2"></div>
     <div class="blob blob-3"></div>
-    <!-- 궤도 미니 물방울 -->
     <div class="blob-drops" id="blobDrops"></div>
   </div>
 
   <!-- 히어로 텍스트 -->
   <div class="hero-text">
-    <div class="hero-eyebrow">
-      <span>✦</span>
-      <span>수학적 감성벡터 AI</span>
+    <div class="hero-eyebrow reveal reveal-d1">
+      <span>✦</span><span>수학적 감성벡터 AI</span>
     </div>
-    <h1 class="hero-title">ARHA</h1>
-    <p class="hero-sub">당신의 언어를 분석해 상황을 자동 감지하고,<br>감정선과 의도에 맞춘 가장 자연스러운 대화.</p>
+    <h1 class="hero-title reveal reveal-d2">ARHA</h1>
+    <p class="hero-sub reveal reveal-d3">
+      당신의 언어를 분석해 상황을 자동 감지하고,<br>감정선과 의도에 맞춘 가장 자연스러운 대화.
+    </p>
   </div>
 
   <!-- 피처 뱃지 -->
-  <div class="features">
+  <div class="features reveal reveal-d4">
     <div class="feat"><div class="feat-dot"></div>언어 자동 분석</div>
     <div class="feat"><div class="feat-dot"></div>감정선 · 의도 감지</div>
     <div class="feat"><div class="feat-dot"></div>상황 적응형 응답</div>
@@ -423,29 +651,220 @@
   </div>
 
   <!-- 채팅 입력 -->
-  <div class="chat-area">
+  <div class="chat-area reveal reveal-d5">
     <p class="chat-hint">지금 어떤 상태인지 그냥 말해보세요</p>
     <div class="chat-box">
-      <input
-        id="chatInput"
-        type="text"
-        placeholder="지금 어떤 상태인지 그냥 말해보세요..."
-        autocomplete="off"
-        autocorrect="off"
-        spellcheck="false"
-      />
-      <button id="sendBtn" disabled aria-label="전송">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="22" y1="2" x2="11" y2="13"></line>
-          <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+      <input class="chat-input" id="chatInput"
+        type="text" placeholder="지금 어떤 상태인지 그냥 말해보세요..."
+        autocomplete="off" autocorrect="off" spellcheck="false"/>
+      <button class="send-btn" id="sendBtn" disabled aria-label="전송">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
         </svg>
       </button>
     </div>
   </div>
 
-</main>
+  <!-- 스크롤 다운 -->
+  <div class="scroll-down reveal reveal-d6" id="scrollDownBtn">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+      <path d="M12 5v14M5 12l7 7 7-7"/>
+    </svg>
+    SCROLL
+  </div>
 
-<!-- 푸터 -->
+</section>
+
+<div class="section-divider"></div>
+
+<!-- ════════════════════════════════════════
+     SECTION 2 · PROBLEM
+════════════════════════════════════════ -->
+<section class="section" id="s-problem">
+  <div class="section-inner">
+
+    <div class="section-label reveal">COMMON PAIN POINTS</div>
+    <h2 class="section-title reveal reveal-d1">
+      AI와 대화하다<br><span class="grad">이런 느낌 받지 않으셨나요?</span>
+    </h2>
+    <p class="section-desc reveal reveal-d2">
+      기존 AI는 답을 줍니다.<br>하지만 대화를 나누진 않습니다.
+    </p>
+
+    <div class="problem-cards">
+      <div class="problem-card reveal reveal-d2">
+        <span class="problem-icon">😶</span>
+        <div class="problem-title">답은 맞는데, 차갑게 느껴져</div>
+        <div class="problem-desc">정확하지만 온도가 없는 응답들. 대화라기보다 검색에 가까운 느낌.</div>
+        <span class="problem-tag">온도 없는 정확성</span>
+      </div>
+      <div class="problem-card reveal reveal-d3">
+        <span class="problem-icon">💭</span>
+        <div class="problem-title">내 감정을 모르는 것 같아</div>
+        <div class="problem-desc">기쁠 때도, 지쳐있을 때도 항상 같은 톤. 공감이 아닌 처리.</div>
+        <span class="problem-tag">감정 인식 부재</span>
+      </div>
+      <div class="problem-card reveal reveal-d4">
+        <span class="problem-icon">🔁</span>
+        <div class="problem-title">맥락을 매번 설명해야 해</div>
+        <div class="problem-desc">상황이 달라지면 이해 못하는 AI. 대화가 누적되지 않는 느낌.</div>
+        <span class="problem-tag">상황 적응 실패</span>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- ════════════════════════════════════════
+     SECTION 3 · HOW IT WORKS
+════════════════════════════════════════ -->
+<section class="section" id="s-how">
+  <div class="section-inner">
+
+    <div class="section-label reveal">HOW ARHA WORKS</div>
+    <h2 class="section-title reveal reveal-d1">
+      당신의 언어를<br><span class="grad">먼저 읽습니다</span>
+    </h2>
+    <p class="section-desc reveal reveal-d2">
+      말하는 방식 안에 이미 모든 정보가 있습니다.<br>ARHA는 그것을 수학적으로 분석합니다.
+    </p>
+
+    <div class="steps">
+      <div class="step reveal reveal-d2">
+        <div class="step-num">01</div>
+        <div class="step-content">
+          <div class="step-label">Language Analysis</div>
+          <div class="step-title">언어 패턴 분석</div>
+          <div class="step-desc">단어 선택, 문장 구조, 리듬과 패턴을 분석해 현재 상태를 읽습니다. 짧은 문장인지, 설명이 긴 문장인지, 감탄사가 섞였는지까지 파악합니다.</div>
+        </div>
+      </div>
+      <div class="step reveal reveal-d3">
+        <div class="step-num">02</div>
+        <div class="step-content">
+          <div class="step-label">Emotion Detection</div>
+          <div class="step-title">감정선 · 의도 실시간 감지</div>
+          <div class="step-desc">언어에 담긴 감정의 흐름과 대화 의도를 실시간으로 감지합니다. 기쁨, 불안, 집중, 탐구 — 어떤 상태든 감성벡터 Ψ로 정확히 읽습니다.</div>
+        </div>
+      </div>
+      <div class="step reveal reveal-d4">
+        <div class="step-num">03</div>
+        <div class="step-content">
+          <div class="step-label">Adaptive Response</div>
+          <div class="step-title">감정선 맞춤 응답 생성</div>
+          <div class="step-desc">당신의 현재 감정선과 의도에 맞는 어조로 대화합니다. 분석이 필요하면 논리적으로, 위로가 필요하면 따뜻하게. 매 순간 최적의 언어를 선택합니다.</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- ════════════════════════════════════════
+     SECTION 4 · EMOTIONAL VECTOR Ψ
+════════════════════════════════════════ -->
+<section class="section" id="s-vector">
+  <div class="section-inner">
+
+    <div class="section-label reveal">EMOTIONAL VECTOR Ψ</div>
+    <h2 class="section-title reveal reveal-d1">
+      감정을<br><span class="grad">수학으로 설계하다</span>
+    </h2>
+    <p class="section-desc reveal reveal-d2">
+      ARHA의 감성벡터 Ψ는 단순한 감정 분류가 아닙니다.<br>
+      3차원 공간에서 당신의 대화 상태를 실시간으로 계산합니다.
+    </p>
+
+    <div class="vector-grid">
+
+      <!-- Left: Ψ + axis bars -->
+      <div class="vector-left reveal reveal-d2">
+        <div class="psi-wrap">
+          <span class="psi-symbol">Ψ</span>
+          <div class="psi-subtitle">Emotional Vector · 3D Real-time</div>
+        </div>
+        <div class="axis-bars">
+          <div class="axis-bar">
+            <div class="axis-ends"><span>논리</span><span>감정</span></div>
+            <div class="axis-track"><div class="axis-fill ax-x"></div></div>
+          </div>
+          <div class="axis-bar">
+            <div class="axis-ends"><span>분석</span><span>직관</span></div>
+            <div class="axis-track"><div class="axis-fill ax-y"></div></div>
+          </div>
+          <div class="axis-bar">
+            <div class="axis-ends"><span>확장</span><span>보호</span></div>
+            <div class="axis-track"><div class="axis-fill ax-z"></div></div>
+          </div>
+        </div>
+        <div class="axis-live">
+          <span class="live-dot"></span>
+          실시간 감성벡터 계산 중
+        </div>
+      </div>
+
+      <!-- Right: descriptions -->
+      <div class="vector-right reveal reveal-d3">
+        <div class="vdesc">
+          <div class="vdesc-label">X축</div>
+          <div class="vdesc-title">논리 ↔ 감정</div>
+          <div class="vdesc-text">대화의 논리적 밀도와 감정적 온도 사이의 균형을 계산합니다. 기술적 질문인지, 감정적 토로인지 실시간으로 구분합니다.</div>
+        </div>
+        <div class="vdesc">
+          <div class="vdesc-label">Y축</div>
+          <div class="vdesc-title">분석 ↔ 직관</div>
+          <div class="vdesc-text">데이터 기반 사고를 선호하는지, 직관적 판단을 따르는지 파악합니다. 응답의 근거 방식과 표현 밀도를 결정합니다.</div>
+        </div>
+        <div class="vdesc">
+          <div class="vdesc-label">Z축</div>
+          <div class="vdesc-title">확장 ↔ 보호</div>
+          <div class="vdesc-text">새로운 아이디어를 탐구하려는 개방성과 현재 상태를 지키려는 안정 욕구를 측정합니다. 제안의 강도를 조율합니다.</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- ════════════════════════════════════════
+     SECTION 5 · CTA
+════════════════════════════════════════ -->
+<section class="section" id="s-cta">
+  <div class="section-inner" style="align-items:center; text-align:center;">
+
+    <div class="cta-eyebrow reveal">✦ 지금 바로 시작하세요</div>
+    <h2 class="cta-title reveal reveal-d1">ARHA와 첫 대화를<br>시작해보세요</h2>
+    <p class="cta-sub reveal reveal-d2">
+      설명이 필요 없습니다.<br>
+      그냥 지금 어떤 상태인지 말해보세요.
+    </p>
+
+    <div class="chat-area cta-chat reveal reveal-d3">
+      <div class="chat-box">
+        <input class="chat-input" id="chatInput2"
+          type="text" placeholder="첫 마디를 입력해보세요..."
+          autocomplete="off" autocorrect="off" spellcheck="false"/>
+        <button class="send-btn" id="sendBtn2" disabled aria-label="전송">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="cta-hint reveal reveal-d4">
+      수학적 감성벡터로 설계된 AI가 당신을 기다립니다
+    </div>
+
+  </div>
+</section>
+
+<!-- ── 푸터 ── -->
 <footer class="footer">
   <a href="#">이용약관</a>
   <a href="#">개인정보처리방침</a>
@@ -459,22 +878,15 @@
 ═══════════════════════════════════════════════════ */
 (function() {
   const canvas = document.getElementById('bgCanvas');
-  const ctx    = canvas.getContext('2d');
+  const ctx = canvas.getContext('2d');
   let W, H;
-
-  function resize() {
-    W = canvas.width  = window.innerWidth;
-    H = canvas.height = window.innerHeight;
-  }
-  resize();
-  window.addEventListener('resize', resize);
+  function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+  resize(); window.addEventListener('resize', resize);
 
   const orbs = Array.from({ length: 7 }, (_, i) => ({
-    x:   Math.random() * 1400 - 200,
-    y:   Math.random() * 900  - 100,
-    vx:  (Math.random() - 0.5) * 0.25,
-    vy:  (Math.random() - 0.5) * 0.18,
-    r:   180 + Math.random() * 220,
+    x: Math.random() * 1400 - 200, y: Math.random() * 900 - 100,
+    vx: (Math.random() - 0.5) * 0.25, vy: (Math.random() - 0.5) * 0.18,
+    r: 180 + Math.random() * 220,
     hue: i < 4 ? 188 + Math.random() * 16 : 268 + Math.random() * 20,
     sat: 75 + Math.random() * 20,
     alpha: 0.07 + Math.random() * 0.06,
@@ -485,18 +897,14 @@
     orbs.forEach(o => {
       o.x += o.vx; o.y += o.vy;
       if (o.x < -o.r - 50)  o.x = W + o.r;
-      if (o.x >  W + o.r + 50) o.x = -o.r;
+      if (o.x > W + o.r + 50) o.x = -o.r;
       if (o.y < -o.r - 50)  o.y = H + o.r;
-      if (o.y >  H + o.r + 50) o.y = -o.r;
-
+      if (o.y > H + o.r + 50) o.y = -o.r;
       const g = ctx.createRadialGradient(o.x, o.y, 0, o.x, o.y, o.r);
       g.addColorStop(0,   `hsla(${o.hue},${o.sat}%,55%,${o.alpha})`);
       g.addColorStop(0.5, `hsla(${o.hue},${o.sat}%,45%,${o.alpha * 0.5})`);
       g.addColorStop(1,   'transparent');
-      ctx.fillStyle = g;
-      ctx.beginPath();
-      ctx.arc(o.x, o.y, o.r, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(o.x, o.y, o.r, 0, Math.PI * 2); ctx.fill();
     });
     requestAnimationFrame(drawFrame);
   }
@@ -508,132 +916,167 @@
 ═══════════════════════════════════════════════════ */
 (function() {
   const wrap = document.getElementById('dropsWrap');
-  const COUNT = 28;
-
-  for (let i = 0; i < COUNT; i++) {
+  for (let i = 0; i < 28; i++) {
     const d = document.createElement('div');
     d.className = 'drop';
-
-    const w   = 7 + Math.random() * 18;      // 너비
-    const h   = w * (1.3 + Math.random() * 0.4); // 높이 (더 길게)
+    const w   = 7 + Math.random() * 18;
+    const h   = w * (1.3 + Math.random() * 0.4);
     const dur = 6 + Math.random() * 12;
     const del = -Math.random() * 18;
     const lft = Math.random() * 100;
-    const dx  = (Math.random() - 0.5) * 60;  // 좌우 흔들림
+    const dx  = (Math.random() - 0.5) * 60;
     const dx2 = dx + (Math.random() - 0.5) * 30;
-    const hue = 170 + Math.random() * 50;    // 청록~보라 사이
-
+    const hue = 170 + Math.random() * 50;
     d.style.cssText = `
-      left: ${lft}%;
-      width: ${w}px;
-      height: ${h}px;
-      animation-duration: ${dur}s;
-      animation-delay: ${del}s;
-      --dx: ${dx}px;
-      --dx2: ${dx2}px;
-      background: hsla(${hue}, 80%, 70%, 0.14);
-      border: 1px solid hsla(${hue}, 80%, 75%, 0.28);
-      opacity: ${0.5 + Math.random() * 0.5};
+      left:${lft}%; width:${w}px; height:${h}px;
+      animation-duration:${dur}s; animation-delay:${del}s;
+      --dx:${dx}px; --dx2:${dx2}px;
+      background:hsla(${hue},80%,70%,0.14);
+      border:1px solid hsla(${hue},80%,75%,0.28);
+      opacity:${0.5 + Math.random() * 0.5};
     `;
     wrap.appendChild(d);
   }
 })();
 
 /* ═══════════════════════════════════════════════════
-   블롭 주변 미니 물방울 (궤도)
+   블롭 주변 미니 물방울
 ═══════════════════════════════════════════════════ */
 (function() {
   const container = document.getElementById('blobDrops');
-  const stage     = container.closest('.blob-stage');
-  const R = (stage.offsetWidth || 260) / 2;
+  const stage = container.closest('.blob-stage');
+  const R = (stage.offsetWidth || 216) / 2;
   const MINI = [
-    { angle:  30, dist: R + 14, size: 14 },
-    { angle: 110, dist: R + 20, size:  9 },
-    { angle: 200, dist: R + 12, size: 18 },
-    { angle: 290, dist: R + 18, size: 11 },
-    { angle:  75, dist: R + 28, size:  7 },
-    { angle: 155, dist: R + 22, size: 12 },
-    { angle: 245, dist: R + 16, size:  8 },
+    { angle:30,  dist:R+14, size:14 }, { angle:110, dist:R+20, size:9  },
+    { angle:200, dist:R+12, size:18 }, { angle:290, dist:R+18, size:11 },
+    { angle:75,  dist:R+28, size:7  }, { angle:155, dist:R+22, size:12 },
+    { angle:245, dist:R+16, size:8  },
   ];
-
   MINI.forEach(({ angle, dist, size }) => {
     const rad = (angle * Math.PI) / 180;
     const cx  = R + Math.cos(rad) * dist - size / 2;
     const cy  = R + Math.sin(rad) * dist - size * 0.7;
-
     const d = document.createElement('div');
     d.className = 'mini-drop';
-    d.style.cssText = `
-      width: ${size}px;
-      height: ${size * 1.4}px;
-      left: ${cx}px;
-      top: ${cy}px;
-    `;
+    d.style.cssText = `width:${size}px; height:${size*1.4}px; left:${cx}px; top:${cy}px;`;
     container.appendChild(d);
   });
 })();
 
 /* ═══════════════════════════════════════════════════
-   채팅 전송 로직 & 전환 애니메이션
+   스크롤 진행 바
 ═══════════════════════════════════════════════════ */
-const input    = document.getElementById('chatInput');
-const sendBtn  = document.getElementById('sendBtn');
-const mainPage = document.getElementById('mainPage');
-const diveOverlay = document.getElementById('diveOverlay');
-
-// 버튼 활성화
-input.addEventListener('input', () => {
-  sendBtn.disabled = !input.value.trim();
-});
-
-// 전송
-function handleSend() {
-  const msg = input.value.trim();
-  if (!msg) return;
-
-  sendBtn.disabled = true;
-
-  // 파문 효과
-  const box   = document.querySelector('.chat-box').getBoundingClientRect();
-  const ring  = document.createElement('div');
-  ring.className = 'ripple-ring';
-  ring.style.left = (box.left + box.width  / 2) + 'px';
-  ring.style.top  = (box.top  + box.height / 2) + 'px';
-  ring.style.width  = box.width + 'px';
-  ring.style.height = box.width + 'px';
-  document.body.appendChild(ring);
-  setTimeout(() => ring.remove(), 900);
-
-  // 메시지 저장
-  try {
-    localStorage.setItem('arha-init-message', msg);
-    sessionStorage.setItem('arha-init-message', msg);
-  } catch (_) {}
-
-  // 물속으로 다이브 전환
-  setTimeout(() => {
-    diveOverlay.classList.add('active');
-  }, 150);
-
-  // 채팅 앱으로 이동 (/chat?q= → Vercel & dev 모두 React 앱으로 라우팅)
-  setTimeout(() => {
-    window.location.href = '/chat?q=' + encodeURIComponent(msg);
-  }, 780);
+const progressBar = document.getElementById('progressBar');
+function updateProgress() {
+  const scrollTop  = window.scrollY;
+  const docHeight  = document.documentElement.scrollHeight - window.innerHeight;
+  const pct = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+  progressBar.style.width = pct + '%';
 }
-
-sendBtn.addEventListener('click', handleSend);
-input.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault();
-    handleSend();
-  }
-});
-
-// 오토 포커스 (약간 지연)
-setTimeout(() => input.focus(), 400);
+window.addEventListener('scroll', updateProgress, { passive: true });
 
 /* ═══════════════════════════════════════════════════
-   플레이스홀더 순환 애니메이션
+   섹션 점 네비 + Reveal — IntersectionObserver
+═══════════════════════════════════════════════════ */
+const sections = ['s-hero','s-problem','s-how','s-vector','s-cta'];
+const dots = document.querySelectorAll('.sdot');
+
+// 섹션 활성 감지
+const sectionObserver = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      const id = entry.target.id;
+      dots.forEach(d => d.classList.toggle('active', d.dataset.target === id));
+    }
+  });
+}, { threshold: 0.4 });
+
+sections.forEach(id => {
+  const el = document.getElementById(id);
+  if (el) sectionObserver.observe(el);
+});
+
+// 점 클릭 → 섹션 이동
+dots.forEach(dot => {
+  dot.addEventListener('click', () => {
+    const el = document.getElementById(dot.dataset.target);
+    if (el) el.scrollIntoView({ behavior: 'smooth' });
+  });
+});
+
+// 스크롤 다운 버튼
+document.getElementById('scrollDownBtn').addEventListener('click', () => {
+  document.getElementById('s-problem').scrollIntoView({ behavior: 'smooth' });
+});
+
+// Reveal 애니메이션
+const revealObserver = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('visible');
+      revealObserver.unobserve(entry.target);
+    }
+  });
+}, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
+
+// Hero 섹션 요소는 페이지 로드 즉시 표시
+setTimeout(() => {
+  document.querySelectorAll('#s-hero .reveal').forEach(el => el.classList.add('visible'));
+}, 80);
+
+// 나머지 섹션은 IntersectionObserver
+document.querySelectorAll('.section:not(#s-hero) .reveal').forEach(el => revealObserver.observe(el));
+
+/* ═══════════════════════════════════════════════════
+   채팅 전송 로직
+═══════════════════════════════════════════════════ */
+const diveOverlay = document.getElementById('diveOverlay');
+
+function setupChat(inputEl, btnEl) {
+  if (!inputEl || !btnEl) return;
+  inputEl.addEventListener('input', () => { btnEl.disabled = !inputEl.value.trim(); });
+
+  function doSend() {
+    const msg = inputEl.value.trim();
+    if (!msg) return;
+    btnEl.disabled = true;
+
+    // 파문 효과
+    const box  = inputEl.closest('.chat-box').getBoundingClientRect();
+    const ring = document.createElement('div');
+    ring.className = 'ripple-ring';
+    ring.style.left   = (box.left + box.width  / 2) + 'px';
+    ring.style.top    = (box.top  + box.height / 2) + 'px';
+    ring.style.width  = box.width + 'px';
+    ring.style.height = box.width + 'px';
+    document.body.appendChild(ring);
+    setTimeout(() => ring.remove(), 900);
+
+    // 저장
+    try {
+      localStorage.setItem('arha-init-message', msg);
+      sessionStorage.setItem('arha-init-message', msg);
+    } catch(_) {}
+
+    // 전환
+    setTimeout(() => { diveOverlay.classList.add('active'); }, 150);
+    setTimeout(() => { window.location.href = '/chat?q=' + encodeURIComponent(msg); }, 780);
+  }
+
+  btnEl.addEventListener('click', doSend);
+  inputEl.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); doSend(); }
+  });
+}
+
+setupChat(document.getElementById('chatInput'),  document.getElementById('sendBtn'));
+setupChat(document.getElementById('chatInput2'), document.getElementById('sendBtn2'));
+
+// 오토 포커스
+setTimeout(() => { const i = document.getElementById('chatInput'); if(i) i.focus(); }, 400);
+
+/* ═══════════════════════════════════════════════════
+   플레이스홀더 순환
 ═══════════════════════════════════════════════════ */
 const placeholders = [
   '지금 어떤 상태인지 그냥 말해보세요...',
@@ -643,32 +1086,14 @@ const placeholders = [
   '어떤 아이디어를 갖고 계신가요?',
 ];
 let phIdx = 0;
+const heroInput = document.getElementById('chatInput');
 function cyclePlaceholder() {
-  if (document.activeElement === input) return;
+  if (document.activeElement === heroInput) return;
   phIdx = (phIdx + 1) % placeholders.length;
-  input.placeholder = placeholders[phIdx];
+  if (heroInput) heroInput.placeholder = placeholders[phIdx];
 }
 setInterval(cyclePlaceholder, 3800);
 </script>
 
-<!--
-  ── App.tsx에 아래 코드를 추가하면 랜딩에서 입력한 메시지가 자동으로 전송됩니다 ──
-
-  // App.tsx — useEffect 또는 handleSend 직전에 추가
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const initMsg = params.get('q') || localStorage.getItem('arha-init-message');
-    if (initMsg) {
-      localStorage.removeItem('arha-init-message');
-      // URL 파라미터 제거 (히스토리 오염 방지)
-      window.history.replaceState({}, '', window.location.pathname);
-      // 약간의 딜레이 후 자동 전송
-      setTimeout(() => {
-        setInput(initMsg);
-        // 또는 직접 handleSend(initMsg) 호출
-      }, 300);
-    }
-  }, []);
--->
 </body>
 </html>
