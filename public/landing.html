@@ -419,13 +419,10 @@
   /* Left: Ψ + axis bars */
   .vector-left { display: flex; flex-direction: column; align-items: center; gap: 32px; }
   .psi-wrap { position: relative; text-align: center; }
-  .psi-symbol {
-    font-size: 6.5rem; font-weight: 900; line-height: 1;
-    background: linear-gradient(135deg, var(--cyan2), var(--violet2));
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
-    filter: drop-shadow(0 0 40px rgba(6,182,212,0.3));
+  .psi-svg {
+    width: 112px; height: 148px; display: block; margin: 0 auto;
     animation: psiFloat 4s ease-in-out infinite alternate;
-    display: block;
+    filter: drop-shadow(0 0 20px rgba(6,182,212,0.5)) drop-shadow(0 0 42px rgba(139,92,246,0.3));
   }
   @keyframes psiFloat {
     from { transform: translateY(0) scale(1); filter: drop-shadow(0 0 30px rgba(6,182,212,0.25)); }
@@ -783,7 +780,29 @@
       <!-- Left: Ψ + axis bars -->
       <div class="vector-left reveal reveal-d2">
         <div class="psi-wrap">
-          <span class="psi-symbol">Ψ</span>
+          <svg class="psi-svg" viewBox="0 0 80 106" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="psiGrad" x1="40" y1="0" x2="40" y2="106" gradientUnits="userSpaceOnUse">
+                <stop offset="0%"   stop-color="#a5f3fc"/>
+                <stop offset="40%"  stop-color="#22d3ee"/>
+                <stop offset="100%" stop-color="#a78bfa"/>
+              </linearGradient>
+              <filter id="psiGlow" x="-50%" y="-30%" width="200%" height="160%">
+                <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur"/>
+                <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+              </filter>
+            </defs>
+            <g filter="url(#psiGlow)">
+              <!-- center vertical stem -->
+              <line x1="40" y1="5" x2="40" y2="101" stroke="url(#psiGrad)" stroke-width="5.5" stroke-linecap="round"/>
+              <!-- crossbar -->
+              <line x1="9" y1="64" x2="71" y2="64" stroke="url(#psiGrad)" stroke-width="5" stroke-linecap="round"/>
+              <!-- left arm (outward curve) -->
+              <path d="M 9 64 C 2 45 4 22 16 7" stroke="url(#psiGrad)" stroke-width="5.5" fill="none" stroke-linecap="round"/>
+              <!-- right arm (mirror) -->
+              <path d="M 71 64 C 78 45 76 22 64 7" stroke="url(#psiGrad)" stroke-width="5.5" fill="none" stroke-linecap="round"/>
+            </g>
+          </svg>
           <div class="psi-subtitle">Emotional Vector · 3D Real-time</div>
         </div>
         <div class="axis-bars">
