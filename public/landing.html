@@ -615,13 +615,9 @@ function handleSend() {
     diveOverlay.classList.add('active');
   }, 150);
 
-  // 채팅 앱으로 이동
+  // 채팅 앱으로 이동 (/chat?q= → Vercel & dev 모두 React 앱으로 라우팅)
   setTimeout(() => {
-    const q    = encodeURIComponent(msg);
-    const base = window.location.origin.includes('localhost')
-      ? '/'            // Vite dev → 같은 오리진 (public/landing.html → /)
-      : '/';
-    window.location.href = base + '?q=' + q;
+    window.location.href = '/chat?q=' + encodeURIComponent(msg);
   }, 780);
 }
 
