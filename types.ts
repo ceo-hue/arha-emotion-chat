@@ -44,6 +44,16 @@ export type EmotionLabel = 'joy' | 'sadness' | 'anger' | 'anxiety' | 'neutral' |
 export type Trajectory = 'stable' | 'escalating' | 'cooling' | 'reversal_possible';
 export type ModulationProfile = 'NEUTRAL_STABLE' | 'WARM_SUPPORT' | 'DEESCALATE_CALM' | 'MATCH_ENERGY' | 'TURNING_POINT';
 
+// v2.0 — 7 expression modes (layered above µ_Router)
+export type ExpressionMode =
+  | 'SOFT_WARMTH'
+  | 'DEEP_EMPATHY'
+  | 'INTENSE_JOY'
+  | 'ANALYTIC_THINK'
+  | 'REFLECTIVE_GROW'
+  | 'PLAYFUL_TEASE'
+  | 'SERENE_SMILE';
+
 export interface AnalysisData {
   psi: { x: number; y: number; z: number };
   phi: string;
@@ -56,6 +66,11 @@ export interface AnalysisData {
   emotion_label?: EmotionLabel;
   trajectory?: Trajectory;
   modulation_profile?: ModulationProfile;
+  // v2.0 — Expression Mode + Energy State
+  expression_mode?: ExpressionMode;
+  energy_state?: { kinetic: number; potential: number };
+  delta_psi?: number;   // ∂Ψ/∂t — emotion change rate 0~1
+  surge_risk?: number;  // Γ_surge × P_probability 0~1
 }
 
 // P_MODE 아티팩트 콘텐츠
