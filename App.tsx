@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { Message, AnalysisData, ChatSession, TaskType, ArtifactContent, MuMode, PipelineData, SearchResultItem, ProModeData } from './types';
+import { Message, AnalysisData, ChatSession, TaskType, ArtifactContent, MuMode, PipelineData, SearchResultItem, ProModeData, UserProfile, DailyUsage, MonthlyUsage } from './types';
 import { chatWithClaudeStream } from './services/claudeService';
 import { analyzeForPro, resetProSession } from './src/pro';
 import { generateArhaVideo, generateArhaImage } from './services/geminiService';
@@ -11,7 +11,7 @@ import {
   Send, Heart, Image as ImageIcon,
   Mic, RotateCcw, LayoutDashboard,
   Menu, Video, X, History, ChevronRight, Database, Trash2,
-  Cpu, Sparkles, Paperclip, FileText, Activity, Globe, FlaskConical, Sun, Moon, Wifi
+  Cpu, Sparkles, Paperclip, FileText, Activity, Globe, FlaskConical, Sun, Moon, Wifi, User as UserIcon
 } from 'lucide-react';
 import EmotionalDashboard from './components/EmotionalDashboard';
 import ArtifactPanel from './components/ArtifactPanel';
@@ -20,7 +20,13 @@ import { useI18n } from './contexts/I18nContext';
 import type { Language } from './contexts/I18nContext';
 import LoginScreen from './components/LoginScreen';
 import ProfileSection from './components/ProfileSection';
+import UsageBanner from './components/UsageBanner';
+import AccountPage from './components/AccountPage';
+import PricingModal from './components/PricingModal';
+import SidebarUserCard from './components/SidebarUserCard';
 import HiSolProWorkspace from './src/components/HiSolProWorkspace';
+import { ensureProfile, getUserProfile } from './services/userProfileService';
+import { getDailyUsage, getGuestUsage, incrementDailyUsage, incrementGuestUsage, getMonthlyUsage, incrementMonthlyUsage, canSendMessage } from './services/usageService';
 
   import {
     savePersona, loadPersona,  saveAutosave, loadAutosave,
@@ -565,6 +571,11 @@ const App: React.FC = () => {
   const [isBgGenerating, setIsBgGenerating] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showAccountPage, setShowAccountPage] = useState(false);
+  const [showPricingModal, setShowPricingModal] = useState(false);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [dailyUsage, setDailyUsage] = useState<DailyUsage>(() => getGuestUsage());
+  const [monthlyUsage, setMonthlyUsage] = useState<MonthlyUsage>({ month: '', count: 0 });
 
   // ── Theme toggle (Adaptive Glass) ──
   const [isDark, setIsDark] = useState(() => {
@@ -647,6 +658,24 @@ const App: React.FC = () => {
     const init = async () => {
       await migrateLocalStorageToFirestore(user);
 
+      // Load/create user profile (tier, etc.)
+      const profile = await ensureProfile(user.uid, {
+        displayName: user.displayName ?? '',
+        email: user.email ?? '',
+        photoURL: user.photoURL ?? undefined,
+      });
+      setUserProfile(profile);
+
+      // Load today's usage from Firestore (replaces guest localStorage count)
+      const usage = await getDailyUsage(user.uid);
+      setDailyUsage(usage);
+
+      // Load monthly usage (paid tier)
+      if (profile.tier === 'paid' || profile.tier === 'admin') {
+        const monthly = await getMonthlyUsage(user.uid);
+        setMonthlyUsage(monthly);
+      }
+
       // Load persona — fall back to ARHA default if none saved
       const persona = await loadPersona(user.uid);
       if (persona && persona.id) setPersonaConfig(persona);
@@ -678,6 +707,14 @@ const App: React.FC = () => {
     };
 
     init();
+  }, [user]);
+
+  // ── Reset to guest state on sign-out ──
+  useEffect(() => {
+    if (!user) {
+      setUserProfile(null);
+      setDailyUsage(getGuestUsage());
+    }
   }, [user]);
 
   // ── Autosave: useRef-based debounce (2 s) ──
@@ -901,6 +938,24 @@ const App: React.FC = () => {
     if ((!input.trim() && !selectedMedia) || isLoading) return;
     setShowMenu(false);
 
+    // ── Usage limit check ──────────────────────────────────────────────
+    const tier = userProfile?.tier ?? 'guest';
+    const dailyCount = userProfile ? dailyUsage.count : getGuestUsage().count;
+    if (!canSendMessage(tier, dailyCount, monthlyUsage.count)) {
+      const isPaidTier = tier === 'paid';
+      const limitMsg: Message = {
+        id: Date.now().toString(),
+        role: 'assistant',
+        content: isPaidTier
+          ? '이번 달 대화 한도(200회)에 도달했습니다. 다음 달 KST 1일에 초기화됩니다.'
+          : '오늘 대화 한도에 도달했습니다. 내일 KST 자정에 초기화됩니다. 무제한 이용을 원하시면 유료 플랜을 이용해 주세요.',
+        timestamp: Date.now(),
+      };
+      setMessages(prev => [...prev, limitMsg]);
+      if (!isPaidTier) setTimeout(() => setShowPricingModal(true), 400);
+      return;
+    }
+
     const userMsg: Message = {
       id: Date.now().toString(),
       role: 'user',
@@ -986,6 +1041,20 @@ const App: React.FC = () => {
         setMessages(prev => prev.map(m =>
           m.id === assistantMsgId ? { ...m, searchResults: collected } : m,
         ));
+      }
+
+      // ── Increment usage count ──────────────────────────────────────────
+      if (userProfile) {
+        const isPaidTier = userProfile.tier === 'paid' || userProfile.tier === 'admin';
+        incrementDailyUsage(userProfile.uid);
+        setDailyUsage(prev => ({ ...prev, count: prev.count + 1 }));
+        if (isPaidTier) {
+          incrementMonthlyUsage(userProfile.uid);
+          setMonthlyUsage(prev => ({ ...prev, count: prev.count + 1 }));
+        }
+      } else {
+        incrementGuestUsage();
+        setDailyUsage(getGuestUsage());
       }
     } catch (error) {
       setIsAnalyzing(false);
@@ -1204,6 +1273,29 @@ const App: React.FC = () => {
         </div>
       )}
 
+      {/* Account page modal */}
+      {showAccountPage && user && (
+        <AccountPage
+          user={user}
+          userProfile={userProfile}
+          dailyUsage={dailyUsage}
+          monthlyUsage={monthlyUsage}
+          valueProfile={valueProfile}
+          sessions={history}
+          onClose={() => setShowAccountPage(false)}
+          onSignOut={async () => { setShowAccountPage(false); await firebaseSignOut(); }}
+          onOpenPricing={() => setShowPricingModal(true)}
+        />
+      )}
+
+      {/* Pricing modal */}
+      {showPricingModal && (
+        <PricingModal
+          userProfile={userProfile}
+          onClose={() => setShowPricingModal(false)}
+        />
+      )}
+
       {/* Dim overlay when sidebar is open in overlay mode */}
       {isOverlayMode && (showHistory || showDashboard) && (
         <div
@@ -1237,7 +1329,7 @@ const App: React.FC = () => {
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 md:p-5 space-y-3 md:space-y-4 scroll-hide">
+        <div className="flex-1 overflow-y-auto p-4 md:p-5 space-y-3 md:space-y-4 scroll-hide min-h-0">
           {history.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-48 text-slate-300 dark:text-white/20">
               <History size={28} className="mb-4 opacity-10" />
@@ -1275,6 +1367,17 @@ const App: React.FC = () => {
             </>
           )}
         </div>
+
+        {/* User card — sticky bottom */}
+        <SidebarUserCard
+          user={user}
+          userProfile={userProfile}
+          dailyUsage={dailyUsage}
+          monthlyUsage={monthlyUsage}
+          onOpenLogin={() => setShowLoginModal(true)}
+          onOpenAccount={() => { setShowHistory(false); setShowAccountPage(true); }}
+          onOpenPricing={() => { setShowHistory(false); setShowPricingModal(true); }}
+        />
       </aside>
 
       {/* ── Artifact panel (P_MODE — left of chat) ── */}
@@ -1825,6 +1928,8 @@ const App: React.FC = () => {
 
         {/* Footer / input area */}
         <footer className="px-3 md:px-6 py-2 md:py-4 shrink-0 safe-bottom">
+          {/* Usage banner — shown above input for guest/free tier */}
+          <UsageBanner tier={userProfile?.tier ?? 'guest'} count={dailyUsage.count} />
           <div className="flex items-center gap-2 md:gap-3 relative" ref={menuRef}>
             <button
               onClick={() => setShowMenu(!showMenu)}
@@ -1972,10 +2077,19 @@ const App: React.FC = () => {
 
                 {/* Profile / sign-in */}
                 {user ? (
-                  <ProfileSection
-                    user={user}
-                    onSignOut={async () => { setShowMenu(false); await firebaseSignOut(); }}
-                  />
+                  <>
+                    <ProfileSection
+                      user={user}
+                      onSignOut={async () => { setShowMenu(false); await firebaseSignOut(); }}
+                    />
+                    <button
+                      onClick={() => { setShowMenu(false); setShowAccountPage(true); }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[11px] font-bold text-slate-400 dark:text-white/40 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all"
+                    >
+                      <UserIcon size={13} className="shrink-0" />
+                      계정 관리
+                    </button>
+                  </>
                 ) : (
                   <button
                     onClick={() => { setShowMenu(false); setShowLoginModal(true); }}
