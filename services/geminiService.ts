@@ -197,7 +197,7 @@ export const generateArhaVideo = async (prompt: string, aspectRatio: '16:9' | '9
   });
 };
 
-export const generateArhaImage = async (prompt: string, aspectRatio: '1:1' | '16:9' | '9:16' = '1:1') => {
+export const generateArhaImage = async (prompt: string, aspectRatio: '1:1' | '16:9' | '9:16' | '4:3' | '3:4' = '1:1') => {
   const ai = getAI();
   return await withRetry(async () => {
     const styledPrompt = `In the style of a thoughtful 20-something Korean student named Arha: ${prompt}`;

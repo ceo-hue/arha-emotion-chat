@@ -25,6 +25,8 @@ import AccountPage from './components/AccountPage';
 import PricingModal from './components/PricingModal';
 import SidebarUserCard from './components/SidebarUserCard';
 import HiSolProWorkspace from './src/components/HiSolProWorkspace';
+import ImageStudio from './components/ImageStudio';
+import VideoStudio from './components/VideoStudio';
 import { ensureProfile, getUserProfile } from './services/userProfileService';
 import { getDailyUsage, getGuestUsage, incrementDailyUsage, incrementGuestUsage, getMonthlyUsage, incrementMonthlyUsage, canSendMessage } from './services/usageService';
 
@@ -567,6 +569,8 @@ const App: React.FC = () => {
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [weatherInfo, setWeatherInfo] = useState<{ temp: number; code: number; label: string } | null>(null);
   const [showMenu, setShowMenu] = useState(false);
+  const [showImageStudio, setShowImageStudio] = useState(false);
+  const [showVideoStudio, setShowVideoStudio] = useState(false);
   const [bgPrompt, setBgPrompt] = useState('');
   const [isBgGenerating, setIsBgGenerating] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -1295,6 +1299,22 @@ const App: React.FC = () => {
         />
       )}
 
+      {/* Image Studio */}
+      {showImageStudio && (
+        <ImageStudio
+          initialPrompt={input}
+          onClose={() => setShowImageStudio(false)}
+        />
+      )}
+
+      {/* Video Studio */}
+      {showVideoStudio && (
+        <VideoStudio
+          initialPrompt={input}
+          onClose={() => setShowVideoStudio(false)}
+        />
+      )}
+
       {/* Dim overlay when sidebar is open in overlay mode */}
       {isOverlayMode && (showHistory || showDashboard) && (
         <div
@@ -2005,26 +2025,20 @@ const App: React.FC = () => {
                 {/* Media generation */}
                 <p className="text-[9px] font-black uppercase tracking-widest text-slate-300 dark:text-white/20 px-1 mb-1">{t.menuCreateTitle}</p>
                 <button
-                  onClick={() => void handleGenerateImage()}
-                  disabled={isLoading || !input.trim()}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-[11px] font-bold transition-all ${
-                    isLoading || !input.trim()
-                      ? 'text-slate-400 dark:text-white/30 opacity-50 cursor-not-allowed'
-                      : 'text-slate-600 dark:text-white/70 hover:bg-black/5 dark:hover:bg-white/10'
-                  }`}
+                  onClick={() => { setShowMenu(false); setShowImageStudio(true); }}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[11px] font-bold transition-all text-slate-600 dark:text-white/70 hover:bg-fuchsia-500/10 dark:hover:bg-fuchsia-500/10 group"
                 >
-                  <Sparkles size={14} className="text-fuchsia-400 shrink-0" /> {t.menuGenerateImage}
+                  <Sparkles size={14} className="text-fuchsia-400 shrink-0 group-hover:scale-110 transition-transform" />
+                  <span>{t.menuGenerateImage}</span>
+                  <span className="ml-auto text-[8px] font-black text-fuchsia-400/50 uppercase tracking-widest">Studio</span>
                 </button>
                 <button
-                  onClick={() => void handleGenerateVideo()}
-                  disabled={isLoading || !input.trim()}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-[11px] font-bold transition-all ${
-                    isLoading || !input.trim()
-                      ? 'text-slate-400 dark:text-white/30 opacity-50 cursor-not-allowed'
-                      : 'text-slate-600 dark:text-white/70 hover:bg-black/5 dark:hover:bg-white/10'
-                  }`}
+                  onClick={() => { setShowMenu(false); setShowVideoStudio(true); }}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[11px] font-bold transition-all text-slate-600 dark:text-white/70 hover:bg-orange-500/10 dark:hover:bg-orange-500/10 group"
                 >
-                  <Video size={14} className="text-orange-400 shrink-0" /> {t.menuGenerateVideo}
+                  <Video size={14} className="text-orange-400 shrink-0 group-hover:scale-110 transition-transform" />
+                  <span>{t.menuGenerateVideo}</span>
+                  <span className="ml-auto text-[8px] font-black text-orange-400/50 uppercase tracking-widest">Studio</span>
                 </button>
                 <p className="text-[9px] font-black uppercase tracking-widest text-slate-300 dark:text-white/20 px-1 mt-1 mb-1">{t.menuComingSoon}</p>
                 <button disabled className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[11px] font-bold text-slate-400 dark:text-white/30 opacity-50 cursor-not-allowed">
