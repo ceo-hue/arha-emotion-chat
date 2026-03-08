@@ -22,6 +22,7 @@ import LoginScreen from './components/LoginScreen';
 import ProfileSection from './components/ProfileSection';
 import UsageBanner from './components/UsageBanner';
 import AccountPage from './components/AccountPage';
+import PricingModal from './components/PricingModal';
 import HiSolProWorkspace from './src/components/HiSolProWorkspace';
 import { ensureProfile, getUserProfile } from './services/userProfileService';
 import { getDailyUsage, getGuestUsage, incrementDailyUsage, incrementGuestUsage, canSendMessage } from './services/usageService';
@@ -570,6 +571,7 @@ const App: React.FC = () => {
   const [showSettings, setShowSettings] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showAccountPage, setShowAccountPage] = useState(false);
+  const [showPricingModal, setShowPricingModal] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [dailyUsage, setDailyUsage] = useState<DailyUsage>(() => getGuestUsage());
 
@@ -939,6 +941,7 @@ const App: React.FC = () => {
         timestamp: Date.now(),
       };
       setMessages(prev => [...prev, limitMsg]);
+      setTimeout(() => setShowPricingModal(true), 400);
       return;
     }
 
@@ -1264,6 +1267,15 @@ const App: React.FC = () => {
           sessions={history}
           onClose={() => setShowAccountPage(false)}
           onSignOut={async () => { setShowAccountPage(false); await firebaseSignOut(); }}
+          onOpenPricing={() => setShowPricingModal(true)}
+        />
+      )}
+
+      {/* Pricing modal */}
+      {showPricingModal && (
+        <PricingModal
+          userProfile={userProfile}
+          onClose={() => setShowPricingModal(false)}
         />
       )}
 

@@ -16,6 +16,12 @@ export interface UserProfile {
   displayName: string;
   email: string;
   photoURL?: string;
+  // Stripe 구독 필드 (유료 사용자만 존재)
+  stripeCustomerId?: string;
+  stripeSubscriptionId?: string;
+  subscriptionStatus?: 'active' | 'trialing' | 'past_due' | 'canceled';
+  billingCycle?: 'monthly' | 'annual';
+  currentPeriodEnd?: number; // Unix timestamp (초)
 }
 
 export interface DailyUsage {

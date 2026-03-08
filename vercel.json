@@ -8,6 +8,15 @@
     },
     "api/internet-status.js": {
       "maxDuration": 10
+    },
+    "api/checkout.js": {
+      "maxDuration": 30
+    },
+    "api/portal.js": {
+      "maxDuration": 30
+    },
+    "api/webhook.js": {
+      "maxDuration": 30
     }
   },
   "redirects": [
@@ -16,6 +25,9 @@
   "rewrites": [
     { "source": "/api/chat", "destination": "/api/chat" },
     { "source": "/api/internet-status", "destination": "/api/internet-status" },
+    { "source": "/api/checkout", "destination": "/api/checkout" },
+    { "source": "/api/portal", "destination": "/api/portal" },
+    { "source": "/api/webhook", "destination": "/api/webhook" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

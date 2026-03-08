@@ -8,10 +8,15 @@ export async function getUserProfile(uid: string): Promise<UserProfile | null> {
   const d = snap.data();
   return {
     uid,
-    tier:        d.tier        ?? 'free',
-    displayName: d.displayName ?? '',
-    email:       d.email       ?? '',
-    photoURL:    d.photoURL,
+    tier:                 d.tier                ?? 'free',
+    displayName:          d.displayName         ?? '',
+    email:                d.email               ?? '',
+    photoURL:             d.photoURL,
+    stripeCustomerId:     d.stripeCustomerId,
+    stripeSubscriptionId: d.stripeSubscriptionId,
+    subscriptionStatus:   d.subscriptionStatus,
+    billingCycle:         d.billingCycle,
+    currentPeriodEnd:     d.currentPeriodEnd,
   };
 }
 

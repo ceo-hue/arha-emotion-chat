@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { User } from 'firebase/auth';
-import { X, LogOut, Download, Trash2, Crown, Shield, User as UserIcon } from 'lucide-react';
+import { X, LogOut, Download, Trash2, Crown, Shield, User as UserIcon, CreditCard, ExternalLink } from 'lucide-react';
 import { UserProfile, DailyUsage, TIER_LIMITS, ChatSession } from '../types';
 import { ValueProfile, getTopKeywords } from '../services/firestoreService';
 import { remainingMessages } from '../services/usageService';
@@ -13,6 +13,7 @@ interface AccountPageProps {
   sessions: ChatSession[];
   onClose: () => void;
   onSignOut: () => Promise<void>;
+  onOpenPricing: () => void;
 }
 
 const TIER_LABELS: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
@@ -30,8 +31,10 @@ export default function AccountPage({
   sessions,
   onClose,
   onSignOut,
+  onOpenPricing,
 }: AccountPageProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isPortalLoading, setIsPortalLoading] = useState(false);
 
   const tier = userProfile?.tier ?? 'free';
   const tierMeta = TIER_LABELS[tier];
@@ -122,6 +125,76 @@ export default function AccountPage({
                   ? '오늘 한도를 모두 사용했습니다. 내일 KST 자정에 초기화됩니다.'
                   : `${remaining}회 남음 · 매일 KST 자정 초기화`}
               </p>
+            </section>
+          )}
+
+          {/* 구독 & 결제 */}
+          {tier !== 'guest' && (
+            <section className="rounded-2xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 p-4">
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-white/30 mb-3">구독 & 결제</p>
+
+              {(tier === 'paid' || tier === 'admin') ? (
+                <div className="flex flex-col gap-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <Crown size={12} className="text-amber-400" />
+                      <span className="text-[12px] font-bold text-slate-700 dark:text-white/80">Pro 플랜</span>
+                    </div>
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${tierMeta.color}`}>
+                      {tierMeta.icon}
+                      {tierMeta.label}
+                    </span>
+                  </div>
+
+                  {userProfile?.currentPeriodEnd && (
+                    <p className="text-[10px] text-slate-400 dark:text-white/40">
+                      {userProfile.subscriptionStatus === 'past_due'
+                        ? '⚠️ 결제 실패 — 카드를 업데이트해주세요'
+                        : `다음 갱신일: ${new Date(userProfile.currentPeriodEnd * 1000).toLocaleDateString('ko-KR')}`
+                      }
+                    </p>
+                  )}
+
+                  {tier !== 'admin' && (
+                    <button
+                      onClick={async () => {
+                        setIsPortalLoading(true);
+                        try {
+                          const token = await user.getIdToken();
+                          const res = await fetch('/api/portal', {
+                            method: 'POST',
+                            headers: { 'Authorization': `Bearer ${token}` },
+                          });
+                          const data = await res.json();
+                          if (!res.ok) throw new Error(data.error);
+                          window.location.href = data.url;
+                        } catch {
+                          setIsPortalLoading(false);
+                        }
+                      }}
+                      disabled={isPortalLoading}
+                      className="w-full flex items-center gap-2 px-4 py-2.5 rounded-xl text-[11px] font-bold bg-white/5 border border-white/10 text-slate-500 dark:text-white/50 hover:text-slate-700 dark:hover:text-white hover:bg-white/10 transition-all disabled:opacity-50"
+                    >
+                      <CreditCard size={12} className="shrink-0" />
+                      {isPortalLoading ? '로딩 중...' : '구독 관리 / 결제 수단 변경'}
+                      <ExternalLink size={10} className="ml-auto opacity-50" />
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2.5">
+                  <p className="text-[11px] text-slate-500 dark:text-white/40">
+                    무제한 대화, 전체 기능을 Pro로 이용하세요.
+                  </p>
+                  <button
+                    onClick={() => { onClose(); onOpenPricing(); }}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-[12px] font-bold text-amber-500 border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 transition-all"
+                  >
+                    <Crown size={12} className="shrink-0" />
+                    Pro로 업그레이드
+                  </button>
+                </div>
+              )}
             </section>
           )}
 
