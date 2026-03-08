@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { Message, AnalysisData, ChatSession, TaskType, ArtifactContent, MuMode, PipelineData, SearchResultItem, ProModeData, UserProfile, DailyUsage } from './types';
+import { Message, AnalysisData, ChatSession, TaskType, ArtifactContent, MuMode, PipelineData, SearchResultItem, ProModeData, UserProfile, DailyUsage, MonthlyUsage } from './types';
 import { chatWithClaudeStream } from './services/claudeService';
 import { analyzeForPro, resetProSession } from './src/pro';
 import { generateArhaVideo, generateArhaImage } from './services/geminiService';
@@ -23,9 +23,10 @@ import ProfileSection from './components/ProfileSection';
 import UsageBanner from './components/UsageBanner';
 import AccountPage from './components/AccountPage';
 import PricingModal from './components/PricingModal';
+import SidebarUserCard from './components/SidebarUserCard';
 import HiSolProWorkspace from './src/components/HiSolProWorkspace';
 import { ensureProfile, getUserProfile } from './services/userProfileService';
-import { getDailyUsage, getGuestUsage, incrementDailyUsage, incrementGuestUsage, canSendMessage } from './services/usageService';
+import { getDailyUsage, getGuestUsage, incrementDailyUsage, incrementGuestUsage, getMonthlyUsage, incrementMonthlyUsage, canSendMessage } from './services/usageService';
 
   import {
     savePersona, loadPersona,  saveAutosave, loadAutosave,
@@ -574,6 +575,7 @@ const App: React.FC = () => {
   const [showPricingModal, setShowPricingModal] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [dailyUsage, setDailyUsage] = useState<DailyUsage>(() => getGuestUsage());
+  const [monthlyUsage, setMonthlyUsage] = useState<MonthlyUsage>({ month: '', count: 0 });
 
   // ── Theme toggle (Adaptive Glass) ──
   const [isDark, setIsDark] = useState(() => {
@@ -667,6 +669,12 @@ const App: React.FC = () => {
       // Load today's usage from Firestore (replaces guest localStorage count)
       const usage = await getDailyUsage(user.uid);
       setDailyUsage(usage);
+
+      // Load monthly usage (paid tier)
+      if (profile.tier === 'paid' || profile.tier === 'admin') {
+        const monthly = await getMonthlyUsage(user.uid);
+        setMonthlyUsage(monthly);
+      }
 
       // Load persona — fall back to ARHA default if none saved
       const persona = await loadPersona(user.uid);
@@ -932,16 +940,19 @@ const App: React.FC = () => {
 
     // ── Usage limit check ──────────────────────────────────────────────
     const tier = userProfile?.tier ?? 'guest';
-    const currentCount = userProfile ? dailyUsage.count : getGuestUsage().count;
-    if (!canSendMessage(tier, currentCount)) {
+    const dailyCount = userProfile ? dailyUsage.count : getGuestUsage().count;
+    if (!canSendMessage(tier, dailyCount, monthlyUsage.count)) {
+      const isPaidTier = tier === 'paid';
       const limitMsg: Message = {
         id: Date.now().toString(),
         role: 'assistant',
-        content: '오늘 대화 한도에 도달했습니다. 내일 KST 자정에 초기화됩니다. 무제한 이용을 원하시면 유료 플랜을 이용해 주세요.',
+        content: isPaidTier
+          ? '이번 달 대화 한도(200회)에 도달했습니다. 다음 달 KST 1일에 초기화됩니다.'
+          : '오늘 대화 한도에 도달했습니다. 내일 KST 자정에 초기화됩니다. 무제한 이용을 원하시면 유료 플랜을 이용해 주세요.',
         timestamp: Date.now(),
       };
       setMessages(prev => [...prev, limitMsg]);
-      setTimeout(() => setShowPricingModal(true), 400);
+      if (!isPaidTier) setTimeout(() => setShowPricingModal(true), 400);
       return;
     }
 
@@ -1034,8 +1045,13 @@ const App: React.FC = () => {
 
       // ── Increment usage count ──────────────────────────────────────────
       if (userProfile) {
+        const isPaidTier = userProfile.tier === 'paid' || userProfile.tier === 'admin';
         incrementDailyUsage(userProfile.uid);
         setDailyUsage(prev => ({ ...prev, count: prev.count + 1 }));
+        if (isPaidTier) {
+          incrementMonthlyUsage(userProfile.uid);
+          setMonthlyUsage(prev => ({ ...prev, count: prev.count + 1 }));
+        }
       } else {
         incrementGuestUsage();
         setDailyUsage(getGuestUsage());
@@ -1263,6 +1279,7 @@ const App: React.FC = () => {
           user={user}
           userProfile={userProfile}
           dailyUsage={dailyUsage}
+          monthlyUsage={monthlyUsage}
           valueProfile={valueProfile}
           sessions={history}
           onClose={() => setShowAccountPage(false)}
@@ -1312,7 +1329,7 @@ const App: React.FC = () => {
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 md:p-5 space-y-3 md:space-y-4 scroll-hide">
+        <div className="flex-1 overflow-y-auto p-4 md:p-5 space-y-3 md:space-y-4 scroll-hide min-h-0">
           {history.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-48 text-slate-300 dark:text-white/20">
               <History size={28} className="mb-4 opacity-10" />
@@ -1350,6 +1367,17 @@ const App: React.FC = () => {
             </>
           )}
         </div>
+
+        {/* User card — sticky bottom */}
+        <SidebarUserCard
+          user={user}
+          userProfile={userProfile}
+          dailyUsage={dailyUsage}
+          monthlyUsage={monthlyUsage}
+          onOpenLogin={() => setShowLoginModal(true)}
+          onOpenAccount={() => { setShowHistory(false); setShowAccountPage(true); }}
+          onOpenPricing={() => { setShowHistory(false); setShowPricingModal(true); }}
+        />
       </aside>
 
       {/* ── Artifact panel (P_MODE — left of chat) ── */}

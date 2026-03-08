@@ -3,12 +3,28 @@
 
 export type UserTier = 'guest' | 'free' | 'paid' | 'admin';
 
+/** 일일 한도 (guest/free 전용) */
 export const TIER_LIMITS: Record<UserTier, number> = {
   guest: 6,
   free: 10,
-  paid: Infinity,
+  paid: Infinity,   // paid는 월간 한도(MONTHLY_LIMITS)로 관리
   admin: Infinity,
 };
+
+/** 월간 한도 (paid 전용)
+ * 산출 근거: ₩14,900 × 70% ÷ 1350 = $7.73 / $0.024(4k토큰/채팅) ≈ 321 → 버퍼 포함 200
+ */
+export const MONTHLY_LIMITS: Record<UserTier, number> = {
+  guest: Infinity,   // 일일 한도로 제한
+  free: Infinity,    // 일일 한도로 제한
+  paid: 200,
+  admin: Infinity,
+};
+
+export interface MonthlyUsage {
+  month: string;  // KST YYYY-MM
+  count: number;
+}
 
 export interface UserProfile {
   uid: string;
