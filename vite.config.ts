@@ -50,6 +50,7 @@ export default defineConfig(({ mode }) => {
         'process.env.GEMINI_MEDIA_API_KEY': JSON.stringify(env.GEMINI_MEDIA_API_KEY || env.GEMINI_API_KEY),
         'process.env.GEMINI_IMAGE_MODEL': JSON.stringify(env.GEMINI_IMAGE_MODEL || 'gemini-2.0-flash-exp-image-generation'),
         'process.env.GEMINI_IMAGE_FALLBACK_MODEL': JSON.stringify(env.GEMINI_IMAGE_FALLBACK_MODEL || 'imagen-4.0-generate-001'),
+        'process.env.GEMINI_VIDEO_MODEL': JSON.stringify(env.GEMINI_VIDEO_MODEL || 'veo-3.1-fast-generate-preview'),
       },
       resolve: {
         alias: {

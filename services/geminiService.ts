@@ -7,6 +7,7 @@ const getMediaApiKey = () => process.env.GEMINI_MEDIA_API_KEY || process.env.API
 const getAI = () => new GoogleGenAI({ apiKey: getMediaApiKey() });
 const getImageModel = () => process.env.GEMINI_IMAGE_MODEL || 'gemini-2.0-flash-exp-image-generation';
 const getImagenFallbackModel = () => process.env.GEMINI_IMAGE_FALLBACK_MODEL || 'imagen-4.0-generate-001';
+const getVideoModel = () => process.env.GEMINI_VIDEO_MODEL || 'veo-3.1-fast-generate-preview';
 
 // Retry utility with enhanced error detection for quota issues
 async function withRetry<T>(fn: () => Promise<T>, maxRetries = 5, delay = 2000): Promise<T> {
@@ -175,7 +176,7 @@ export const generateArhaVideo = async (prompt: string, aspectRatio: '16:9' | '9
   const ai = getAI();
   return await withRetry(async () => {
     let operation = await ai.models.generateVideos({
-      model: 'veo-3.1-fast-generate-preview',
+      model: getVideoModel(),
       prompt: `In the style of a thoughtful 20-something Korean student named Arha: ${prompt}`,
       config: {
         numberOfVideos: 1,
@@ -204,8 +205,8 @@ export const generateArhaImage = async (prompt: string, aspectRatio: '1:1' | '16
     try {
       const geminiImageResp: any = await ai.models.generateContent({
         model: getImageModel(),
-        contents: styledPrompt,
-        config: { responseModalities: ['IMAGE'] },
+        contents: [{ role: 'user', parts: [{ text: styledPrompt }] }],
+        config: { responseModalities: ['TEXT', 'IMAGE'] },
       });
       const parts = geminiImageResp?.candidates?.[0]?.content?.parts ?? [];
       const inlineImage = parts.find((p: any) => p?.inlineData?.data);
