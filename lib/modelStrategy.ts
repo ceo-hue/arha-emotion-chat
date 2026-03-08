@@ -22,10 +22,7 @@ export type VideoModelStrategy = {
   readonly aspectRatio: VideoAspectRatio
 }
 
-// ── 환경변수 읽기 (Vite define 대체) ─────────────────────
-
-const env = (key: string, fallback: string): string =>
-  (typeof process !== 'undefined' ? (process.env as any)[key] : undefined) ?? fallback
+// ── 환경변수 읽기 — Vite define이 리터럴만 교체하므로 직접 참조 ──
 
 // ── 순수 선택 함수들 ──────────────────────────────────────
 
@@ -36,8 +33,8 @@ const env = (key: string, fallback: string): string =>
  * 추후 스타일별 특화 모델로 확장 가능.
  */
 export const selectImageStrategy = (_style: string): ImageModelStrategy => ({
-  primary:         env('GEMINI_IMAGE_MODEL',          'gemini-2.0-flash-exp-image-generation'),
-  fallback:        env('GEMINI_IMAGE_FALLBACK_MODEL',  'imagen-4.0-generate-001'),
+  primary:         process.env.GEMINI_IMAGE_MODEL          ?? 'gemini-2.0-flash-exp-image-generation',
+  fallback:        process.env.GEMINI_IMAGE_FALLBACK_MODEL ?? 'imagen-4.0-generate-001',
   modalities:      ['TEXT', 'IMAGE'],
   outputMimeType:  'image/png',
 })
@@ -46,7 +43,7 @@ export const selectImageStrategy = (_style: string): ImageModelStrategy => ({
  * selectVideoStrategy — 비율에 따라 영상 모델 전략 선택
  */
 export const selectVideoStrategy = (aspectRatio: VideoAspectRatio): VideoModelStrategy => ({
-  model:       env('GEMINI_VIDEO_MODEL', 'veo-3.1-fast-generate-preview'),
+  model:       process.env.GEMINI_VIDEO_MODEL ?? 'veo-3.1-fast-generate-preview',
   resolution:  '720p',
   aspectRatio,
 })
@@ -56,4 +53,4 @@ export const ANALYSIS_MODEL = 'gemini-2.0-flash'
 
 /** API 키 반환 */
 export const getMediaApiKey = (): string =>
-  env('GEMINI_MEDIA_API_KEY', '') || env('API_KEY', '')
+  process.env.GEMINI_MEDIA_API_KEY || process.env.API_KEY || ''
