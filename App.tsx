@@ -666,15 +666,10 @@ const App: React.FC = () => {
       });
       setUserProfile(profile);
 
-      // Load today's usage from Firestore (replaces guest localStorage count)
-      const usage = await getDailyUsage(user.uid);
-      setDailyUsage(usage);
-
-      // Load monthly usage (paid tier)
-      if (profile.tier === 'paid' || profile.tier === 'admin') {
-        const monthly = await getMonthlyUsage(user.uid);
-        setMonthlyUsage(monthly);
-      }
+      // 모든 로그인 유저 월간 사용량 로드 (전 티어 월간 한도로 통합)
+      const monthly = await getMonthlyUsage(user.uid);
+      setDailyUsage(monthly);
+      setMonthlyUsage(monthly);
 
       // Load persona — fall back to ARHA default if none saved
       const persona = await loadPersona(user.uid);
@@ -940,19 +935,22 @@ const App: React.FC = () => {
 
     // ── Usage limit check ──────────────────────────────────────────────
     const tier = userProfile?.tier ?? 'guest';
-    const dailyCount = userProfile ? dailyUsage.count : getGuestUsage().count;
-    if (!canSendMessage(tier, dailyCount, monthlyUsage.count)) {
-      const isPaidTier = tier === 'paid';
+    const currentCount = userProfile ? monthlyUsage.count : getGuestUsage().count;
+    if (!canSendMessage(tier, 0, currentCount)) {
+      const limitMsgs: Record<string, string> = {
+        guest: `이번 달 체험 한도(20회)에 도달했습니다. 로그인하시면 무료 30회를 이용할 수 있습니다.`,
+        free:  `이번 달 무료 한도(30회)에 도달했습니다. 매월 1일 KST에 초기화됩니다. 더 많은 대화를 원하시면 Pro 플랜을 이용해 주세요.`,
+        paid:  `이번 달 대화 한도(200회)에 도달했습니다. 다음 달 KST 1일에 초기화됩니다.`,
+        admin: '',
+      };
       const limitMsg: Message = {
         id: Date.now().toString(),
         role: 'assistant',
-        content: isPaidTier
-          ? '이번 달 대화 한도(200회)에 도달했습니다. 다음 달 KST 1일에 초기화됩니다.'
-          : '오늘 대화 한도에 도달했습니다. 내일 KST 자정에 초기화됩니다. 무제한 이용을 원하시면 유료 플랜을 이용해 주세요.',
+        content: limitMsgs[tier] ?? '이번 달 한도에 도달했습니다.',
         timestamp: Date.now(),
       };
       setMessages(prev => [...prev, limitMsg]);
-      if (!isPaidTier) setTimeout(() => setShowPricingModal(true), 400);
+      if (tier === 'guest' || tier === 'free') setTimeout(() => setShowPricingModal(true), 400);
       return;
     }
 
@@ -1045,16 +1043,17 @@ const App: React.FC = () => {
 
       // ── Increment usage count ──────────────────────────────────────────
       if (userProfile) {
-        const isPaidTier = userProfile.tier === 'paid' || userProfile.tier === 'admin';
-        incrementDailyUsage(userProfile.uid);
-        setDailyUsage(prev => ({ ...prev, count: prev.count + 1 }));
-        if (isPaidTier) {
+        // 모든 로그인 유저 월간 카운트 증가 (admin 제외)
+        if (userProfile.tier !== 'admin') {
           incrementMonthlyUsage(userProfile.uid);
-          setMonthlyUsage(prev => ({ ...prev, count: prev.count + 1 }));
         }
+        const updated = { ...monthlyUsage, count: monthlyUsage.count + 1 };
+        setDailyUsage(updated);
+        setMonthlyUsage(updated);
       } else {
         incrementGuestUsage();
         setDailyUsage(getGuestUsage());
+        setMonthlyUsage(getGuestUsage());
       }
     } catch (error) {
       setIsAnalyzing(false);

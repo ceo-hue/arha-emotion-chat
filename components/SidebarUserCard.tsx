@@ -33,19 +33,17 @@ export default function SidebarUserCard({
   const tier = userProfile?.tier ?? 'guest';
   const meta = TIER_META[tier];
 
-  // ── 사용량 계산 ──────────────────────────────────────────────────────────
-  const isPaid = tier === 'paid' || tier === 'admin';
-  const isLimitedDaily = tier === 'free' || tier === 'guest';
-
-  const usageCount  = isPaid ? monthlyUsage.count : dailyUsage.count;
-  const usageLimit  = isPaid ? MONTHLY_LIMITS[tier] : TIER_LIMITS[tier];
-  const remaining   = remainingMessages(tier, dailyUsage.count, monthlyUsage.count);
-  const showUsage   = isFinite(usageLimit);
+  // ── 사용량 계산 (전 티어 월간 통합) ────────────────────────────────────
+  const usageCount = monthlyUsage.count;
+  const usageLimit = MONTHLY_LIMITS[tier];
+  const remaining  = remainingMessages(tier, 0, monthlyUsage.count);
+  const showUsage  = isFinite(usageLimit);
 
   const usagePct = showUsage ? Math.min((usageCount / usageLimit) * 100, 100) : 0;
+  const warningThreshold = tier === 'paid' ? 20 : 5;
   const barColor = remaining === 0
     ? 'bg-red-400'
-    : remaining <= (isPaid ? 20 : 2)
+    : remaining <= warningThreshold
       ? 'bg-amber-400'
       : 'bg-emerald-400';
 
@@ -54,7 +52,7 @@ export default function SidebarUserCard({
     return (
       <div className="border-t border-black/10 dark:border-white/10 p-4">
         <p className="text-[10px] text-slate-400 dark:text-white/30 mb-2.5 leading-relaxed">
-          로그인하면 대화가 저장되고<br />무료 10회/일 이용 가능
+          로그인하면 대화가 저장되고<br />무료 30회/월 이용 가능
         </p>
         <button
           onClick={onOpenLogin}
@@ -102,7 +100,7 @@ export default function SidebarUserCard({
         <div>
           <div className="flex items-center justify-between mb-1">
             <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-white/30">
-              {isPaid ? '이번 달 사용량' : '오늘 사용량'}
+              이번 달 사용량
             </span>
             <span className="text-[9px] font-bold text-slate-400 dark:text-white/40">
               {usageCount}/{usageLimit}
@@ -116,7 +114,7 @@ export default function SidebarUserCard({
           </div>
           <p className="mt-1 text-[9px] text-slate-400 dark:text-white/25">
             {remaining === 0
-              ? isPaid ? '이번 달 한도 초과 · 다음 달 초기화' : '오늘 한도 초과 · KST 자정 초기화'
+              ? '이번 달 한도 초과 · 다음 달 KST 1일 초기화'
               : `${remaining}회 남음`
             }
           </p>
@@ -124,7 +122,7 @@ export default function SidebarUserCard({
       )}
 
       {/* Subscription status (paid) */}
-      {isPaid && userProfile?.currentPeriodEnd && (
+      {(tier === 'paid') && userProfile?.currentPeriodEnd && (
         <p className="text-[9px] text-slate-400 dark:text-white/30 leading-relaxed">
           {userProfile.subscriptionStatus === 'past_due'
             ? '⚠️ 결제 실패 — 카드를 업데이트해주세요'
