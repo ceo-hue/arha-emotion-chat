@@ -3,21 +3,22 @@
 
 export type UserTier = 'guest' | 'free' | 'paid' | 'admin';
 
-/** 일일 한도 (guest/free 전용) */
+/** @deprecated 일일 한도 사용 중단 — 모든 티어 MONTHLY_LIMITS로 통합 */
 export const TIER_LIMITS: Record<UserTier, number> = {
-  guest: 6,
-  free: 10,
-  paid: Infinity,   // paid는 월간 한도(MONTHLY_LIMITS)로 관리
-  admin: Infinity,
+  guest: Infinity, free: Infinity, paid: Infinity, admin: Infinity,
 };
 
-/** 월간 한도 (paid 전용)
- * 산출 근거: ₩14,900 × 70% ÷ 1350 = $7.73 / $0.024(4k토큰/채팅) ≈ 321 → 버퍼 포함 200
+/**
+ * 월간 한도 (전 티어 공통)
+ *  guest:  20회/월  (미로그인 체험)
+ *  free:   30회/월  (로그인 무료)
+ *  paid:  200회/월  (₩14,900 × 70% ÷ 1,350 / $0.024 ≈ 321 → 버퍼 200)
+ *  admin: 무제한
  */
 export const MONTHLY_LIMITS: Record<UserTier, number> = {
-  guest: Infinity,   // 일일 한도로 제한
-  free: Infinity,    // 일일 한도로 제한
-  paid: 200,
+  guest: 20,
+  free:  30,
+  paid:  200,
   admin: Infinity,
 };
 

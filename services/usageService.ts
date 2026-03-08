@@ -1,29 +1,27 @@
 import { doc, getDoc, setDoc, increment, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
-import { DailyUsage, MonthlyUsage, UserTier, TIER_LIMITS, MONTHLY_LIMITS } from '../types';
+import { MonthlyUsage, UserTier, MONTHLY_LIMITS } from '../types';
 
-const GUEST_KEY = 'arha_guest_usage';
-
-function getKSTDate(): string {
-  return new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
-}
+// ── KST helpers ────────────────────────────────────────────────────────────
 
 function getKSTMonth(): string {
   return new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 7); // YYYY-MM
 }
 
-// ── Guest (localStorage) ───────────────────────────────────────────────────
+// ── Guest (localStorage — 월간) ────────────────────────────────────────────
 
-export function getGuestUsage(): DailyUsage {
-  const today = getKSTDate();
+const GUEST_KEY = 'arha_guest_monthly';
+
+export function getGuestUsage(): MonthlyUsage {
+  const month = getKSTMonth();
   try {
     const raw = localStorage.getItem(GUEST_KEY);
     if (raw) {
-      const parsed = JSON.parse(raw) as DailyUsage;
-      if (parsed.date === today) return parsed;
+      const parsed = JSON.parse(raw) as MonthlyUsage;
+      if (parsed.month === month) return parsed;
     }
   } catch {}
-  return { date: today, count: 0 };
+  return { month, count: 0 };
 }
 
 export function incrementGuestUsage(): void {
@@ -32,30 +30,7 @@ export function incrementGuestUsage(): void {
   localStorage.setItem(GUEST_KEY, JSON.stringify(usage));
 }
 
-// ── Daily (Firestore — guest/free) ─────────────────────────────────────────
-
-export async function getDailyUsage(uid: string): Promise<DailyUsage> {
-  const today = getKSTDate();
-  const snap = await getDoc(doc(db, 'users', uid, 'usage', 'daily'));
-  if (snap.exists()) {
-    const data = snap.data() as DailyUsage;
-    if (data.date === today) return { date: data.date, count: data.count };
-  }
-  return { date: today, count: 0 };
-}
-
-export async function incrementDailyUsage(uid: string): Promise<void> {
-  const today = getKSTDate();
-  const ref = doc(db, 'users', uid, 'usage', 'daily');
-  const snap = await getDoc(ref);
-  if (snap.exists() && (snap.data() as DailyUsage).date === today) {
-    await setDoc(ref, { count: increment(1), updatedAt: serverTimestamp() }, { merge: true });
-  } else {
-    await setDoc(ref, { date: today, count: 1, updatedAt: serverTimestamp() });
-  }
-}
-
-// ── Monthly (Firestore — paid tier) ───────────────────────────────────────
+// ── Monthly (Firestore — 전 로그인 티어 공통) ──────────────────────────────
 
 export async function getMonthlyUsage(uid: string): Promise<MonthlyUsage> {
   const month = getKSTMonth();
@@ -78,32 +53,39 @@ export async function incrementMonthlyUsage(uid: string): Promise<void> {
   }
 }
 
+// ── @deprecated Daily — 하위 호환용 래퍼 (월간으로 위임) ──────────────────
+
+/** @deprecated getMonthlyUsage 사용 */
+export async function getDailyUsage(uid: string): Promise<MonthlyUsage> {
+  return getMonthlyUsage(uid);
+}
+
+/** @deprecated incrementMonthlyUsage 사용 */
+export async function incrementDailyUsage(uid: string): Promise<void> {
+  return incrementMonthlyUsage(uid);
+}
+
+// App.tsx DailyUsage 타입 참조 호환 (MonthlyUsage로 통일)
+export type { MonthlyUsage as DailyUsage };
+
 // ── Common ─────────────────────────────────────────────────────────────────
 
-/**
- * paid 티어: 월간 한도 체크
- * guest/free 티어: 일일 한도 체크
- */
+/** 모든 티어: 월간 한도 체크 */
 export function canSendMessage(
   tier: UserTier,
-  dailyCount: number,
+  _dailyCount: number,
   monthlyCount = 0,
 ): boolean {
-  if (tier === 'paid') {
-    return monthlyCount < MONTHLY_LIMITS[tier];
-  }
-  return dailyCount < TIER_LIMITS[tier];
+  if (tier === 'admin') return true;
+  return monthlyCount < MONTHLY_LIMITS[tier];
 }
 
 export function remainingMessages(
   tier: UserTier,
-  dailyCount: number,
+  _dailyCount: number,
   monthlyCount = 0,
 ): number {
-  if (tier === 'paid') {
-    const limit = MONTHLY_LIMITS[tier];
-    return isFinite(limit) ? Math.max(0, limit - monthlyCount) : Infinity;
-  }
-  const limit = TIER_LIMITS[tier];
-  return isFinite(limit) ? Math.max(0, limit - dailyCount) : Infinity;
+  if (tier === 'admin') return Infinity;
+  const limit = MONTHLY_LIMITS[tier];
+  return isFinite(limit) ? Math.max(0, limit - monthlyCount) : Infinity;
 }

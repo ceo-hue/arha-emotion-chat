@@ -40,12 +40,11 @@ export default function AccountPage({
 
   const tier = userProfile?.tier ?? 'free';
   const tierMeta = TIER_LABELS[tier];
-  const isPaid = tier === 'paid' || tier === 'admin';
-  // paid: 월간 한도 / free·guest: 일간 한도
-  const limit = isPaid ? MONTHLY_LIMITS[tier] : TIER_LIMITS[tier];
-  const usageCount = isPaid ? monthlyUsage.count : dailyUsage.count;
+  // 전 티어 월간 한도로 통합
+  const limit = MONTHLY_LIMITS[tier];
+  const usageCount = monthlyUsage.count;
   const isLimited = isFinite(limit);
-  const remaining = remainingMessages(tier, dailyUsage.count, monthlyUsage.count);
+  const remaining = remainingMessages(tier, 0, monthlyUsage.count);
   const topKeywords = getTopKeywords(valueProfile, 20);
 
   const handleExport = () => {
@@ -112,13 +111,13 @@ export default function AccountPage({
           {isLimited && (
             <section className="rounded-2xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 p-4">
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-white/30 mb-3">
-                {isPaid ? '이번 달 사용량' : '오늘 사용량'}
+                이번 달 사용량
               </p>
               <div className="flex items-center gap-3 mb-2">
                 <div className="flex-1 h-2 rounded-full bg-white/10 overflow-hidden">
                   <div
                     className={`h-full rounded-full transition-all duration-300 ${
-                      remaining === 0 ? 'bg-red-400' : remaining <= (isPaid ? 20 : 2) ? 'bg-amber-400' : 'bg-emerald-400'
+                      remaining === 0 ? 'bg-red-400' : remaining <= 5 ? 'bg-amber-400' : 'bg-emerald-400'
                     }`}
                     style={{ width: `${Math.min((usageCount / limit) * 100, 100)}%` }}
                   />
@@ -129,12 +128,8 @@ export default function AccountPage({
               </div>
               <p className="text-[10px] text-slate-400 dark:text-white/30">
                 {remaining === 0
-                  ? isPaid
-                    ? '이번 달 한도를 모두 사용했습니다. 다음 달 1일 KST에 초기화됩니다.'
-                    : '오늘 한도를 모두 사용했습니다. 내일 KST 자정에 초기화됩니다.'
-                  : isPaid
-                    ? `${remaining}회 남음 · 매월 1일 KST 초기화`
-                    : `${remaining}회 남음 · 매일 KST 자정 초기화`}
+                  ? '이번 달 한도를 모두 사용했습니다. 다음 달 1일 KST에 초기화됩니다.'
+                  : `${remaining}회 남음 · 매월 1일 KST 초기화`}
               </p>
             </section>
           )}
