@@ -8,8 +8,9 @@ import LiveOutput from './components/LiveOutput';
 import SystemPromptModal from './components/SystemPromptModal';
 import ApiKeyManager from './components/ApiKeyManager';
 import LicenseManager from './components/LicenseManager';
+import UserManager from './components/UserManager';
 import { PERSONA_PRESETS } from './data/personaPresets';
-import { ArrowLeft, Globe, Download, LogOut, FlaskConical, Loader2, Layers, PenTool, Zap, FileText, Key, Shield } from 'lucide-react';
+import { ArrowLeft, Globe, Download, LogOut, FlaskConical, Loader2, Layers, PenTool, Zap, FileText, Key, Shield, Users } from 'lucide-react';
 import type { EssenceBlock, ActiveEssenceBlock, TestResult, VectorXYZ, BlockRole, OperatorType } from './types';
 import { INFLUENCE_MAP, MAX_SUPPORTERS, OPERATOR_CYCLE } from './types';
 
@@ -20,7 +21,7 @@ export default function App() {
   const { t, lang, setLang } = useI18n();
 
   // Top-level page
-  const [mainTab, setMainTab] = useState<'builder' | 'apikeys' | 'licenses'>('builder');
+  const [mainTab, setMainTab] = useState<'builder' | 'apikeys' | 'licenses' | 'users'>('builder');
 
   // Canvas state
   const [selectedPersonaId, setSelectedPersonaId] = useState('arha');
@@ -266,6 +267,17 @@ export default function App() {
               <Shield size={10} />
               <span className="hidden sm:inline">Licenses</span>
             </button>
+            <button
+              onClick={() => setMainTab('users')}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-[10px] text-[10px] font-bold transition-all ${
+                mainTab === 'users'
+                  ? 'bg-violet-500/25 text-violet-300 border border-violet-400/30'
+                  : 'text-white/30 hover:text-white/50'
+              }`}
+            >
+              <Users size={10} />
+              <span className="hidden sm:inline">Users</span>
+            </button>
           </div>
 
           {/* Language toggle */}
@@ -325,6 +337,13 @@ export default function App() {
       {mainTab === 'licenses' && (
         <div className="flex-1 min-h-0 max-w-2xl mx-auto w-full">
           <LicenseManager />
+        </div>
+      )}
+
+      {/* ── Users page ── */}
+      {mainTab === 'users' && (
+        <div className="flex-1 min-h-0 max-w-3xl mx-auto w-full glass-panel m-2 rounded-2xl overflow-hidden">
+          <UserManager />
         </div>
       )}
 

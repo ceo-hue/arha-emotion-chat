@@ -37,7 +37,7 @@ export default function LoginScreen({ onClose }: LoginScreenProps) {
   // Modal mode: card only (no full-screen overlay)
   if (onClose) {
     return (
-      <div className="relative glass-panel rounded-[2.5rem] px-10 py-10 flex flex-col items-center gap-6 w-[340px] max-w-[90vw]">
+      <div className="relative glass-panel rounded-[2.5rem] px-10 py-10 flex flex-col items-center gap-6 w-[420px] max-w-[92vw]">
         {/* Close button */}
         <button
           onClick={onClose}
@@ -76,6 +76,26 @@ export default function LoginScreen({ onClose }: LoginScreenProps) {
             {error}
           </p>
         )}
+
+        {/* Feature comparison table */}
+        <div className="w-full rounded-2xl overflow-hidden border border-black/10 dark:border-white/10 text-[10px]">
+          <div className="grid grid-cols-3 bg-black/5 dark:bg-white/5 px-3 py-2 font-black uppercase tracking-widest text-slate-400 dark:text-white/30">
+            <span>기능</span>
+            <span className="text-center">게스트</span>
+            <span className="text-center">로그인</span>
+          </div>
+          {[
+            ['ARHA 채팅', '6회/일', '10회/일'],
+            ['대화 저장', '✗', '✓'],
+            ['계정 관리', '✗', '✓'],
+          ].map(([feature, guest, free]) => (
+            <div key={feature} className="grid grid-cols-3 px-3 py-2.5 border-t border-black/5 dark:border-white/5 text-slate-600 dark:text-white/50">
+              <span className="font-medium">{feature}</span>
+              <span className="text-center text-slate-400 dark:text-white/30">{guest}</span>
+              <span className={`text-center font-bold ${free === '✓' ? 'text-emerald-500' : 'text-slate-600 dark:text-white/50'}`}>{free}</span>
+            </div>
+          ))}
+        </div>
 
         <p className="text-[9px] text-slate-400 dark:text-white/20 text-center font-bold uppercase tracking-widest leading-relaxed whitespace-pre-line">
           {t.loginNote}

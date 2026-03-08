@@ -1,4 +1,30 @@
 
+// ── Tier System ───────────────────────────────────────────────────────────
+
+export type UserTier = 'guest' | 'free' | 'paid' | 'admin';
+
+export const TIER_LIMITS: Record<UserTier, number> = {
+  guest: 6,
+  free: 10,
+  paid: Infinity,
+  admin: Infinity,
+};
+
+export interface UserProfile {
+  uid: string;
+  tier: UserTier;
+  displayName: string;
+  email: string;
+  photoURL?: string;
+}
+
+export interface DailyUsage {
+  date: string;   // KST YYYY-MM-DD
+  count: number;
+}
+
+// ── Chat ──────────────────────────────────────────────────────────────────
+
 export interface Message {
   id: string;
   role: 'user' | 'assistant';

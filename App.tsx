@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { Message, AnalysisData, ChatSession, TaskType, ArtifactContent, MuMode, PipelineData, SearchResultItem, ProModeData } from './types';
+import { Message, AnalysisData, ChatSession, TaskType, ArtifactContent, MuMode, PipelineData, SearchResultItem, ProModeData, UserProfile, DailyUsage } from './types';
 import { chatWithClaudeStream } from './services/claudeService';
 import { analyzeForPro, resetProSession } from './src/pro';
 import { generateArhaVideo, generateArhaImage } from './services/geminiService';
@@ -11,7 +11,7 @@ import {
   Send, Heart, Image as ImageIcon,
   Mic, RotateCcw, LayoutDashboard,
   Menu, Video, X, History, ChevronRight, Database, Trash2,
-  Cpu, Sparkles, Paperclip, FileText, Activity, Globe, FlaskConical, Sun, Moon, Wifi
+  Cpu, Sparkles, Paperclip, FileText, Activity, Globe, FlaskConical, Sun, Moon, Wifi, User as UserIcon
 } from 'lucide-react';
 import EmotionalDashboard from './components/EmotionalDashboard';
 import ArtifactPanel from './components/ArtifactPanel';
@@ -20,7 +20,11 @@ import { useI18n } from './contexts/I18nContext';
 import type { Language } from './contexts/I18nContext';
 import LoginScreen from './components/LoginScreen';
 import ProfileSection from './components/ProfileSection';
+import UsageBanner from './components/UsageBanner';
+import AccountPage from './components/AccountPage';
 import HiSolProWorkspace from './src/components/HiSolProWorkspace';
+import { ensureProfile, getUserProfile } from './services/userProfileService';
+import { getDailyUsage, getGuestUsage, incrementDailyUsage, incrementGuestUsage, canSendMessage } from './services/usageService';
 
   import {
     savePersona, loadPersona,  saveAutosave, loadAutosave,
@@ -565,6 +569,9 @@ const App: React.FC = () => {
   const [isBgGenerating, setIsBgGenerating] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showAccountPage, setShowAccountPage] = useState(false);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [dailyUsage, setDailyUsage] = useState<DailyUsage>(() => getGuestUsage());
 
   // ── Theme toggle (Adaptive Glass) ──
   const [isDark, setIsDark] = useState(() => {
@@ -647,6 +654,18 @@ const App: React.FC = () => {
     const init = async () => {
       await migrateLocalStorageToFirestore(user);
 
+      // Load/create user profile (tier, etc.)
+      const profile = await ensureProfile(user.uid, {
+        displayName: user.displayName ?? '',
+        email: user.email ?? '',
+        photoURL: user.photoURL ?? undefined,
+      });
+      setUserProfile(profile);
+
+      // Load today's usage from Firestore (replaces guest localStorage count)
+      const usage = await getDailyUsage(user.uid);
+      setDailyUsage(usage);
+
       // Load persona — fall back to ARHA default if none saved
       const persona = await loadPersona(user.uid);
       if (persona && persona.id) setPersonaConfig(persona);
@@ -678,6 +697,14 @@ const App: React.FC = () => {
     };
 
     init();
+  }, [user]);
+
+  // ── Reset to guest state on sign-out ──
+  useEffect(() => {
+    if (!user) {
+      setUserProfile(null);
+      setDailyUsage(getGuestUsage());
+    }
   }, [user]);
 
   // ── Autosave: useRef-based debounce (2 s) ──
@@ -901,6 +928,20 @@ const App: React.FC = () => {
     if ((!input.trim() && !selectedMedia) || isLoading) return;
     setShowMenu(false);
 
+    // ── Usage limit check ──────────────────────────────────────────────
+    const tier = userProfile?.tier ?? 'guest';
+    const currentCount = userProfile ? dailyUsage.count : getGuestUsage().count;
+    if (!canSendMessage(tier, currentCount)) {
+      const limitMsg: Message = {
+        id: Date.now().toString(),
+        role: 'assistant',
+        content: '오늘 대화 한도에 도달했습니다. 내일 KST 자정에 초기화됩니다. 무제한 이용을 원하시면 유료 플랜을 이용해 주세요.',
+        timestamp: Date.now(),
+      };
+      setMessages(prev => [...prev, limitMsg]);
+      return;
+    }
+
     const userMsg: Message = {
       id: Date.now().toString(),
       role: 'user',
@@ -986,6 +1027,15 @@ const App: React.FC = () => {
         setMessages(prev => prev.map(m =>
           m.id === assistantMsgId ? { ...m, searchResults: collected } : m,
         ));
+      }
+
+      // ── Increment usage count ──────────────────────────────────────────
+      if (userProfile) {
+        incrementDailyUsage(userProfile.uid);
+        setDailyUsage(prev => ({ ...prev, count: prev.count + 1 }));
+      } else {
+        incrementGuestUsage();
+        setDailyUsage(getGuestUsage());
       }
     } catch (error) {
       setIsAnalyzing(false);
@@ -1202,6 +1252,19 @@ const App: React.FC = () => {
             <LoginScreen onClose={() => setShowLoginModal(false)} />
           </div>
         </div>
+      )}
+
+      {/* Account page modal */}
+      {showAccountPage && user && (
+        <AccountPage
+          user={user}
+          userProfile={userProfile}
+          dailyUsage={dailyUsage}
+          valueProfile={valueProfile}
+          sessions={history}
+          onClose={() => setShowAccountPage(false)}
+          onSignOut={async () => { setShowAccountPage(false); await firebaseSignOut(); }}
+        />
       )}
 
       {/* Dim overlay when sidebar is open in overlay mode */}
@@ -1825,6 +1888,8 @@ const App: React.FC = () => {
 
         {/* Footer / input area */}
         <footer className="px-3 md:px-6 py-2 md:py-4 shrink-0 safe-bottom">
+          {/* Usage banner — shown above input for guest/free tier */}
+          <UsageBanner tier={userProfile?.tier ?? 'guest'} count={dailyUsage.count} />
           <div className="flex items-center gap-2 md:gap-3 relative" ref={menuRef}>
             <button
               onClick={() => setShowMenu(!showMenu)}
@@ -1972,10 +2037,19 @@ const App: React.FC = () => {
 
                 {/* Profile / sign-in */}
                 {user ? (
-                  <ProfileSection
-                    user={user}
-                    onSignOut={async () => { setShowMenu(false); await firebaseSignOut(); }}
-                  />
+                  <>
+                    <ProfileSection
+                      user={user}
+                      onSignOut={async () => { setShowMenu(false); await firebaseSignOut(); }}
+                    />
+                    <button
+                      onClick={() => { setShowMenu(false); setShowAccountPage(true); }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[11px] font-bold text-slate-400 dark:text-white/40 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all"
+                    >
+                      <UserIcon size={13} className="shrink-0" />
+                      계정 관리
+                    </button>
+                  </>
                 ) : (
                   <button
                     onClick={() => { setShowMenu(false); setShowLoginModal(true); }}
