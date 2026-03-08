@@ -1,90 +1,152 @@
 
-import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { X, Video, Download, Film, RotateCcw, Play } from 'lucide-react';
-import { generateArhaVideo } from '../services/geminiService';
+// ═══════════════════════════════════════════════════════════
+//  Video Studio — FP 아키텍처 영상 생성 스튜디오
+//  generateVideo (videoService) + analyzePrompt (promptAnalyzer)
+//  3-panel layout: Controls | Canvas | Analysis
+// ═══════════════════════════════════════════════════════════
 
-// ── Aspect ratio ─────────────────────────────────────────────────────────────
-const ASPECT_RATIOS = [
+import React, { useState, useCallback, useRef, useEffect } from 'react'
+import { X, Download, Film, RotateCcw, Play } from 'lucide-react'
+import { generateVideo }                   from '../services/videoService'
+import { analyzePrompt, type PromptAnalysis } from '../services/promptAnalyzer'
+import { describeError }                   from '../lib/generationError'
+import { type VideoAspectRatio }           from '../lib/modelStrategy'
+import MediaAnalysisPanel                  from './MediaAnalysisPanel'
+
+// ── 상수 ──────────────────────────────────────────────────
+
+const ASPECT_RATIOS: ReadonlyArray<{
+  id:    VideoAspectRatio
+  label: string
+  desc:  string
+  w:     number
+  h:     number
+}> = [
   { id: '16:9', label: '16:9', desc: '가로형 · YouTube / 데스크탑', w: 28, h: 16 },
   { id: '9:16', label: '9:16', desc: '세로형 · Shorts / Reels',    w: 16, h: 28 },
-] as const;
+]
 
-type AspectRatio = '16:9' | '9:16';
-
-// ── Generation step labels (fake-progress for UX) ────────────────────────────
-const STEPS = [
+const STEPS: ReadonlyArray<string> = [
   '프롬프트 이해 중',
   '장면 구성 중',
   '프레임 생성 중',
   '최종 렌더링 중',
-];
+]
+
+const ANALYSIS_DEBOUNCE_MS = 900
+
+// ── Props ──────────────────────────────────────────────────
 
 interface Props {
-  onClose: () => void;
-  initialPrompt?: string;
+  onClose:        () => void
+  initialPrompt?: string
 }
 
-const VideoStudio: React.FC<Props> = ({ onClose, initialPrompt = '' }) => {
-  const [prompt, setPrompt]             = useState(initialPrompt);
-  const [aspectRatio, setAspectRatio]   = useState<AspectRatio>('16:9');
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedVideo, setGeneratedVideo] = useState<string | null>(null);
-  const [error, setError]               = useState<string | null>(null);
-  const [elapsed, setElapsed]           = useState(0);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+// ── 컴포넌트 ───────────────────────────────────────────────
 
-  // ── Elapsed timer ────────────────────────────────────────────────────────
+const VideoStudio: React.FC<Props> = ({ onClose, initialPrompt = '' }) => {
+
+  // ── 생성 상태 ──────────────────────────────────────────
+  const [prompt,         setPrompt]         = useState(initialPrompt)
+  const [aspectRatio,    setAspectRatio]    = useState<VideoAspectRatio>('16:9')
+  const [isGenerating,   setIsGenerating]   = useState(false)
+  const [generatedVideo, setGeneratedVideo] = useState<string | null>(null)
+  const [error,          setError]          = useState<string | null>(null)
+  const [elapsed,        setElapsed]        = useState(0)
+
+  // ── 분석 상태 ──────────────────────────────────────────
+  const [analysis,    setAnalysis]    = useState<PromptAnalysis | null>(null)
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
+
+  // ── 타이머 Refs ────────────────────────────────────────
+  const timerRef   = useRef<ReturnType<typeof setInterval>  | null>(null)
+  const analysisTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // ── 경과 시간 타이머 ───────────────────────────────────
   useEffect(() => {
     if (isGenerating) {
-      setElapsed(0);
-      timerRef.current = setInterval(() => setElapsed(t => t + 1), 1000);
+      setElapsed(0)
+      timerRef.current = setInterval(() => setElapsed(t => t + 1), 1000)
     } else {
-      if (timerRef.current) clearInterval(timerRef.current);
+      if (timerRef.current) clearInterval(timerRef.current)
     }
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [isGenerating]);
+    return () => { if (timerRef.current) clearInterval(timerRef.current) }
+  }, [isGenerating])
 
-  const formatTime = (s: number) =>
-    `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  // ── 프롬프트 디바운스 분석 ─────────────────────────────
+  useEffect(() => {
+    if (analysisTimerRef.current) clearTimeout(analysisTimerRef.current)
 
-  // ── Active step index based on elapsed ──────────────────────────────────
-  const activeStep = Math.min(Math.floor(elapsed / 20), STEPS.length - 1);
+    if (!prompt.trim() || prompt.length < 5) {
+      setAnalysis(null)
+      return
+    }
 
+    analysisTimerRef.current = setTimeout(async () => {
+      setIsAnalyzing(true)
+      const result = await analyzePrompt(prompt)
+      setAnalysis(result)
+      setIsAnalyzing(false)
+    }, ANALYSIS_DEBOUNCE_MS)
+
+    return () => { if (analysisTimerRef.current) clearTimeout(analysisTimerRef.current) }
+  }, [prompt])
+
+  // ── 유틸 ──────────────────────────────────────────────
+  const formatTime  = (s: number) =>
+    `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
+
+  const activeStep = Math.min(Math.floor(elapsed / 20), STEPS.length - 1)
+
+  // ── 생성 핸들러 ────────────────────────────────────────
   const handleGenerate = useCallback(async () => {
-    if (!prompt.trim() || isGenerating) return;
-    setIsGenerating(true);
-    setError(null);
+    if (!prompt.trim() || isGenerating) return
+    setIsGenerating(true)
+    setError(null)
     try {
-      const videoUrl = await generateArhaVideo(prompt, aspectRatio);
-      setGeneratedVideo(videoUrl);
-    } catch {
-      setError('영상 생성에 실패했어요. 프롬프트를 수정하거나 다시 시도해주세요.');
+      const videoUrl = await generateVideo({
+        rawPrompt:   prompt,
+        aspectRatio,
+      })
+      setGeneratedVideo(videoUrl)
+    } catch (e: unknown) {
+      const ge = e as { _tag?: string; retryAfter?: number; model?: string; reason?: string; status?: number; message?: string }
+      if (ge._tag) {
+        setError(describeError(ge as Parameters<typeof describeError>[0]))
+      } else {
+        setError('영상 생성에 실패했어요. 프롬프트를 수정하거나 다시 시도해주세요.')
+      }
     } finally {
-      setIsGenerating(false);
+      setIsGenerating(false)
     }
-  }, [prompt, aspectRatio, isGenerating]);
+  }, [prompt, aspectRatio, isGenerating])
 
   const handleDownload = () => {
-    if (!generatedVideo) return;
-    const a = document.createElement('a');
-    a.href = generatedVideo;
-    a.download = `arha-video-${Date.now()}.mp4`;
-    a.click();
-  };
+    if (!generatedVideo) return
+    const a = document.createElement('a')
+    a.href     = generatedVideo
+    a.download = `arha-video-${Date.now()}.mp4`
+    a.click()
+  }
 
+  // ── JSX ────────────────────────────────────────────────
   return (
     <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="glass-panel w-full max-w-5xl mx-4 h-[92vh] rounded-3xl overflow-hidden flex flex-col shadow-2xl">
+      <div className="glass-panel w-full max-w-6xl mx-4 h-[92vh] rounded-3xl overflow-hidden flex flex-col shadow-2xl">
 
-        {/* ── Header ── */}
+        {/* ── 헤더 ── */}
         <header className="flex items-center justify-between px-6 py-4 border-b border-black/10 dark:border-white/10 shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-xl bg-orange-500/15 flex items-center justify-center">
               <Film size={15} className="text-orange-400" />
             </div>
             <div>
-              <h2 className="text-[13px] font-black uppercase tracking-widest text-slate-700 dark:text-white/90">Video Studio</h2>
-              <p className="text-[8px] font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">ARHA × VEO 3.1 Fast</p>
+              <h2 className="text-[13px] font-black uppercase tracking-widest text-slate-700 dark:text-white/90">
+                Video Studio
+              </h2>
+              <p className="text-[8px] font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
+                ARHA × VEO 3.1 Fast
+              </p>
             </div>
           </div>
           <button
@@ -95,13 +157,13 @@ const VideoStudio: React.FC<Props> = ({ onClose, initialPrompt = '' }) => {
           </button>
         </header>
 
-        {/* ── Body ── */}
+        {/* ── 바디 (3-panel) ── */}
         <div className="flex flex-1 overflow-hidden min-h-0">
 
-          {/* ── Left: Controls ── */}
-          <aside className="w-72 shrink-0 flex flex-col gap-4 p-5 border-r border-black/10 dark:border-white/10 overflow-y-auto scroll-hide">
+          {/* ── 왼쪽: 컨트롤 패널 ── */}
+          <aside className="w-64 shrink-0 flex flex-col gap-4 p-5 border-r border-black/10 dark:border-white/10 overflow-y-auto scroll-hide">
 
-            {/* Prompt */}
+            {/* 프롬프트 */}
             <div>
               <label className="text-[8px] font-black uppercase tracking-widest text-orange-500/60 dark:text-orange-400/60 mb-1.5 block">
                 Prompt
@@ -109,15 +171,17 @@ const VideoStudio: React.FC<Props> = ({ onClose, initialPrompt = '' }) => {
               <textarea
                 value={prompt}
                 onChange={e => setPrompt(e.target.value)}
-                placeholder="장면을 구체적으로 묘사해주세요.&#10;예: 해질 무렵 바닷가를 걷는 여성, 황금빛 노을, 느린 카메라 워크"
+                placeholder={'장면을 구체적으로 묘사해주세요.\n예: 해질 무렵 바닷가를 걷는 여성, 황금빛 노을, 느린 카메라 워크'}
                 rows={7}
-                onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) handleGenerate(); }}
+                onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) handleGenerate() }}
                 className="w-full rounded-xl p-3 text-[12px] bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 text-slate-700 dark:text-white/80 placeholder:text-slate-400 dark:placeholder:text-white/25 focus:outline-none focus:border-orange-400/50 resize-none leading-relaxed"
               />
-              <p className="text-[8px] text-slate-400 dark:text-white/20 mt-1">Ctrl+Enter 로 생성 · 약 1–3분 소요</p>
+              <p className="text-[8px] text-slate-400 dark:text-white/20 mt-1">
+                Ctrl+Enter 로 생성 · 약 1–3분 소요
+              </p>
             </div>
 
-            {/* Aspect Ratio */}
+            {/* 비율 선택 */}
             <div>
               <label className="text-[8px] font-black uppercase tracking-widest text-orange-500/60 dark:text-orange-400/60 mb-1.5 block">
                 Aspect Ratio
@@ -134,30 +198,38 @@ const VideoStudio: React.FC<Props> = ({ onClose, initialPrompt = '' }) => {
                     }`}
                   >
                     <div
-                      className={`rounded-sm transition-all ${aspectRatio === ar.id ? 'bg-orange-400' : 'bg-slate-400/40 dark:bg-white/20'}`}
+                      className={`rounded-sm transition-all ${
+                        aspectRatio === ar.id ? 'bg-orange-400' : 'bg-slate-400/40 dark:bg-white/20'
+                      }`}
                       style={{ width: ar.w, height: ar.h }}
                     />
                     <div className="text-center">
-                      <p className={`text-[10px] font-black ${aspectRatio === ar.id ? 'text-orange-400' : 'text-slate-700 dark:text-white/70'}`}>
+                      <p className={`text-[10px] font-black ${
+                        aspectRatio === ar.id ? 'text-orange-400' : 'text-slate-700 dark:text-white/70'
+                      }`}>
                         {ar.label}
                       </p>
-                      <p className="text-[8px] text-slate-400 dark:text-white/30 leading-tight mt-0.5">{ar.desc}</p>
+                      <p className="text-[8px] text-slate-400 dark:text-white/30 leading-tight mt-0.5">
+                        {ar.desc}
+                      </p>
                     </div>
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Info card */}
+            {/* 모델 정보 카드 */}
             <div className="rounded-xl bg-orange-500/5 border border-orange-500/15 p-3 space-y-1.5">
-              <p className="text-[9px] font-black text-orange-400/80 uppercase tracking-widest">VEO 3.1 Fast</p>
+              <p className="text-[9px] font-black text-orange-400/80 uppercase tracking-widest">
+                VEO 3.1 Fast
+              </p>
               <p className="text-[9px] text-slate-500 dark:text-white/35 leading-relaxed">
                 Google DeepMind의 최신 영상 생성 AI.<br />
                 720p · 5초 내외 · 자연스러운 물리 시뮬레이션
               </p>
             </div>
 
-            {/* Generate CTA */}
+            {/* 생성 버튼 */}
             <button
               onClick={handleGenerate}
               disabled={isGenerating || !prompt.trim()}
@@ -174,10 +246,10 @@ const VideoStudio: React.FC<Props> = ({ onClose, initialPrompt = '' }) => {
             </button>
           </aside>
 
-          {/* ── Right: Canvas ── */}
+          {/* ── 중앙: 캔버스 ── */}
           <main className="flex-1 flex flex-col items-center justify-center p-8 overflow-hidden min-w-0">
 
-            {/* Loading */}
+            {/* 로딩 */}
             {isGenerating && (
               <div className="flex flex-col items-center gap-6 text-center max-w-xs w-full">
                 <div className="relative w-20 h-20">
@@ -187,15 +259,20 @@ const VideoStudio: React.FC<Props> = ({ onClose, initialPrompt = '' }) => {
                   <Film size={24} className="absolute inset-0 m-auto text-orange-400" />
                 </div>
                 <div>
-                  <p className="text-[14px] font-bold text-slate-700 dark:text-white/80">영상을 생성하고 있어요</p>
-                  <p className="text-[11px] text-slate-400 dark:text-white/40 mt-1">경과 시간 {formatTime(elapsed)}</p>
+                  <p className="text-[14px] font-bold text-slate-700 dark:text-white/80">
+                    영상을 생성하고 있어요
+                  </p>
+                  <p className="text-[11px] text-slate-400 dark:text-white/40 mt-1">
+                    경과 시간 {formatTime(elapsed)}
+                  </p>
                 </div>
-                {/* Progress steps */}
+
+                {/* 진행 단계 */}
                 <div className="w-full space-y-2.5 mt-2">
                   {STEPS.map((step, i) => (
                     <div key={i} className="flex items-center gap-2.5">
                       <div className={`w-2 h-2 rounded-full shrink-0 transition-all duration-700 ${
-                        i < activeStep  ? 'bg-orange-400 scale-100' :
+                        i < activeStep   ? 'bg-orange-400 scale-100' :
                         i === activeStep ? 'bg-orange-400 animate-pulse scale-125' :
                         'bg-slate-300 dark:bg-white/10 scale-75'
                       }`} />
@@ -214,17 +291,20 @@ const VideoStudio: React.FC<Props> = ({ onClose, initialPrompt = '' }) => {
               </div>
             )}
 
-            {/* Error */}
+            {/* 에러 */}
             {!isGenerating && error && (
               <div className="flex flex-col items-center gap-3 text-center max-w-xs">
                 <p className="text-[12px] text-red-400 leading-relaxed">{error}</p>
-                <button onClick={() => setError(null)} className="text-[10px] text-orange-400 hover:underline">
+                <button
+                  onClick={() => setError(null)}
+                  className="text-[10px] text-orange-400 hover:underline"
+                >
                   닫기
                 </button>
               </div>
             )}
 
-            {/* Result */}
+            {/* 결과 */}
             {!isGenerating && !error && generatedVideo && (
               <div className="flex flex-col items-center gap-4 w-full max-w-2xl animate-in fade-in duration-300">
                 <div className="rounded-2xl overflow-hidden border border-black/10 dark:border-white/10 shadow-2xl shadow-black/20 w-full bg-black">
@@ -246,7 +326,7 @@ const VideoStudio: React.FC<Props> = ({ onClose, initialPrompt = '' }) => {
                     <Download size={12} /> 다운로드
                   </button>
                   <button
-                    onClick={() => { setGeneratedVideo(null); setPrompt(''); }}
+                    onClick={() => { setGeneratedVideo(null); setPrompt('') }}
                     className="flex items-center gap-2 px-4 py-2 rounded-xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 text-slate-500 dark:text-white/40 text-[11px] font-bold hover:bg-black/10 dark:hover:bg-white/10 transition-all active:scale-95"
                   >
                     <RotateCcw size={12} /> 새로 만들기
@@ -255,7 +335,7 @@ const VideoStudio: React.FC<Props> = ({ onClose, initialPrompt = '' }) => {
               </div>
             )}
 
-            {/* Empty state */}
+            {/* 빈 상태 */}
             {!isGenerating && !error && !generatedVideo && (
               <div className="flex flex-col items-center gap-3 opacity-25">
                 <div className="w-28 h-28 rounded-3xl border-2 border-dashed border-orange-400/50 flex items-center justify-center">
@@ -270,10 +350,22 @@ const VideoStudio: React.FC<Props> = ({ onClose, initialPrompt = '' }) => {
               </div>
             )}
           </main>
+
+          {/* ── 오른쪽: 분석 패널 ── */}
+          <MediaAnalysisPanel
+            mediaType="video"
+            analysis={analysis}
+            refinement={null}
+            isAnalyzing={isAnalyzing}
+            generationParams={analysis ? {
+              model:       'VEO 3.1 Fast',
+              aspectRatio,
+            } : undefined}
+          />
         </div>
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default VideoStudio;
+export default VideoStudio
