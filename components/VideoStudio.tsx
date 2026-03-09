@@ -6,7 +6,7 @@
 // ═══════════════════════════════════════════════════════════
 
 import React, { useState, useCallback, useRef, useEffect } from 'react'
-import { X, Download, Film, RotateCcw, Play } from 'lucide-react'
+import { X, Download, Film, RotateCcw, Play, SlidersHorizontal, Brain } from 'lucide-react'
 import { generateVideo }                   from '../services/videoService'
 import { analyzePrompt, type PromptAnalysis } from '../services/promptAnalyzer'
 import { describeError }                   from '../lib/generationError'
@@ -35,6 +35,8 @@ const STEPS: ReadonlyArray<string> = [
 
 const ANALYSIS_DEBOUNCE_MS = 900
 
+type StudioTab = 'controls' | 'canvas' | 'analysis'
+
 // ── Props ──────────────────────────────────────────────────
 
 interface Props {
@@ -45,6 +47,9 @@ interface Props {
 // ── 컴포넌트 ───────────────────────────────────────────────
 
 const VideoStudio: React.FC<Props> = ({ onClose, initialPrompt = '' }) => {
+
+  // ── 모바일 탭 상태 ────────────────────────────────────
+  const [activeTab, setActiveTab] = useState<StudioTab>('controls')
 
   // ── 생성 상태 ──────────────────────────────────────────
   const [prompt,         setPrompt]         = useState(initialPrompt)
@@ -102,6 +107,7 @@ const VideoStudio: React.FC<Props> = ({ onClose, initialPrompt = '' }) => {
   const handleGenerate = useCallback(async () => {
     if (!prompt.trim() || isGenerating) return
     setIsGenerating(true)
+    setActiveTab('canvas')
     setError(null)
     try {
       const videoUrl = await generateVideo({
@@ -131,11 +137,11 @@ const VideoStudio: React.FC<Props> = ({ onClose, initialPrompt = '' }) => {
 
   // ── JSX ────────────────────────────────────────────────
   return (
-    <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="glass-panel w-full max-w-6xl mx-4 h-[92vh] rounded-3xl overflow-hidden flex flex-col shadow-2xl">
+    <div className="fixed inset-0 z-[300] flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="glass-panel w-full sm:max-w-6xl sm:mx-4 h-[90dvh] sm:h-[92vh] rounded-t-3xl sm:rounded-3xl overflow-hidden flex flex-col shadow-2xl">
 
         {/* ── 헤더 ── */}
-        <header className="flex items-center justify-between px-6 py-4 border-b border-black/10 dark:border-white/10 shrink-0">
+        <header className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-black/10 dark:border-white/10 shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-xl bg-orange-500/15 flex items-center justify-center">
               <Film size={15} className="text-orange-400" />
@@ -157,11 +163,11 @@ const VideoStudio: React.FC<Props> = ({ onClose, initialPrompt = '' }) => {
           </button>
         </header>
 
-        {/* ── 바디 (3-panel) ── */}
+        {/* ── 바디 (3-panel → 반응형) ── */}
         <div className="flex flex-1 overflow-hidden min-h-0">
 
-          {/* ── 왼쪽: 컨트롤 패널 ── */}
-          <aside className="w-64 shrink-0 flex flex-col gap-4 p-5 border-r border-black/10 dark:border-white/10 overflow-y-auto scroll-hide">
+          {/* ── 왼쪽: 컨트롤 패널 — 모바일: 탭 전환 / sm+: 항상 표시 ── */}
+          <aside className={`${activeTab === 'controls' ? 'flex' : 'hidden'} sm:flex flex-col gap-3 sm:gap-4 p-4 sm:p-5 w-full sm:w-52 lg:w-64 shrink-0 border-r border-black/10 dark:border-white/10 overflow-y-auto scroll-hide`}>
 
             {/* 프롬프트 */}
             <div>
@@ -246,8 +252,8 @@ const VideoStudio: React.FC<Props> = ({ onClose, initialPrompt = '' }) => {
             </button>
           </aside>
 
-          {/* ── 중앙: 캔버스 ── */}
-          <main className="flex-1 flex flex-col items-center justify-center p-8 overflow-hidden min-w-0">
+          {/* ── 중앙: 캔버스 — 모바일: 탭 전환 / sm+: 항상 표시 ── */}
+          <main className={`${activeTab === 'canvas' ? 'flex' : 'hidden'} sm:flex flex-1 flex-col items-center justify-center p-4 sm:p-8 overflow-hidden min-w-0`}>
 
             {/* 로딩 */}
             {isGenerating && (
@@ -351,18 +357,43 @@ const VideoStudio: React.FC<Props> = ({ onClose, initialPrompt = '' }) => {
             )}
           </main>
 
-          {/* ── 오른쪽: 분석 패널 ── */}
-          <MediaAnalysisPanel
-            mediaType="video"
-            analysis={analysis}
-            refinement={null}
-            isAnalyzing={isAnalyzing}
-            generationParams={analysis ? {
-              model:       'VEO 3.1 Fast',
-              aspectRatio,
-            } : undefined}
-          />
+          {/* ── 오른쪽: 분석 패널 — 모바일: 탭 전환 / lg+: 항상 표시 ── */}
+          <div className={`${activeTab === 'analysis' ? 'flex' : 'hidden'} lg:flex flex-col overflow-hidden min-w-0 flex-1 lg:flex-none`}>
+            <MediaAnalysisPanel
+              mediaType="video"
+              analysis={analysis}
+              refinement={null}
+              isAnalyzing={isAnalyzing}
+              generationParams={analysis ? {
+                model:       'VEO 3.1 Fast',
+                aspectRatio,
+              } : undefined}
+              className="flex-1 flex flex-col gap-4 p-4 border-l border-black/8 dark:border-white/8 overflow-y-auto scroll-hide lg:w-56 lg:flex-none"
+            />
+          </div>
         </div>
+
+        {/* ── 모바일 하단 탭 바 ── */}
+        <nav className="sm:hidden flex shrink-0 border-t border-black/10 dark:border-white/10">
+          {([
+            { id: 'controls' as StudioTab, icon: <SlidersHorizontal size={15} />, label: '설정' },
+            { id: 'canvas'   as StudioTab, icon: <Film              size={15} />, label: '결과' },
+            { id: 'analysis' as StudioTab, icon: <Brain             size={15} />, label: '분석' },
+          ] as const).map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex-1 flex flex-col items-center gap-1 py-3 transition-colors ${
+                activeTab === tab.id
+                  ? 'text-orange-400'
+                  : 'text-slate-400 dark:text-white/30'
+              }`}
+            >
+              {tab.icon}
+              <span className="text-[8px] font-black uppercase tracking-widest">{tab.label}</span>
+            </button>
+          ))}
+        </nav>
       </div>
     </div>
   )
