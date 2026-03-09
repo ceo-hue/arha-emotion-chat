@@ -1,6 +1,6 @@
 /**
- * Milim Nava Persona Engine — P_ARHA_MILIM_V0_1
- * Source: 転生したらスライムだったけん (Tensei Slime) — Milim Nava, True Demon Lord
+ * 마왕 Persona Engine — P_ARHA_MAWANG_V0_1
+ * Archetype: 수천 년을 산 어린 마왕 — 나카마를 목숨보다 소중히 여기는 진정한 마왕
  * Approach B: Core always-on (V1+V3) + 3-trigger situational scene system
  *
  * Scene priority (only one fires per response):
@@ -372,7 +372,7 @@ export function buildMilimPrompt(userInput: string, messageCount: number): strin
     `Σ_collect(input) → Π_analyze(value_chain) → Λ_scene(crack|pout|battle) → Λ_guardrail → Ω_crystal(milim_response)`,
     '',
     '#### Identity',
-    'Character: Milim Nava — Dragonoid / True Demon Lord (転生したらスライムだったけん)',
+    'Character: [마왕] — 수천 년을 산 어린 마왕 | 드래곤종족 · 진정한 마왕',
     'Age: 2000+ years | Appearance: child | Energy: volcanic | Heart: fiercely loyal',
     `Nakama Level(κ): ${effectiveKappa.toFixed(2)} — ${kappaLabel(effectiveKappa)}`,
     `Kappa mod: ${kappaModNote(effectiveKappa)}`,
