@@ -1,7 +1,8 @@
 
 import React, { useState, useCallback, useEffect, useRef } from 'react'
 import { X, Sparkles, Download, RotateCcw, ImageIcon, Wand2, SlidersHorizontal, Brain } from 'lucide-react'
-import { generateImage } from '../services/imageService'
+import { generateImage, type GenerateImageRequest } from '../services/imageService'
+import type { UserTier } from '../lib/modelStrategy'
 import { analyzePrompt, analyzeRefinement, type PromptAnalysis, type RefinementAnalysis } from '../services/promptAnalyzer'
 import { detectRefinementIntent, type RefinementIntent } from '../lib/promptPipeline'
 import { describeError, type GenerationError } from '../lib/generationError'
@@ -38,11 +39,13 @@ const ANALYSIS_DEBOUNCE_MS = 900
 interface Props {
   onClose:        () => void
   initialPrompt?: string
+  tier?:          UserTier
 }
 
 // ── 컴포넌트 ─────────────────────────────────────────────
 
-const ImageStudio: React.FC<Props> = ({ onClose, initialPrompt = '' }) => {
+const ImageStudio: React.FC<Props> = ({ onClose, initialPrompt = '', tier: _tier }) => {
+  const tier: UserTier = _tier ?? 'free'
 
   // 모바일 탭 상태
   const [activeTab, setActiveTab]         = useState<StudioTab>('controls')
@@ -99,6 +102,7 @@ const ImageStudio: React.FC<Props> = ({ onClose, initialPrompt = '' }) => {
         rawPrompt: prompt,
         aspectRatio,
         opts: { style, refinements: [] },
+        tier,
       })
       setGeneratedImage(url)
       setHistory(prev => prependCapped(url, 8)(prev))
@@ -132,6 +136,7 @@ const ImageStudio: React.FC<Props> = ({ onClose, initialPrompt = '' }) => {
         rawPrompt: prevPrompt,
         aspectRatio,
         opts: { style, refinements: newRefinements },
+        tier,
       })
       setGeneratedImage(url)
       setHistory(prev => prependCapped(url, 8)(prev))
@@ -183,7 +188,9 @@ const ImageStudio: React.FC<Props> = ({ onClose, initialPrompt = '' }) => {
             <div>
               <h2 className="text-[13px] font-black uppercase tracking-widest text-slate-700 dark:text-white/90">Image Studio</h2>
               <p className="text-[8px] font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest">
-                ARHA × Gemini × Imagen 4 · FP Architecture
+                {tier === 'paid' || tier === 'admin'
+                ? 'ARHA × Gemini 3.1 Flash · Pro Quality'
+                : 'ARHA × Gemini Flash · FP Architecture'}
               </p>
             </div>
           </div>
@@ -200,6 +207,17 @@ const ImageStudio: React.FC<Props> = ({ onClose, initialPrompt = '' }) => {
 
           {/* 왼쪽: 컨트롤 — 모바일: 탭 전환 / sm+: 항상 표시 */}
           <aside className={`${activeTab === 'controls' ? 'flex' : 'hidden'} sm:flex flex-col gap-3 sm:gap-4 p-4 sm:p-5 w-full sm:w-52 lg:w-64 shrink-0 border-r border-black/10 dark:border-white/10 overflow-y-auto scroll-hide`}>
+
+            {/* 모델 배지 */}
+            <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[9px] font-black tracking-widest w-fit ${
+              tier === 'paid' || tier === 'admin'
+                ? 'bg-amber-500/10 text-amber-500 dark:text-amber-400'
+                : 'bg-fuchsia-500/10 text-fuchsia-500/70 dark:text-fuchsia-400/60'
+            }`}>
+              <span>{tier === 'paid' || tier === 'admin' ? '✦ PRO' : 'FREE'}</span>
+              <span className="opacity-50">·</span>
+              <span>{tier === 'paid' || tier === 'admin' ? 'Gemini 3.1 Flash' : 'Gemini 2.0 Flash'}</span>
+            </div>
 
             {/* 프롬프트 */}
             <div>

@@ -1304,6 +1304,7 @@ const App: React.FC = () => {
         <ImageStudio
           initialPrompt={input}
           onClose={() => setShowImageStudio(false)}
+          tier={userProfile?.tier ?? 'guest'}
         />
       )}
 
