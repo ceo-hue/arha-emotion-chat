@@ -15,6 +15,7 @@ interface Props {
     aspectRatio: string
     style?:      string
   }
+  className?:        string
 }
 
 // ── 서브 컴포넌트들 ───────────────────────────────────────
@@ -87,6 +88,7 @@ export const MediaAnalysisPanel: React.FC<Props> = ({
   refinement,
   isAnalyzing,
   generationParams,
+  className,
 }) => {
   const isImage = mediaType === 'image'
 
@@ -100,7 +102,7 @@ export const MediaAnalysisPanel: React.FC<Props> = ({
   const Icon           = isImage ? Sparkles : Film
 
   return (
-    <aside className="w-56 shrink-0 flex flex-col gap-4 p-4 border-l border-black/8 dark:border-white/8 overflow-y-auto scroll-hide">
+    <aside className={className ?? 'w-56 shrink-0 flex flex-col gap-4 p-4 border-l border-black/8 dark:border-white/8 overflow-y-auto scroll-hide'}>
 
       {/* ── 헤더 ── */}
       <div className="flex items-center gap-2 shrink-0">
