@@ -8,7 +8,7 @@ import { GoogleGenAI } from '@google/genai'
 import { ok, err, isOk, type Result } from '../lib/fp'
 import { type GenerationError, IMAGE_RETRY_POLICY, withRetryPolicy } from '../lib/generationError'
 import { buildImagePrompt, type ImagePromptOptions } from '../lib/promptPipeline'
-import { selectImageStrategy, getMediaApiKey, type AspectRatio } from '../lib/modelStrategy'
+import { selectImageStrategy, getMediaApiKey, type AspectRatio, type UserTier } from '../lib/modelStrategy'
 
 // ── 클라이언트 ────────────────────────────────────────────
 
@@ -40,6 +40,7 @@ export type GenerateImageRequest = {
   readonly rawPrompt:  string
   readonly aspectRatio: AspectRatio
   readonly opts:       ImagePromptOptions
+  readonly tier?:      UserTier
 }
 
 // ── 이미지 생성 파이프라인 ────────────────────────────────
@@ -55,7 +56,7 @@ export type GenerateImageRequest = {
  */
 export const generateImage = async (req: GenerateImageRequest): Promise<string> => {
   const ai       = getAI()
-  const strategy = selectImageStrategy(req.opts.style)
+  const strategy = selectImageStrategy(req.opts.style, req.tier ?? 'free')
   const prompt   = buildImagePrompt(req.opts)(req.rawPrompt)
 
   return withRetryPolicy(IMAGE_RETRY_POLICY)(async () => {

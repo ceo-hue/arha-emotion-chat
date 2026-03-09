@@ -9,11 +9,15 @@
 export type AspectRatio      = '1:1' | '16:9' | '9:16' | '4:3' | '3:4'
 export type VideoAspectRatio = '16:9' | '9:16'
 
+/** 사용자 등급 — types.ts와 동일하나 lib/ 독립성 유지 위해 재선언 */
+export type UserTier = 'guest' | 'free' | 'paid' | 'admin'
+
 export type ImageModelStrategy = {
   readonly primary:  string
   readonly fallback: string
   readonly modalities: string[]
   readonly outputMimeType: string
+  readonly tier: UserTier
 }
 
 export type VideoModelStrategy = {
@@ -22,22 +26,35 @@ export type VideoModelStrategy = {
   readonly aspectRatio: VideoAspectRatio
 }
 
-// ── 환경변수 읽기 — Vite define이 리터럴만 교체하므로 직접 참조 ──
+// ── 모델 상수 ─────────────────────────────────────────────
+
+/** 무료 티어 — Gemini Flash (무료 API 티어) */
+const IMAGE_MODEL_FREE = 'gemini-2.0-flash-exp-image-generation'
+/** 유료 티어 — Gemini 3.1 Flash Image Preview (고품질, 2026.02 출시) */
+const IMAGE_MODEL_PAID = 'gemini-3.1-flash-image-preview'
+/** 공통 fallback — Imagen 4 */
+const IMAGE_FALLBACK   = 'imagen-4.0-generate-001'
 
 // ── 순수 선택 함수들 ──────────────────────────────────────
 
 /**
- * selectImageStrategy — 스타일에 따라 이미지 모델 전략 선택
+ * selectImageStrategy — 티어에 따라 이미지 모델 전략 선택
  *
- * 모든 스타일에 동일한 전략 사용.
- * 추후 스타일별 특화 모델로 확장 가능.
+ * paid / admin → gemini-3.1-flash-image-preview (고품질, 유료)
+ * free / guest → gemini-2.0-flash-exp-image-generation (무료 티어)
  */
-export const selectImageStrategy = (_style: string): ImageModelStrategy => ({
-  primary:         process.env.GEMINI_IMAGE_MODEL          ?? 'gemini-2.0-flash-exp-image-generation',
-  fallback:        process.env.GEMINI_IMAGE_FALLBACK_MODEL ?? 'imagen-4.0-generate-001',
-  modalities:      ['TEXT', 'IMAGE'],
-  outputMimeType:  'image/png',
-})
+export const selectImageStrategy = (_style: string, tier: UserTier = 'free'): ImageModelStrategy => {
+  const isPaid = tier === 'paid' || tier === 'admin'
+  return {
+    primary:        isPaid
+      ? (process.env.GEMINI_IMAGE_MODEL_PAID ?? IMAGE_MODEL_PAID)
+      : (process.env.GEMINI_IMAGE_MODEL      ?? IMAGE_MODEL_FREE),
+    fallback:       process.env.GEMINI_IMAGE_FALLBACK_MODEL ?? IMAGE_FALLBACK,
+    modalities:     ['TEXT', 'IMAGE'],
+    outputMimeType: 'image/png',
+    tier,
+  }
+}
 
 /**
  * selectVideoStrategy — 비율에 따라 영상 모델 전략 선택
