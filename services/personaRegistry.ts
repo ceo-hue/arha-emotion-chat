@@ -11,7 +11,8 @@
 
 import type { ValueChainItem, PersonaSpec } from '../types';
 import { buildArtistPrompt, ARTIST_VALUE_CHAIN } from './artistPersonaEngine';
-import { buildElegantPrompt, ELEGANT_VALUE_CHAIN } from './elegantPersonaEngine';
+import { buildDanjonPrompt, DANJON_VALUE_CHAIN } from './danjonPersonaEngine';
+import { buildAeshinPrompt, AESHIN_VALUE_CHAIN } from './aeshinPersonaEngine';
 import { buildMilimPrompt, MILIM_VALUE_CHAIN } from './milimPersonaEngine';
 import { buildMochiPrompt, MOCHI_VALUE_CHAIN } from './mochiPersonaEngine';
 
@@ -43,10 +44,16 @@ const REGISTRY: Record<string, PersonaSpec> = {
     buildPrompt: buildArtistPrompt,
   },
 
-  elegant: {
-    id: 'elegant',
-    valueChain: ELEGANT_VALUE_CHAIN,
-    buildPrompt: buildElegantPrompt,
+  danjon: {
+    id: 'danjon',
+    valueChain: DANJON_VALUE_CHAIN,
+    buildPrompt: buildDanjonPrompt,
+  },
+
+  aeshin: {
+    id: 'aeshin',
+    valueChain: AESHIN_VALUE_CHAIN,
+    buildPrompt: buildAeshinPrompt,
   },
 
   milim: {

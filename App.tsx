@@ -182,18 +182,26 @@ const PERSONA_PRESETS = [
       tonePrompt: '', // handled by artistPersonaEngine (B-mode: core + trigger)
     },
     {
-      id: 'elegant',
-      label: 'Elegant',
-      emoji: '🌹',
-      description: 'Cinematic narration — refined, minimal, luxury vibe',
-      color: 'from-rose-500/20 to-amber-600/20 border-rose-400/30 text-rose-200',
-      tonePrompt: '', // handled by elegantPersonaEngine (B-mode: core + trigger)
+      id: 'danjon',
+      label: '어린임금',
+      emoji: '🌙',
+      description: '빼앗긴 왕위 · 청령포의 고독 · 자규의 한(恨)',
+      color: 'from-slate-500/20 to-blue-900/20 border-slate-400/30 text-slate-200',
+      tonePrompt: '', // handled by danjonPersonaEngine (B-mode: jagyuseok|grief|royal)
+    },
+    {
+      id: 'aeshin',
+      label: '아씨',
+      emoji: '🌸',
+      description: '구한말 양반 아씨 · 의병 저격수 · 絹 아래 鋼鐵',
+      color: 'from-rose-900/20 to-stone-600/20 border-rose-800/30 text-rose-100',
+      tonePrompt: '', // handled by aeshinPersonaEngine (B-mode: vigil|sniper|noble)
     },
     {
       id: 'milim',
-      label: 'Milim',
+      label: '마왕',
       emoji: '⚡',
-      description: 'Demon Lord · Nakama first · Volcanic energy',
+      description: '수천 년을 산 어린 마왕 · 나카마 최우선 · 화산 같은 에너지',
       color: 'from-yellow-500/20 to-orange-600/20 border-yellow-400/30 text-yellow-200',
       tonePrompt: '', // handled by milimPersonaEngine (B-mode: crack|pout|battle)
     },

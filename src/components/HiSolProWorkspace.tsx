@@ -155,7 +155,7 @@ const HiSolProWorkspace: React.FC<HiSolProWorkspaceProps> = ({ onClose, user }) 
 
   const valueEntries = useMemo(() => {
     return Object.entries(valueProfile)
-      .sort((a, b) => b[1] - a[1])
+      .sort((a, b) => (b[1] as number) - (a[1] as number))
       .slice(0, 12);
   }, [valueProfile]);
 
