@@ -92,6 +92,8 @@ export const chatWithClaudeStream = async (
   proData?: ProModeData,
   /** 순수 Claude 모드 — true이면 ARHA 시스템 프롬프트 완전 생략 */
   pureMode?: boolean,
+  /** 모델 오버라이드 — undefined이면 서버 기본값(Sonnet) 사용 */
+  modelOverride?: string,
 ) => {
   const payload = messages.map(msg => ({
     role: msg.role,
@@ -106,7 +108,7 @@ export const chatWithClaudeStream = async (
   const response = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages: payload, personaPrompt, personaValueChain, userMode, ...(proData ? { proData } : {}), ...(pureMode ? { pureMode: true } : {}) }),
+    body: JSON.stringify({ messages: payload, personaPrompt, personaValueChain, userMode, ...(proData ? { proData } : {}), ...(pureMode ? { pureMode: true } : {}), ...(modelOverride ? { modelOverride } : {}) }),
   });
 
   if (!response.ok) {

@@ -52,6 +52,8 @@ export const en: Translations = {
   persona_arha_desc: 'Default · Sincere & Warm',
   persona_claude_label: 'Claude',
   persona_claude_desc: 'Pure Claude · No persona overlay',
+  persona_claudeopus_label: 'Claude Opus',
+  persona_claudeopus_desc: 'Pure Claude Opus 4.6 · Max performance',
   persona_artist_label: 'Artist',
   persona_artist_desc: 'Singer\'s empathy · poetic and warm',
   persona_danjon_label: '어린임금 · Young King',

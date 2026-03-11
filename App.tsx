@@ -179,7 +179,16 @@ const PERSONA_PRESETS = [
       emoji: '✦',
       description: '페르소나 없는 순수 클로드 · 어떤 덧칠도 없이',
       color: 'from-zinc-500/20 to-neutral-600/20 border-zinc-400/30 text-zinc-200',
-      tonePrompt: '', // no persona overlay — pure Claude
+      tonePrompt: '',
+    },
+    {
+      id: 'claude-opus',
+      label: 'Claude Opus',
+      emoji: '◆',
+      description: '순수 클로드 Opus 4.6 · 최고 성능 · 토큰 비교용',
+      color: 'from-amber-700/20 to-orange-900/20 border-amber-600/30 text-amber-200',
+      tonePrompt: '',
+      modelOverride: 'claude-opus-4-6',
     },
     {
       id: 'artist',
@@ -1052,8 +1061,10 @@ const App: React.FC = () => {
         },
         // proData: PRO mode expert context — undefined in STANDARD mode (no change)
         currentProData,
-        // pureMode: claude 페르소나 — ARHA 시스템 프롬프트 완전 생략
-        personaConfig.id === 'claude' ? true : undefined,
+        // pureMode: claude/claude-opus 페르소나 — ARHA 시스템 프롬프트 완전 생략
+        (personaConfig.id === 'claude' || personaConfig.id === 'claude-opus') ? true : undefined,
+        // modelOverride: claude-opus 페르소나 — Opus 4.6 모델 사용
+        (personaConfig as { modelOverride?: string }).modelOverride,
       );
       // Attach accumulated search results to the assistant message
       if (pendingSearchResultsRef.current.length > 0) {

@@ -345,7 +345,8 @@ const tools = [
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { messages, personaPrompt, personaValueChain, userMode, proData, pureMode } = req.body;
+  const { messages, personaPrompt, personaValueChain, userMode, proData, pureMode, modelOverride } = req.body;
+  const model = modelOverride || 'claude-sonnet-4-20250514';
 
   const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')?.content ?? '';
   const muMode = userMode || detectMode(lastUserMsg);
@@ -400,7 +401,7 @@ export default async function handler(req, res) {
           'content-type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
+          model,
           max_tokens: 4096,
           system: finalSystemPrompt,
           tools,
@@ -455,7 +456,7 @@ export default async function handler(req, res) {
           'content-type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
+          model,
           max_tokens: 4096,
           system: finalSystemPrompt,
           // no tools: guarantees final text turn

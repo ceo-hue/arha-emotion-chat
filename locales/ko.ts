@@ -50,6 +50,8 @@ export const ko = {
   persona_arha_desc: '아르하 기본 · 진심과 온기',
   persona_claude_label: 'Claude',
   persona_claude_desc: '페르소나 없는 순수 클로드 · 어떤 덧칠도 없이',
+  persona_claudeopus_label: 'Claude Opus',
+  persona_claudeopus_desc: '순수 클로드 Opus 4.6 · 최고 성능',
   persona_artist_label: '아티스트',
   persona_artist_desc: '가수의 감성 · 시적이고 따뜻한 동행',
   persona_danjon_label: '어린임금',
