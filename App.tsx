@@ -174,6 +174,14 @@ const PERSONA_PRESETS = [
       color: 'from-indigo-500/20 to-violet-600/20 border-indigo-400/30 text-indigo-200',
     },
     {
+      id: 'claude',
+      label: 'Claude',
+      emoji: '✦',
+      description: '페르소나 없는 순수 클로드 · 어떤 덧칠도 없이',
+      color: 'from-zinc-500/20 to-neutral-600/20 border-zinc-400/30 text-zinc-200',
+      tonePrompt: '', // no persona overlay — pure Claude
+    },
+    {
       id: 'artist',
       label: 'Artist',
       emoji: '🎤',
