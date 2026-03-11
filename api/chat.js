@@ -345,15 +345,23 @@ const tools = [
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { messages, personaPrompt, personaValueChain, userMode, proData } = req.body;
+  const { messages, personaPrompt, personaValueChain, userMode, proData, pureMode } = req.body;
 
   const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')?.content ?? '';
   const muMode = userMode || detectMode(lastUserMsg);
   const expressionMode = detectExpressionMode(lastUserMsg);
-  console.log(`🔀 Pipeline v2: ${muMode} | ExprMode: ${expressionMode} ${userMode ? '(user)' : `(auto: "${lastUserMsg.slice(0, 40)}")`}`);
 
-  const finalSystemPrompt = buildSystemPrompt(muMode, personaPrompt, personaValueChain, expressionMode)
-    + buildProSupplement(proData, expressionMode); // PRO: '' when proData undefined → no change
+  // pureMode: claude 페르소나 — ARHA 시스템 프롬프트 완전 생략, 순수 Claude 상태
+  const finalSystemPrompt = pureMode
+    ? undefined
+    : buildSystemPrompt(muMode, personaPrompt, personaValueChain, expressionMode)
+        + buildProSupplement(proData, expressionMode);
+
+  if (pureMode) {
+    console.log('✦ Pure Claude mode — ARHA system prompt bypassed');
+  } else {
+    console.log(`🔀 Pipeline v2: ${muMode} | ExprMode: ${expressionMode} ${userMode ? '(user)' : `(auto: "${lastUserMsg.slice(0, 40)}")`}`);
+  }
 
   try {
     // Normalize message format: embed media as vision/document blocks

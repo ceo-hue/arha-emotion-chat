@@ -1052,6 +1052,8 @@ const App: React.FC = () => {
         },
         // proData: PRO mode expert context — undefined in STANDARD mode (no change)
         currentProData,
+        // pureMode: claude 페르소나 — ARHA 시스템 프롬프트 완전 생략
+        personaConfig.id === 'claude' ? true : undefined,
       );
       // Attach accumulated search results to the assistant message
       if (pendingSearchResultsRef.current.length > 0) {
