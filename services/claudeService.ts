@@ -90,6 +90,8 @@ export const chatWithClaudeStream = async (
   onSearchResult?: (item: SearchResultItem) => void,
   /** PRO 모드 분석 결과 — undefined이면 STANDARD 동작과 완전 동일 */
   proData?: ProModeData,
+  /** 순수 Claude 모드 — true이면 ARHA 시스템 프롬프트 완전 생략 */
+  pureMode?: boolean,
 ) => {
   const payload = messages.map(msg => ({
     role: msg.role,
@@ -104,7 +106,7 @@ export const chatWithClaudeStream = async (
   const response = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages: payload, personaPrompt, personaValueChain, userMode, ...(proData ? { proData } : {}) }),
+    body: JSON.stringify({ messages: payload, personaPrompt, personaValueChain, userMode, ...(proData ? { proData } : {}), ...(pureMode ? { pureMode: true } : {}) }),
   });
 
   if (!response.ok) {
