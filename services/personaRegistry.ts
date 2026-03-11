@@ -38,6 +38,12 @@ const REGISTRY: Record<string, PersonaSpec> = {
     buildPrompt: null,
   },
 
+  claude: {
+    id: 'claude',
+    valueChain: [],   // no persona chain — server falls back to ARHA_DEFAULT_CHAIN
+    buildPrompt: null, // no engine — tonePrompt is '' → personaPrompt sent as null
+  },
+
   artist: {
     id: 'artist',
     valueChain: ARTIST_VALUE_CHAIN,
