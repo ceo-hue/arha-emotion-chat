@@ -345,8 +345,8 @@ const tools = [
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { messages, personaPrompt, personaValueChain, userMode, proData, pureMode, modelOverride } = req.body;
-  const model = modelOverride || 'claude-sonnet-4-20250514';
+  const { messages, personaPrompt, personaValueChain, userMode, proData, pureMode } = req.body;
+  const model = 'claude-sonnet-4-20250514';
 
   const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')?.content ?? '';
   const muMode = userMode || detectMode(lastUserMsg);

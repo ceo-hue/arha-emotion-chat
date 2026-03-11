@@ -44,12 +44,6 @@ const REGISTRY: Record<string, PersonaSpec> = {
     buildPrompt: null, // no engine — tonePrompt is '' → personaPrompt sent as null
   },
 
-  'claude-opus': {
-    id: 'claude-opus',
-    valueChain: [],
-    buildPrompt: null,
-  },
-
   artist: {
     id: 'artist',
     valueChain: ARTIST_VALUE_CHAIN,
