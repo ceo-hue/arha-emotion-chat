@@ -7,7 +7,9 @@ import {
   deleteDoc,
   query,
   orderBy,
+  limit,
   serverTimestamp,
+  writeBatch,
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Message, ChatSession, AnalysisData } from '../types';
@@ -60,12 +62,16 @@ export async function saveAutosave(
   messages: Message[],
   analysis: AnalysisData | null,
 ): Promise<void> {
-  const ref = doc(db, 'users', userId, 'autosave', 'current');
-  await setDoc(ref, {
-    messages: sanitizeMessages(messages),
-    analysis,
-    updatedAt: serverTimestamp(),
-  });
+  try {
+    const ref = doc(db, 'users', userId, 'autosave', 'current');
+    await setDoc(ref, {
+      messages: sanitizeMessages(messages),
+      analysis,
+      updatedAt: serverTimestamp(),
+    });
+  } catch (err) {
+    console.warn('[Firestore] saveAutosave failed:', err);
+  }
 }
 
 export async function loadAutosave(userId: string): Promise<{
@@ -82,29 +88,80 @@ export async function loadAutosave(userId: string): Promise<{
 // ── Chat Sessions (History) ────────────────────────────────────────────────
 
 export async function addSession(userId: string, session: ChatSession): Promise<void> {
-  const ref = doc(db, 'users', userId, 'sessions', session.id);
-  await setDoc(ref, {
-    ...session,
-    messages: sanitizeMessages(session.messages),
-  });
+  try {
+    const ref = doc(db, 'users', userId, 'sessions', session.id);
+    await setDoc(ref, {
+      ...session,
+      messages: sanitizeMessages(session.messages),
+    });
+  } catch (err) {
+    console.warn('[Firestore] addSession failed:', err);
+  }
 }
 
+// 최대 100개 세션 로드 (성능 보호)
 export async function loadSessions(userId: string): Promise<ChatSession[]> {
-  const colRef = collection(db, 'users', userId, 'sessions');
-  const q = query(colRef, orderBy('timestamp', 'desc'));
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => d.data() as ChatSession);
+  try {
+    const colRef = collection(db, 'users', userId, 'sessions');
+    const q = query(colRef, orderBy('timestamp', 'desc'), limit(100));
+    const snap = await getDocs(q);
+    return snap.docs.map((d) => d.data() as ChatSession);
+  } catch (err) {
+    console.warn('[Firestore] loadSessions failed:', err);
+    return [];
+  }
 }
 
-export async function deleteSession(userId: string, sessionId: string): Promise<void> {
-  const ref = doc(db, 'users', userId, 'sessions', sessionId);
-  await deleteDoc(ref);
+export async function deleteSession(userId: string, sessionId: string): Promise<boolean> {
+  try {
+    const ref = doc(db, 'users', userId, 'sessions', sessionId);
+    await deleteDoc(ref);
+    return true;
+  } catch (err) {
+    console.warn('[Firestore] deleteSession failed:', err);
+    return false;
+  }
 }
 
 export async function clearAllSessions(userId: string): Promise<void> {
-  const colRef = collection(db, 'users', userId, 'sessions');
-  const snap = await getDocs(colRef);
-  await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
+  try {
+    const colRef = collection(db, 'users', userId, 'sessions');
+    const snap = await getDocs(colRef);
+    if (snap.empty) return;
+    // writeBatch로 원자적 삭제 (최대 500개 단위)
+    const BATCH_SIZE = 500;
+    const docs = snap.docs;
+    for (let i = 0; i < docs.length; i += BATCH_SIZE) {
+      const batch = writeBatch(db);
+      docs.slice(i, i + BATCH_SIZE).forEach((d) => batch.delete(d.ref));
+      await batch.commit();
+    }
+  } catch (err) {
+    console.warn('[Firestore] clearAllSessions failed:', err);
+  }
+}
+
+// 계정 삭제 시 사용자 전체 데이터 삭제
+export async function deleteUserData(userId: string): Promise<void> {
+  try {
+    // 1. 세션 전체 삭제
+    await clearAllSessions(userId);
+
+    // 2. 서브컬렉션 외 단일 문서들 배치 삭제
+    const batch = writeBatch(db);
+    const subDocs = [
+      doc(db, 'users', userId, 'autosave', 'current'),
+      doc(db, 'users', userId, 'persona', 'config'),
+      doc(db, 'users', userId, 'valueProfile', 'keywords'),
+      doc(db, 'users', userId, 'usage', 'monthly'),
+      doc(db, 'users', userId, 'profile', 'info'),
+    ];
+    subDocs.forEach((d) => batch.delete(d));
+    await batch.commit();
+  } catch (err) {
+    console.warn('[Firestore] deleteUserData failed:', err);
+    throw err; // 계정 삭제 시에는 에러를 상위로 전달
+  }
 }
 
 // ── Value Profile ─────────────────────────────────────────────────────────

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { User } from 'firebase/auth';
 import { X, LogOut, Download, Trash2, Crown, Shield, User as UserIcon, CreditCard, ExternalLink } from 'lucide-react';
 import { UserProfile, DailyUsage, MonthlyUsage, TIER_LIMITS, MONTHLY_LIMITS, ChatSession } from '../types';
-import { ValueProfile, getTopKeywords } from '../services/firestoreService';
+import { ValueProfile, getTopKeywords, deleteUserData } from '../services/firestoreService';
 import { remainingMessages } from '../services/usageService';
 
 interface AccountPageProps {
@@ -267,7 +267,18 @@ export default function AccountPage({
                   </button>
                   <button
                     onClick={async () => {
-                      try { await user.delete(); } catch (_) {}
+                      try {
+                        // 1. Firestore 데이터 먼저 삭제 (Auth 삭제 전)
+                        await deleteUserData(user.uid);
+                        // 2. Firebase Auth 계정 삭제
+                        await user.delete();
+                      } catch (err) {
+                        console.error('Account deletion failed:', err);
+                        // 재인증 필요 시 사용자에게 안내
+                        if ((err as { code?: string })?.code === 'auth/requires-recent-login') {
+                          alert('보안을 위해 재로그인 후 다시 시도해 주세요.');
+                        }
+                      }
                     }}
                     className="flex-1 py-2 rounded-xl text-[11px] font-bold bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-all"
                   >

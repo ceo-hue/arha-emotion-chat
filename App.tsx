@@ -903,35 +903,76 @@ const App: React.FC = () => {
     return parts.length ? parts.join('\n') : null;
   }, [personaConfig.id, personaConfig.tonePrompt, buildValuePrompt, input, messages.length]);
 
+  // ── Archive current session to Firestore + local history ──
+  const archiveCurrentSession = useCallback(() => {
+    const userMessages = messages.filter(m => m.role === 'user');
+    const assistantMessages = messages.filter(m => m.role === 'assistant' && m.content.trim().length > 0);
+    // 실제 교환이 있는 경우만 저장 (사용자 메시지 + 어시스턴트 응답 각 1개 이상)
+    if (userMessages.length === 0 || assistantMessages.length === 0) return null;
+    const rawTitle = userMessages[0]?.content ?? '';
+    const title = rawTitle.length > 40 ? rawTitle.substring(0, 40) + '…' : rawTitle || 'Conversation';
+    const session: ChatSession = {
+      id: Date.now().toString(),
+      title,
+      messages: [...messages],
+      timestamp: Date.now(),
+      lastAnalysis: currentAnalysis || undefined,
+    };
+    setHistory(prev => {
+      // 동일 내용 중복 저장 방지 (타임스탬프 1초 이내)
+      if (prev[0] && Math.abs(prev[0].timestamp - session.timestamp) < 1000) return prev;
+      return [session, ...prev];
+    });
+    if (user) addSession(user.uid, session);
+    return session;
+  }, [messages, currentAnalysis, user]);
+
+  // ── beforeunload: 브라우저 닫기/새로고침 시 현재 대화를 히스토리에 아카이브 ──
+  const archiveRef = useRef(archiveCurrentSession);
+  useEffect(() => { archiveRef.current = archiveCurrentSession; }, [archiveCurrentSession]);
+  useEffect(() => {
+    const onUnload = () => { archiveRef.current(); };
+    window.addEventListener('beforeunload', onUnload);
+    return () => window.removeEventListener('beforeunload', onUnload);
+  }, []);
+
+  // ── 로그아웃 전 현재 세션 아카이브 후 signOut ──
+  const handleSignOut = useCallback(async () => {
+    archiveCurrentSession();
+    await firebaseSignOut();
+  }, [archiveCurrentSession, firebaseSignOut]);
+
   // ── Chat reset: archive current session ──
   const handleReset = useCallback(() => {
-    if (messages.length > 1) {
-      const session: ChatSession = {
-        id: Date.now().toString(),
-        title: messages.filter(m => m.role === 'user')[0]?.content.substring(0, 20) || 'Conversation',
-        messages: [...messages],
-        timestamp: Date.now(),
-        lastAnalysis: currentAnalysis || undefined,
-      };
-      setHistory(prev => [session, ...prev]);
-      if (user) addSession(user.uid, session);
-    }
+    archiveCurrentSession();
     setMessages([{ id: '1', role: 'assistant', content: t.resetMsg, timestamp: Date.now() }]);
     setCurrentAnalysis(null);
     setProData(null);
     resetProSession(); // Reset accumulated tech context for PRO mode
-  }, [messages, currentAnalysis, user, t.resetMsg]);
+  }, [archiveCurrentSession, t.resetMsg]);
 
-  const handleDeleteHistory = useCallback((e: React.MouseEvent, sessionId: string) => {
+  const handleDeleteHistory = useCallback(async (e: React.MouseEvent, sessionId: string) => {
     e.stopPropagation();
-    setHistory(prev => prev.filter(s => s.id !== sessionId));
-    if (user) deleteSession(user.uid, sessionId);
-  }, [user]);
+    // UI 먼저 업데이트, DB 실패 시 롤백
+    const prev = history;
+    setHistory(h => h.filter(s => s.id !== sessionId));
+    if (user) {
+      const ok = await deleteSession(user.uid, sessionId);
+      if (!ok) setHistory(prev); // 롤백
+    }
+  }, [user, history]);
 
-  const handleClearAllHistory = useCallback(() => {
+  const handleClearAllHistory = useCallback(async () => {
+    const prev = history;
     setHistory([]);
-    if (user) clearAllSessions(user.uid);
-  }, [user]);
+    if (user) {
+      try {
+        await clearAllSessions(user.uid);
+      } catch {
+        setHistory(prev); // 롤백
+      }
+    }
+  }, [user, history]);
 
   const handleFileAttach = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1304,7 +1345,7 @@ const App: React.FC = () => {
           valueProfile={valueProfile}
           sessions={history}
           onClose={() => setShowAccountPage(false)}
-          onSignOut={async () => { setShowAccountPage(false); await firebaseSignOut(); }}
+          onSignOut={async () => { setShowAccountPage(false); await handleSignOut(); }}
           onOpenPricing={() => setShowPricingModal(true)}
         />
       )}
@@ -2112,7 +2153,7 @@ const App: React.FC = () => {
                   <>
                     <ProfileSection
                       user={user}
-                      onSignOut={async () => { setShowMenu(false); await firebaseSignOut(); }}
+                      onSignOut={async () => { setShowMenu(false); await handleSignOut(); }}
                     />
                     <button
                       onClick={() => { setShowMenu(false); setShowAccountPage(true); }}
