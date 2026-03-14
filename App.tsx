@@ -612,9 +612,43 @@ const App: React.FC = () => {
     localStorage.setItem('arha-theme', isDark ? 'dark' : 'light');
   }, [isDark]);
 
-  // ── 랜딩페이지 ?q= 파라미터 → 자동 입력 ──────────────────────────────
+  // ── 랜딩페이지 ?q= / Stripe ?checkout= 파라미터 처리 ─────────────────
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+
+    // Stripe Checkout 결과 처리
+    const checkout = params.get('checkout');
+    if (checkout === 'success') {
+      window.history.replaceState({}, '', window.location.pathname);
+      // 결제 성공 → Firestore profile 재로드 (webhook이 tier='paid'로 업데이트)
+      // user가 아직 null일 수 있으므로 auth 안정화 후 처리 (짧은 딜레이)
+      const reloadProfile = async () => {
+        const { getAuth } = await import('firebase/auth');
+        const auth = getAuth();
+        const currentUser = auth.currentUser;
+        if (!currentUser) return;
+        // 최대 5번, 2초 간격으로 tier='paid' 확인 (webhook 처리 대기)
+        for (let i = 0; i < 5; i++) {
+          const profile = await getUserProfile(currentUser.uid);
+          if (profile) setUserProfile(profile);
+          if (profile?.tier === 'paid') break;
+          await new Promise(r => setTimeout(r, 2000));
+        }
+      };
+      setTimeout(reloadProfile, 1000);
+      // 성공 토스트 메시지
+      const successMsg: Message = {
+        id: `checkout-success-${Date.now()}`,
+        role: 'assistant',
+        content: '🎉 Pro 플랜 업그레이드가 완료되었습니다! 이제 무제한으로 ARHA와 대화할 수 있습니다.',
+        timestamp: Date.now(),
+      };
+      setMessages(prev => [...prev, successMsg]);
+    } else if (checkout === 'cancel') {
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+
+    // ?q= 자동 입력
     const q = params.get('q')
       || localStorage.getItem('arha-init-message')
       || sessionStorage.getItem('arha-init-message');

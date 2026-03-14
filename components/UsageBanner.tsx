@@ -1,5 +1,5 @@
 import React from 'react';
-import { UserTier, TIER_LIMITS } from '../types';
+import { UserTier, MONTHLY_LIMITS } from '../types';
 
 interface UsageBannerProps {
   tier: UserTier;
@@ -7,12 +7,12 @@ interface UsageBannerProps {
 }
 
 export default function UsageBanner({ tier, count }: UsageBannerProps) {
-  const limit = TIER_LIMITS[tier];
+  const limit = MONTHLY_LIMITS[tier];
   if (!isFinite(limit)) return null; // paid / admin — no banner
 
   const remaining = Math.max(0, limit - count);
   const ratio = count / limit;
-  const isLow = remaining <= 2;
+  const isLow = remaining <= 3;
   const isExhausted = remaining === 0;
 
   return (
@@ -36,8 +36,8 @@ export default function UsageBanner({ tier, count }: UsageBannerProps) {
       {/* Count text */}
       <span className="font-medium whitespace-nowrap shrink-0">
         {isExhausted
-          ? '오늘 한도 초과'
-          : `오늘 ${count}/${limit}회`}
+          ? '이번 달 한도 초과'
+          : `이번 달 ${count}/${limit}회`}
       </span>
     </div>
   );
