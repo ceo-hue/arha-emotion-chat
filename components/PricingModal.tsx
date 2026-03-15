@@ -13,7 +13,7 @@ const YEARLY_KRW  = 149000;
 const MONTHLY_FROM_YEARLY = Math.floor(YEARLY_KRW / 12); // 12,416
 
 const FREE_FEATURES = [
-  '하루 10회 대화',
+  '30회/월 대화',
   '기본 페르소나 5종',
   '대화 기록 저장',
 ];

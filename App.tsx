@@ -612,9 +612,43 @@ const App: React.FC = () => {
     localStorage.setItem('arha-theme', isDark ? 'dark' : 'light');
   }, [isDark]);
 
-  // ── 랜딩페이지 ?q= 파라미터 → 자동 입력 ──────────────────────────────
+  // ── 랜딩페이지 ?q= / Stripe ?checkout= 파라미터 처리 ─────────────────
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+
+    // Stripe Checkout 결과 처리
+    const checkout = params.get('checkout');
+    if (checkout === 'success') {
+      window.history.replaceState({}, '', window.location.pathname);
+      // 결제 성공 → Firestore profile 재로드 (webhook이 tier='paid'로 업데이트)
+      // user가 아직 null일 수 있으므로 auth 안정화 후 처리 (짧은 딜레이)
+      const reloadProfile = async () => {
+        const { getAuth } = await import('firebase/auth');
+        const auth = getAuth();
+        const currentUser = auth.currentUser;
+        if (!currentUser) return;
+        // 최대 5번, 2초 간격으로 tier='paid' 확인 (webhook 처리 대기)
+        for (let i = 0; i < 5; i++) {
+          const profile = await getUserProfile(currentUser.uid);
+          if (profile) setUserProfile(profile);
+          if (profile?.tier === 'paid') break;
+          await new Promise(r => setTimeout(r, 2000));
+        }
+      };
+      setTimeout(reloadProfile, 1000);
+      // 성공 토스트 메시지
+      const successMsg: Message = {
+        id: `checkout-success-${Date.now()}`,
+        role: 'assistant',
+        content: '🎉 Pro 플랜 업그레이드가 완료되었습니다! 이제 무제한으로 ARHA와 대화할 수 있습니다.',
+        timestamp: Date.now(),
+      };
+      setMessages(prev => [...prev, successMsg]);
+    } else if (checkout === 'cancel') {
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+
+    // ?q= 자동 입력
     const q = params.get('q')
       || localStorage.getItem('arha-init-message')
       || sessionStorage.getItem('arha-init-message');
@@ -914,7 +948,7 @@ const App: React.FC = () => {
     const session: ChatSession = {
       id: Date.now().toString(),
       title,
-      messages: [...messages],
+      messages: messages.filter(m => m.role !== 'system'), // system 전이 카드는 저장 제외
       timestamp: Date.now(),
       lastAnalysis: currentAnalysis || undefined,
     };
@@ -1095,6 +1129,17 @@ const App: React.FC = () => {
         currentProData,
         // pureMode: claude 페르소나 — ARHA 시스템 프롬프트 완전 생략
         personaConfig.id === 'claude' ? true : undefined,
+        // onStateTransition: 상황 기반 상태전이 — system 메시지로 삽입
+        (transition) => {
+          const transitionMsg: Message = {
+            id: `st-${Date.now()}`,
+            role: 'system',
+            content: '',
+            timestamp: Date.now(),
+            stateTransition: transition,
+          };
+          setMessages(prev => [...prev, transitionMsg]);
+        },
       );
       // Attach accumulated search results to the assistant message
       if (pendingSearchResultsRef.current.length > 0) {
@@ -1939,7 +1984,34 @@ const App: React.FC = () => {
 
         {/* Message area */}
         <div ref={scrollRef} className="flex-1 overflow-y-auto py-3 md:py-6 px-4 md:px-6 space-y-4 md:space-y-5 scroll-hide min-h-0">
-          {messages.map((msg) => (
+          {messages.map((msg) => {
+            // ── State Transition Card ─────────────────────────────────────
+            if (msg.role === 'system' && msg.stateTransition) {
+              const { emoji, label, message, color } = msg.stateTransition;
+              const colorMap: Record<string, string> = {
+                amber:  'border-amber-400/40 bg-amber-500/10 text-amber-200',
+                red:    'border-red-400/40 bg-red-500/10 text-red-200',
+                purple: 'border-purple-400/40 bg-purple-500/10 text-purple-200',
+                blue:   'border-blue-400/40 bg-blue-500/10 text-blue-200',
+                teal:   'border-teal-400/40 bg-teal-500/10 text-teal-200',
+              };
+              const cardColor = colorMap[color] ?? colorMap.amber;
+              return (
+                <div key={msg.id} className="flex justify-center animate-in fade-in slide-in-from-bottom-2 px-2">
+                  <div className={`w-full max-w-[480px] border rounded-2xl px-4 py-3 flex flex-col gap-1 ${cardColor}`}>
+                    <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-widest opacity-60">
+                      <span>{emoji}</span>
+                      <span>ARHA 상태 전이</span>
+                      <span className="opacity-40">—</span>
+                      <span>{label}</span>
+                    </div>
+                    <p className="text-[13px] leading-snug opacity-90">{message}</p>
+                  </div>
+                </div>
+              );
+            }
+
+            return (
             <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2`}>
               <div className={`max-w-[88%] md:max-w-[80%] flex flex-col gap-1.5 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
                 <div className={`px-4 md:px-5 py-2.5 md:py-3 rounded-2xl text-[14px] md:text-[15px] shadow-sm ${msg.role === 'user' ? 'chat-bubble-user' : 'chat-bubble-ai'}`}>
@@ -2002,7 +2074,8 @@ const App: React.FC = () => {
                 </span>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Footer / input area */}

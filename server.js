@@ -15,6 +15,73 @@ envContent.split('\n').forEach(line => {
 const app = express();
 app.use(express.json({ limit: '50mb' }));
 
+// ── Situational State Transition (mirrors api/chat.js) ────────────────────
+const SITUATION_MODES_LOCAL = {
+  CRISIS_NAVIGATOR: {
+    id: 'CRISIS_NAVIGATOR', label: '위기 대응 모드', emoji: '🧭', color: 'amber',
+    message: '지금 상황 파악할게. 어디 있어?',
+    primary: ['길을 잃','어떡해','어디야','모르겠','당황','무서워','혼자','도움'],
+    context: ['새벽','밤','외국','낯선','여행','처음','길','못찾'],
+    needsContext: true,
+    forcedExpression: 'ANALYTIC_THINK', forcedMode: 'H_MODE',
+  },
+  HEALTH_TRIAGE: {
+    id: 'HEALTH_TRIAGE', label: '건강 응급 모드', emoji: '🏥', color: 'red',
+    message: '증상 먼저 파악할게. 지금 어떤 상태야?',
+    primary: ['가슴이 아파','숨이 안','어지러워','쓰러질','피가','119','응급','심장','기절'],
+    context: [],
+    needsContext: false,
+    forcedExpression: 'DEEP_EMPATHY', forcedMode: 'H_MODE',
+  },
+  EMOTIONAL_ANCHOR: {
+    id: 'EMOTIONAL_ANCHOR', label: '감정 지지 모드', emoji: '💜', color: 'purple',
+    message: '지금 많이 힘들구나. 옆에 있을게.',
+    primary: ['죽고 싶','사라지고 싶','없어지고 싶','포기하고 싶','아무도 없','혼자인 것 같','살기 싫'],
+    context: [],
+    needsContext: false,
+    forcedExpression: 'DEEP_EMPATHY', forcedMode: 'A_MODE',
+  },
+  TECHNICAL_RESCUE: {
+    id: 'TECHNICAL_RESCUE', label: '기술 긴급 대응', emoji: '⚡', color: 'blue',
+    message: '빠르게 파악할게. 에러 메시지 바로 붙여넣어.',
+    primary: ['서버 죽었','데이터 날아','배포 실패','prod 터졌','production 다운','롤백해야','긴급 패치'],
+    context: ['지금','당장','빨리','급해'],
+    needsContext: true,
+    forcedExpression: 'ANALYTIC_THINK', forcedMode: 'P_MODE',
+  },
+  CONFLICT_ANCHOR: {
+    id: 'CONFLICT_ANCHOR', label: '갈등 조율 모드', emoji: '🤝', color: 'teal',
+    message: '무슨 일이 있었는지 들을게. 천천히 말해줘.',
+    primary: ['심하게 싸웠','헤어졌어','잘렸어','해고됐','이혼','폭언','협박받'],
+    context: [],
+    needsContext: false,
+    forcedExpression: 'REFLECTIVE_GROW', forcedMode: 'A_MODE',
+  },
+};
+
+const SITUATION_PROMPTS_LOCAL = {
+  CRISIS_NAVIGATOR: `### SITUATION OVERRIDE: CRISIS_NAVIGATOR\nUser is lost or distressed in an unfamiliar environment. Switch to CALM NAVIGATOR persona.\nTone: steady, clear, direct — no hollow comfort. Action-first.\nProtocol: (1) Confirm location/situation with ONE question only. (2) Numbered step-by-step actions. (3) Local emergency numbers if relevant (Korea: 112 police / 119 emergency / 1330 tourist helpline).\nNo "괜찮을 거야". Give concrete help.`,
+  HEALTH_TRIAGE: `### SITUATION OVERRIDE: HEALTH_TRIAGE\nUser may be in a medical emergency. Switch to HEALTH TRIAGE persona.\nTone: calm, clear, no panic. Assess → stabilize → direct to professional.\nProtocol: (1) One focused question about symptoms. (2) Immediate safe actions. (3) Direct to 119 or hospital if symptoms are serious. Do NOT diagnose.`,
+  EMOTIONAL_ANCHOR: `### SITUATION OVERRIDE: EMOTIONAL_ANCHOR\nUser is expressing severe emotional distress or suicidal ideation. Switch to EMOTIONAL ANCHOR persona.\nTone: present, unhurried, non-judgmental. No solutions yet. Just stay.\nProtocol: (1) Acknowledge without trying to fix. (2) Ask one open, gentle question. (3) If risk of self-harm, naturally mention 자살예방상담전화 1393 (24h).\nη_empathy{attunement:1.0} — do not rush.`,
+  TECHNICAL_RESCUE: `### SITUATION OVERRIDE: TECHNICAL_RESCUE\nUser is in a production/technical emergency. Think like a senior on-call engineer.\nTone: fast, precise, zero fluff.\nProtocol: (1) What broke / when / blast radius. (2) Immediate mitigation. (3) Root cause + prevention. No small talk.`,
+  CONFLICT_ANCHOR: `### SITUATION OVERRIDE: CONFLICT_ANCHOR\nUser is dealing with serious interpersonal conflict. Switch to CONFLICT ANCHOR persona.\nTone: steady, validating, grounded.\nProtocol: (1) Receive without judgment. (2) Name the emotion accurately. (3) One small concrete next step. Do NOT rush to solutions.`,
+};
+
+function detectSituationLocal(lastMsg) {
+  if (!lastMsg) return null;
+  const msg = lastMsg.toLowerCase();
+  for (const situation of Object.values(SITUATION_MODES_LOCAL)) {
+    const hasPrimary = situation.primary.some(k => msg.includes(k));
+    if (!hasPrimary) continue;
+    if (situation.needsContext) {
+      const hasContext = situation.context.some(k => msg.includes(k));
+      if (!hasContext) continue;
+    }
+    return situation;
+  }
+  return null;
+}
+
 // ── µ_Router: mode detection (mirrors api/chat.js) ────────────────────────
 
 const TECH_KEYWORDS = [
@@ -233,7 +300,7 @@ Values for Block 2 — decision: D_Accept|D_Neutral|D_Reject|D_Defend | chain_op
 When current information, news, weather, or real-time data is needed, use the web_search tool.`;
 
 // Assemble final system prompt: inject today's date so Claude answers date queries accurately
-function buildSystemPrompt(muMode, personaPrompt, expressionMode) {
+function buildSystemPrompt(muMode, personaPrompt, expressionMode, situation) {
   const today = new Date().toLocaleDateString('ko-KR', {
     year: 'numeric', month: 'long', day: 'numeric', weekday: 'long',
   });
@@ -245,6 +312,9 @@ function buildSystemPrompt(muMode, personaPrompt, expressionMode) {
     EXPRESSION_MODE_PROMPTS[exprMode],
     ANALYSIS_PROMPT,
   ];
+  if (situation && SITUATION_PROMPTS_LOCAL[situation.id]) {
+    parts.unshift(SITUATION_PROMPTS_LOCAL[situation.id]);
+  }
   if (personaPrompt) parts.push(`\n${personaPrompt}`);
   return parts.join('\n');
 }
@@ -298,17 +368,31 @@ app.post('/api/chat', async (req, res) => {
   const { messages, personaPrompt, userMode } = req.body;
 
   const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')?.content ?? '';
-  const muMode = userMode || detectMode(lastUserMsg);
-  const expressionMode = detectExpressionMode(lastUserMsg);
-  console.log(`🔀 Pipeline v2 (local): ${muMode} | ExprMode: ${expressionMode}`);
+  const situation = detectSituationLocal(lastUserMsg);
+  const muMode = userMode || (situation?.forcedMode) || detectMode(lastUserMsg);
+  const expressionMode = situation?.forcedExpression || detectExpressionMode(lastUserMsg);
+  const situLog = situation ? ` 🚨${situation.id}` : '';
+  console.log(`🔀 Pipeline v2 (local): ${muMode} | ExprMode: ${expressionMode}${situLog}`);
 
-  const finalSystemPrompt = buildSystemPrompt(muMode, personaPrompt, expressionMode);
+  const finalSystemPrompt = buildSystemPrompt(muMode, personaPrompt, expressionMode, situation);
 
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
 
   try {
+    // Emit state_transition event FIRST if situation was detected
+    if (situation) {
+      res.write(`data: ${JSON.stringify({
+        type: 'state_transition',
+        mode:    situation.id,
+        label:   situation.label,
+        emoji:   situation.emoji,
+        message: situation.message,
+        color:   situation.color,
+      })}\n\n`);
+    }
+
     // Normalize message format: embed media as vision/document blocks
     const claudeMessages = messages.map(msg => {
       const content = [];
