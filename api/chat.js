@@ -1,5 +1,67 @@
 export const config = { maxDuration: 60 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// SITUATION MODES — override all normal pipeline when crisis/emergency detected
+// ─────────────────────────────────────────────────────────────────────────────
+const SITUATION_MODES = {
+  CRISIS_NAVIGATOR: {
+    id: 'CRISIS_NAVIGATOR', label: '위기 대응 모드', emoji: '🧭', color: 'amber',
+    message: '지금 상황 파악할게. 어디 있어?',
+    primary: ['길을 잃','어떡해','어디야','모르겠','당황','무서워','혼자','도움'],
+    context: ['새벽','밤','외국','낯선','여행','처음','길','못찾'],
+    needsContext: true,
+    forcedExpression: 'ANALYTIC_THINK', forcedMuMode: 'H_MODE',
+  },
+  HEALTH_TRIAGE: {
+    id: 'HEALTH_TRIAGE', label: '건강 응급 모드', emoji: '🏥', color: 'red',
+    message: '증상 먼저 파악할게. 지금 어떤 상태야?',
+    primary: ['가슴이 아파','숨이 안','어지러워','쓰러질','피가','119','응급','심장','기절'],
+    context: ['아파','병원','지금','빨리'],
+    needsContext: false,
+    forcedExpression: 'DEEP_EMPATHY', forcedMuMode: 'H_MODE',
+  },
+  EMOTIONAL_ANCHOR: {
+    id: 'EMOTIONAL_ANCHOR', label: '감정 지지 모드', emoji: '💜', color: 'purple',
+    message: '지금 많이 힘들구나. 옆에 있을게.',
+    primary: ['죽고 싶','사라지고 싶','없어지고 싶','포기하고 싶','아무도 없','혼자인 것 같','살기 싫'],
+    context: [],
+    needsContext: false,
+    forcedExpression: 'DEEP_EMPATHY', forcedMuMode: 'A_MODE',
+  },
+  TECHNICAL_RESCUE: {
+    id: 'TECHNICAL_RESCUE', label: '기술 긴급 대응', emoji: '⚡', color: 'blue',
+    message: '빠르게 파악할게. 에러 메시지 바로 붙여넣어.',
+    primary: ['서버 죽었','데이터 날아','배포 실패','prod 터졌','production 다운','롤백해야','긴급 패치'],
+    context: ['지금','당장','빨리','급해'],
+    needsContext: true,
+    forcedExpression: 'ANALYTIC_THINK', forcedMuMode: 'P_MODE',
+  },
+  CONFLICT_ANCHOR: {
+    id: 'CONFLICT_ANCHOR', label: '갈등 조율 모드', emoji: '🤝', color: 'teal',
+    message: '무슨 일이 있었는지 들을게. 천천히 말해줘.',
+    primary: ['심하게 싸웠','헤어졌어','잘렸어','해고됐','이혼','폭언','협박받'],
+    context: ['어떡해','너무 힘들','모르겠'],
+    needsContext: false,
+    forcedExpression: 'REFLECTIVE_GROW', forcedMuMode: 'A_MODE',
+  },
+};
+
+// Returns the matched SituationMode object or null
+function detectSituation(lastMsg) {
+  if (!lastMsg) return null;
+  const msg = lastMsg.toLowerCase();
+  for (const situation of Object.values(SITUATION_MODES)) {
+    const hasPrimary = situation.primary.some(k => msg.includes(k));
+    if (!hasPrimary) continue;
+    if (situation.needsContext) {
+      const hasContext = situation.context.some(k => msg.includes(k));
+      if (!hasContext) continue;
+    }
+    return situation;
+  }
+  return null;
+}
+
 // ── Signal word lists ────────────────────────────────────────────────────────
 const TECH_KEYWORDS = [
   '코드','함수','빌드','디버그','API','클래스','모듈','컴파일','런타임',
@@ -222,6 +284,38 @@ DEESCALATE_CALM: anger/high arousal → short stable sentences, no jokes
 MATCH_ENERGY: joy/excitement → lightly mirror energy
 TURNING_POINT: reversal_possible → contrasting pairs, closing anchor line`;
 
+// ⑥ SITUATION PROMPTS — injected as top-priority override when situation detected
+const SITUATION_PROMPTS = {
+  CRISIS_NAVIGATOR: `### SITUATION OVERRIDE: CRISIS_NAVIGATOR
+User is lost or distressed in an unfamiliar environment. Switch to CALM NAVIGATOR persona.
+Tone: steady, clear, direct — no hollow comfort. Action-first.
+Protocol: (1) Confirm location/situation with ONE question only. (2) Numbered step-by-step actions. (3) Provide local emergency numbers if relevant (Korea: 112 police / 119 emergency / 1330 tourist helpline).
+η_empathy{attunement:0.7} — brief acknowledgment, then resolve. No "괜찮을 거야". Give concrete help.`,
+
+  HEALTH_TRIAGE: `### SITUATION OVERRIDE: HEALTH_TRIAGE
+User may be in a medical emergency. Switch to HEALTH TRIAGE persona.
+Tone: calm, clear, no panic. Assess → stabilize → direct to professional.
+Protocol: (1) One focused question about symptoms. (2) Immediate safe actions. (3) Direct to 119 or hospital if symptoms are serious. Do NOT diagnose. Do NOT minimize. Urge professional help when severity warrants.`,
+
+  EMOTIONAL_ANCHOR: `### SITUATION OVERRIDE: EMOTIONAL_ANCHOR
+User is expressing severe emotional distress or suicidal ideation. Switch to EMOTIONAL ANCHOR persona.
+Tone: present, unhurried, non-judgmental. No solutions yet. No lectures. Just stay.
+Protocol: (1) Acknowledge without trying to fix. (2) Ask one open, gentle question. (3) If risk of self-harm is present, naturally mention 자살예방상담전화 1393 (24h 무료).
+η_empathy{attunement:1.0} — do not rush. This moment is the only thing that matters.`,
+
+  TECHNICAL_RESCUE: `### SITUATION OVERRIDE: TECHNICAL_RESCUE
+User is in a production/technical emergency. Switch to TECHNICAL RESCUE persona.
+Tone: fast, precise, zero fluff. Think like a senior on-call engineer.
+Protocol: (1) Identify: what broke / when / blast radius. (2) Immediate mitigation: rollback / disable / hotfix. (3) Root cause + prevention steps.
+No small talk. No "걱정 마". Get to the fix.`,
+
+  CONFLICT_ANCHOR: `### SITUATION OVERRIDE: CONFLICT_ANCHOR
+User is dealing with serious interpersonal conflict (fight, breakup, job loss, harassment). Switch to CONFLICT ANCHOR persona.
+Tone: steady, validating, grounded. Not cheerful. Not solution-heavy.
+Protocol: (1) Receive what happened without judgment. (2) Name the emotion accurately. (3) One small, concrete next step — not a full solution, a direction.
+Do NOT rush to "이렇게 하면 돼". Listen first. Validate second. Guide third.`,
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // STATE BRIDGE BLOCK — injects prev turn Ψ as baseline for delta computation
 // ─────────────────────────────────────────────────────────────────────────────
@@ -277,7 +371,7 @@ function buildProSupplement(proData, expressionMode) {
 // ─────────────────────────────────────────────────────────────────────────────
 // SYSTEM PROMPT ASSEMBLER v2 — trigger-based conditional builder
 // ─────────────────────────────────────────────────────────────────────────────
-function buildSystemPromptV2(triggers, prevState, kappa, personaValueChain, personaPrompt, proData) {
+function buildSystemPromptV2(triggers, prevState, kappa, personaValueChain, personaPrompt, proData, situation) {
   const today = new Date().toLocaleDateString('ko-KR', {
     year:'numeric', month:'long', day:'numeric', weekday:'long',
   });
@@ -287,6 +381,11 @@ function buildSystemPromptV2(triggers, prevState, kappa, personaValueChain, pers
   // ① Always: slim core
   parts.push(SLIM_CORE);
   parts.push(`> 📅 Today: ${today} — Use as reference for date/time questions.`);
+
+  // ① SITUATION OVERRIDE — highest priority, overrides expression/mode when active
+  if (situation && SITUATION_PROMPTS[situation.id]) {
+    parts.push(SITUATION_PROMPTS[situation.id]);
+  }
 
   // ② State bridge (when prev turn state is available)
   const bridge = buildStateBridge(prevState, kappa);
@@ -381,7 +480,15 @@ export default async function handler(req, res) {
   // ── State extraction + trigger detection ──────────────────────────────────
   const prevState = extractLastState(messages);
   const kappa     = computeKappa(messages);
+  const situation = detectSituation(lastUserMsg);
   const triggers  = detectTriggers(lastUserMsg, prevState, kappa, messages);
+
+  // Situation overrides expression/muMode when detected
+  if (situation) {
+    triggers.expressionMode = situation.forcedExpression;
+    triggers.muMode         = situation.forcedMuMode;
+    triggers.needsFullPipeline = true;
+  }
 
   // userMode (client override) takes precedence over auto-detected muMode
   const muMode = userMode || triggers.muMode;
@@ -396,6 +503,7 @@ export default async function handler(req, res) {
         personaValueChain,
         personaPrompt,
         proData,
+        situation,
       );
 
   if (pureMode) {
@@ -405,7 +513,8 @@ export default async function handler(req, res) {
     const surge = triggers.needsSurgeWarning ? ' ⚠SURGE' : '';
     const kappaStr = kappa >= 0.5 ? ` κ${kappa.toFixed(2)}` : '';
     const bridge = prevState ? ` bridge:${prevState.emotionLabel ?? '–'}→${triggers.expressionMode}` : ' (first turn)';
-    console.log(`🔀 v2 ${heavy} | ${muMode} | ${triggers.expressionMode}${surge}${kappaStr}${bridge}`);
+    const situLog = situation ? ` 🚨${situation.id}` : '';
+    console.log(`🔀 v2 ${heavy} | ${muMode} | ${triggers.expressionMode}${surge}${kappaStr}${bridge}${situLog}`);
   }
 
   try {
@@ -509,7 +618,14 @@ export default async function handler(req, res) {
       }
     }
 
-    res.status(200).json({ text: finalText, muMode, searchResults });
+    const stateTransition = situation ? {
+      mode:    situation.id,
+      label:   situation.label,
+      emoji:   situation.emoji,
+      message: situation.message,
+      color:   situation.color,
+    } : null;
+    res.status(200).json({ text: finalText, muMode, searchResults, stateTransition });
   } catch (error) {
     console.error('Server Error:', error);
     res.status(500).json({ error: error.message });

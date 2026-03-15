@@ -1,4 +1,4 @@
-import { Message, AnalysisData, ArtifactContent, PipelineData, ValueChainItem, SearchResultItem, ProModeData } from '../types';
+import { Message, AnalysisData, ArtifactContent, PipelineData, ValueChainItem, SearchResultItem, ProModeData, StateTransitionData } from '../types';
 
 export type ChatCallbacks = {
   onChunk: (chunk: string) => void;
@@ -8,6 +8,7 @@ export type ChatCallbacks = {
   onMuMode?: (mode: string) => void;
   onSearching?: (query: string) => void;
   onSearchResult?: (item: SearchResultItem) => void;
+  onStateTransition?: (data: StateTransitionData) => void;
 };
 
 function parseArtifact(text: string): ArtifactContent | null {
@@ -92,6 +93,8 @@ export const chatWithClaudeStream = async (
   proData?: ProModeData,
   /** 순수 Claude 모드 — true이면 ARHA 시스템 프롬프트 완전 생략 */
   pureMode?: boolean,
+  /** 상황 기반 상태전이 알림 콜백 */
+  onStateTransition?: (data: StateTransitionData) => void,
 ) => {
   const payload = messages.map(msg => ({
     role: msg.role,
@@ -120,6 +123,9 @@ export const chatWithClaudeStream = async (
   if (contentType.includes('application/json')) {
     const data = await response.json();
     if (data.error) throw new Error(data.error);
+    if (data.stateTransition && onStateTransition) {
+      onStateTransition(data.stateTransition as StateTransitionData);
+    }
     if (data.searchResults?.length && onSearchResult) {
       data.searchResults.forEach((item: SearchResultItem) => onSearchResult(item));
     }
@@ -163,6 +169,9 @@ export const chatWithClaudeStream = async (
             onChunk(fullText.substring(lastSentIndex, safeEnd));
             lastSentIndex = safeEnd;
           }
+        } else if (parsed.type === 'state_transition') {
+          // 상황 기반 상태전이 알림
+          if (onStateTransition) onStateTransition(parsed as StateTransitionData);
         } else if (parsed.type === 'searching') {
           // 인터넷 검색 시작 알림
           if (onSearching) onSearching(parsed.query);

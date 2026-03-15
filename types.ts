@@ -50,9 +50,10 @@ export interface DailyUsage {
 
 export interface Message {
   id: string;
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'system';
   content: string;
   timestamp: number;
+  stateTransition?: StateTransitionData;  // role==='system' 일 때 세팅
   analysis?: AnalysisData;
   grounding?: GroundingSource[];
   searchResults?: SearchResultItem[];
@@ -92,6 +93,22 @@ export type MuMode = 'A_MODE' | 'P_MODE' | 'H_MODE';
 export type EmotionLabel = 'joy' | 'sadness' | 'anger' | 'anxiety' | 'neutral' | 'excitement';
 export type Trajectory = 'stable' | 'escalating' | 'cooling' | 'reversal_possible';
 export type ModulationProfile = 'NEUTRAL_STABLE' | 'WARM_SUPPORT' | 'DEESCALATE_CALM' | 'MATCH_ENERGY' | 'TURNING_POINT';
+
+// ── Situational State Transition ──────────────────────────────────────────
+export type SituationMode =
+  | 'CRISIS_NAVIGATOR'
+  | 'HEALTH_TRIAGE'
+  | 'EMOTIONAL_ANCHOR'
+  | 'TECHNICAL_RESCUE'
+  | 'CONFLICT_ANCHOR';
+
+export interface StateTransitionData {
+  mode: SituationMode;
+  label: string;
+  emoji: string;
+  message: string;
+  color: 'amber' | 'red' | 'purple' | 'blue' | 'teal';
+}
 
 // v2.0 — 7 expression modes (layered above µ_Router)
 export type ExpressionMode =

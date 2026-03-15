@@ -948,7 +948,7 @@ const App: React.FC = () => {
     const session: ChatSession = {
       id: Date.now().toString(),
       title,
-      messages: [...messages],
+      messages: messages.filter(m => m.role !== 'system'), // system 전이 카드는 저장 제외
       timestamp: Date.now(),
       lastAnalysis: currentAnalysis || undefined,
     };
@@ -1129,6 +1129,17 @@ const App: React.FC = () => {
         currentProData,
         // pureMode: claude 페르소나 — ARHA 시스템 프롬프트 완전 생략
         personaConfig.id === 'claude' ? true : undefined,
+        // onStateTransition: 상황 기반 상태전이 — system 메시지로 삽입
+        (transition) => {
+          const transitionMsg: Message = {
+            id: `st-${Date.now()}`,
+            role: 'system',
+            content: '',
+            timestamp: Date.now(),
+            stateTransition: transition,
+          };
+          setMessages(prev => [...prev, transitionMsg]);
+        },
       );
       // Attach accumulated search results to the assistant message
       if (pendingSearchResultsRef.current.length > 0) {
@@ -1973,7 +1984,34 @@ const App: React.FC = () => {
 
         {/* Message area */}
         <div ref={scrollRef} className="flex-1 overflow-y-auto py-3 md:py-6 px-4 md:px-6 space-y-4 md:space-y-5 scroll-hide min-h-0">
-          {messages.map((msg) => (
+          {messages.map((msg) => {
+            // ── State Transition Card ─────────────────────────────────────
+            if (msg.role === 'system' && msg.stateTransition) {
+              const { emoji, label, message, color } = msg.stateTransition;
+              const colorMap: Record<string, string> = {
+                amber:  'border-amber-400/40 bg-amber-500/10 text-amber-200',
+                red:    'border-red-400/40 bg-red-500/10 text-red-200',
+                purple: 'border-purple-400/40 bg-purple-500/10 text-purple-200',
+                blue:   'border-blue-400/40 bg-blue-500/10 text-blue-200',
+                teal:   'border-teal-400/40 bg-teal-500/10 text-teal-200',
+              };
+              const cardColor = colorMap[color] ?? colorMap.amber;
+              return (
+                <div key={msg.id} className="flex justify-center animate-in fade-in slide-in-from-bottom-2 px-2">
+                  <div className={`w-full max-w-[480px] border rounded-2xl px-4 py-3 flex flex-col gap-1 ${cardColor}`}>
+                    <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-widest opacity-60">
+                      <span>{emoji}</span>
+                      <span>ARHA 상태 전이</span>
+                      <span className="opacity-40">—</span>
+                      <span>{label}</span>
+                    </div>
+                    <p className="text-[13px] leading-snug opacity-90">{message}</p>
+                  </div>
+                </div>
+              );
+            }
+
+            return (
             <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2`}>
               <div className={`max-w-[88%] md:max-w-[80%] flex flex-col gap-1.5 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
                 <div className={`px-4 md:px-5 py-2.5 md:py-3 rounded-2xl text-[14px] md:text-[15px] shadow-sm ${msg.role === 'user' ? 'chat-bubble-user' : 'chat-bubble-ai'}`}>
@@ -2036,7 +2074,8 @@ const App: React.FC = () => {
                 </span>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Footer / input area */}
