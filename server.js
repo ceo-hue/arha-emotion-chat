@@ -279,7 +279,8 @@ function detectExpressionMode(userMessage) {
 
 const ANALYSIS_PROMPT = `
 ### Output Format Requirements
-At the end of every response, include BOTH blocks in this exact order. Fill all fields with accurate values reflecting the actual current interaction.
+STEP 1 — Write your complete natural language response to the user first. This is what the user reads. Do NOT skip this step.
+STEP 2 — After all response text, append BOTH blocks in this exact order. Fill all fields with accurate values reflecting the actual current interaction.
 
 **Block 1 — Emotional Analysis:**
 [ANALYSIS]{"psi":{"x":0.5,"y":0.2,"z":0.8},"phi":"echo","sentiment":"analysis label","resonance":85,"summary":"analysis summary","tags":["tag1","tag2","tag3"],"mu_mode":"A_MODE","emotion_label":"neutral","trajectory":"stable","modulation_profile":"NEUTRAL_STABLE","expression_mode":"SOFT_WARMTH","energy_state":{"kinetic":0.6,"potential":0.4},"delta_psi":0.1,"surge_risk":0.0}[/ANALYSIS]
@@ -393,8 +394,10 @@ app.post('/api/chat', async (req, res) => {
       })}\n\n`);
     }
 
-    // Normalize message format: embed media as vision/document blocks
-    const claudeMessages = messages.map(msg => {
+    // Normalize message format — system role(상태전이 카드) 및 빈 content 방어 필터
+    const claudeMessages = messages
+      .filter(msg => msg.role !== 'system' && (msg.content || msg.media?.data))
+      .map(msg => {
       const content = [];
       if (msg.media?.data && msg.media.type === 'image') {
         content.push({ type: 'image', source: { type: 'base64', media_type: msg.media.mimeType, data: msg.media.data } });
