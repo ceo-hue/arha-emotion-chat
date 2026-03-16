@@ -96,15 +96,18 @@ export const chatWithClaudeStream = async (
   /** 상황 기반 상태전이 알림 콜백 */
   onStateTransition?: (data: StateTransitionData) => void,
 ) => {
-  const payload = messages.map(msg => ({
-    role: msg.role,
-    content: msg.content,
-    media: msg.media?.data ? {
-      type: msg.media.type,
-      mimeType: msg.media.mimeType,
-      data: msg.media.data,
-    } : undefined,
-  }));
+  // system 메시지(상태전이 카드)는 UI 전용 — API 페이로드에서 제외
+  const payload = messages
+    .filter(msg => msg.role !== 'system')
+    .map(msg => ({
+      role: msg.role,
+      content: msg.content,
+      media: msg.media?.data ? {
+        type: msg.media.type,
+        mimeType: msg.media.mimeType,
+        data: msg.media.data,
+      } : undefined,
+    }));
 
   const response = await fetch('/api/chat', {
     method: 'POST',

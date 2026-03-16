@@ -1129,7 +1129,7 @@ const App: React.FC = () => {
         currentProData,
         // pureMode: claude 페르소나 — ARHA 시스템 프롬프트 완전 생략
         personaConfig.id === 'claude' ? true : undefined,
-        // onStateTransition: 상황 기반 상태전이 — system 메시지로 삽입
+        // onStateTransition: 상황 기반 상태전이 — assistantMsg 바로 앞에 삽입
         (transition) => {
           const transitionMsg: Message = {
             id: `st-${Date.now()}`,
@@ -1138,7 +1138,11 @@ const App: React.FC = () => {
             timestamp: Date.now(),
             stateTransition: transition,
           };
-          setMessages(prev => [...prev, transitionMsg]);
+          setMessages(prev => {
+            const idx = prev.findIndex(m => m.id === assistantMsgId);
+            if (idx === -1) return [...prev, transitionMsg];
+            return [...prev.slice(0, idx), transitionMsg, ...prev.slice(idx)];
+          });
         },
       );
       // Attach accumulated search results to the assistant message

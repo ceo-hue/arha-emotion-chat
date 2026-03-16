@@ -519,7 +519,10 @@ export default async function handler(req, res) {
 
   try {
     // ── Normalize messages (embed media as vision/document blocks) ──────────
-    const claudeMessages = messages.map(msg => {
+    // system role(상태전이 카드) 및 빈 content 메시지 방어 필터
+    const claudeMessages = messages
+      .filter(msg => msg.role !== 'system' && (msg.content || msg.media?.data))
+      .map(msg => {
       const content = [];
       if (msg.media?.data && msg.media.type === 'image') {
         content.push({ type:'image', source:{ type:'base64', media_type:msg.media.mimeType, data:msg.media.data } });
