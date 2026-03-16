@@ -55,6 +55,16 @@ function parseFullResponse(
     }
   }
 
+  // 안전망: Claude가 블록만 출력하고 본문을 쓰지 않은 경우 원문 그대로 노출
+  if (!displayText && fullText.trim()) {
+    console.warn('[claudeService] displayText empty after stripping — raw fullText fallback');
+    displayText = fullText
+      .replace(/\[ARTIFACT\].*?\[\/ARTIFACT\]/s, '')
+      .replace(/\[PIPELINE\].*?\[\/PIPELINE\]/s, '')
+      .replace(/\[ANALYSIS\].*?\[\/ANALYSIS\]/s, '')
+      .trim();
+  }
+
   callbacks.onChunk(displayText);
 
   // artifact 콜백
