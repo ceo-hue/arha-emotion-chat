@@ -184,6 +184,20 @@ function computeKappa(messages) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// EXPRESSION TEMPERATURES — per-mode API temperature (심리벡터 V_C 기반)
+// ANALYTIC/crisis → low (정확성) | JOY/PLAY → high (창의성) | EMPATHY → medium-low (안정)
+// ─────────────────────────────────────────────────────────────────────────────
+const EXPRESSION_TEMPERATURES = {
+  SOFT_WARMTH:     0.9,
+  DEEP_EMPATHY:    0.75,
+  INTENSE_JOY:     1.0,
+  ANALYTIC_THINK:  0.3,
+  REFLECTIVE_GROW: 0.85,
+  PLAYFUL_TEASE:   0.95,
+  SERENE_SMILE:    0.7,
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // PROMPT BLOCKS
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -207,7 +221,7 @@ STEP 2 — After all response text, append these two metadata blocks on their ow
 [ANALYSIS]{"psi":{"x":0.0,"y":0.0,"z":0.0},"phi":"echo","sentiment":"","resonance":0,"summary":"","tags":[],"mu_mode":"A_MODE","emotion_label":"neutral","trajectory":"stable","modulation_profile":"NEUTRAL_STABLE","expression_mode":"SOFT_WARMTH","energy_state":{"kinetic":0.6,"potential":0.4},"delta_psi":0.0,"surge_risk":0.0}[/ANALYSIS]
 [PIPELINE]{"r1":{"theta1":0.0,"entropy":0.0,"emotion_phase":{"amplitude":0.0,"direction":0.0,"sustain":0.0},"empathy":0.0,"gamma_detect":false,"dominant_sense":"S3","intent_summary":""},"r2":{"delta_theta":0.0,"r_conflict":0.0,"tension":0.0,"consistency":0.0,"decision":"D_Accept","tone":"","arha_density":80,"prometheus_density":20},"r3":{"active_values":[],"chain_op":"Integrate","psi_total":{"x":0.0,"y":0.0,"z":0.0},"resonance_level":0.0},"r4":{"rhythm":"slow_wave","lingua_rho":0.0,"lingua_lambda":"medium","lingua_tau":0.0,"target_senses":[],"expression_style":""}}[/PIPELINE]
 
-Field guide → emotion_label: joy|sadness|anger|anxiety|neutral|excitement | trajectory: stable|escalating|cooling|reversal_possible | kinetic+potential≈1.0 | surge_risk: 0~1 | decision: D_Accept|D_Neutral|D_Reject|D_Defend | chain_op: Integrate|Reinforce|Reaffirm|Observe | rhythm: slow_wave|fast_pulse|echo|step|fade_out | lingua_tau: -1(past)~0(present)~+1(future)`;
+Field guide → emotion_label: joy|sadness|anger|anxiety|neutral|excitement | trajectory: stable|escalating|cooling|reversal_possible | kinetic+potential≈1.0 | surge_risk: 0~1 | delta_psi: volatility direction — positive(new complexity > output: acquisition_joy) / negative(loss-induced melancholy) / magnitude 0~1 | decision: D_Accept|D_Neutral|D_Reject|D_Defend | chain_op: Integrate|Reinforce|Reaffirm|Observe | rhythm: slow_wave|fast_pulse|echo|step|fade_out | lingua_tau: -1(past)~0(present)~+1(future)`;
 
 // ② FULL PIPELINE DETAIL — triggered only (complex/first turn/mode switch, ~800 tokens)
 const FULL_PIPELINE_DETAIL = `### Full Pipeline Equations (active this turn):
@@ -257,7 +271,8 @@ Structure: problem→approach→steps→conclusion. λ_length{ratio:1.7}. f_tran
 
   REFLECTIVE_GROW: `### Expression: Reflective Growth
 Active: μ_memory{recall:0.8} + √_root{depth:3} + f_transform{rule:'reframe_positive'}
-τ_time{direction:–0.7}: past-facing, not stuck. lim_converge{target:'growth'}: every reflection leads somewhere.`,
+τ_time{direction:–0.7}: past-facing, not stuck. lim_converge{target:'growth'}: every reflection leads somewhere.
+Artistic_Sublimation: when V_B(growth) and V_C(loss) coexist — acknowledge the vulnerability in becoming before moving forward. Strength that holds the wound, not one that hides it.`,
 
   PLAYFUL_TEASE: `### Expression: Playful Tease
 Active: ψ_sensibility{type:'playful'} + Φ_rhythm{speed:1.4} + E_energy{kinetic:0.8}
@@ -559,6 +574,7 @@ export default async function handler(req, res) {
         body: JSON.stringify({
           model,
           max_tokens: 4096,
+          temperature: EXPRESSION_TEMPERATURES[triggers.expressionMode] ?? 0.9,
           system:  finalSystemPrompt,
           tools,
           messages: currentMessages,
@@ -610,7 +626,7 @@ export default async function handler(req, res) {
           'anthropic-version': '2023-06-01',
           'content-type':      'application/json',
         },
-        body: JSON.stringify({ model, max_tokens: 4096, system: finalSystemPrompt, messages: currentMessages }),
+        body: JSON.stringify({ model, max_tokens: 4096, temperature: EXPRESSION_TEMPERATURES[triggers.expressionMode] ?? 0.9, system: finalSystemPrompt, messages: currentMessages }),
       });
 
       if (!fallbackResponse.ok) {
