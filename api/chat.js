@@ -435,6 +435,11 @@ function buildSystemPromptV2(triggers, prevState, kappa, personaValueChain, pers
   // ⑨ Persona prompt (when active)
   if (personaPrompt) parts.push(`\n${personaPrompt}`);
 
+  // ⑨.5 Pipeline lock — 페르소나 tonePrompt이 파이프라인 출력을 억제하는 드리프트 방지
+  if (personaPrompt) {
+    parts.push(`[Pipeline Lock] Persona tone is active above. STEP 2 output ([ANALYSIS] + [PIPELINE] blocks) remains mandatory for every response regardless of persona. Never omit them.`);
+  }
+
   // ⑩ PRO supplement (when proData present)
   if (proData?.techExperts?.length) parts.push(buildProSupplement(proData, triggers.expressionMode));
 
