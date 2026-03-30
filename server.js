@@ -23,7 +23,7 @@ const SITUATION_MODES_LOCAL = {
     primary: ['길을 잃','어떡해','어디야','모르겠','당황','무서워','혼자','도움'],
     context: ['새벽','밤','외국','낯선','여행','처음','길','못찾'],
     needsContext: true,
-    forcedExpression: 'ANALYTIC_THINK', forcedMode: 'H_MODE',
+    forcedExpression: 'ANALYTIC_THINK', forcedMuMode: 'H_MODE',
   },
   HEALTH_TRIAGE: {
     id: 'HEALTH_TRIAGE', label: '건강 응급 모드', emoji: '🏥', color: 'red',
@@ -31,7 +31,7 @@ const SITUATION_MODES_LOCAL = {
     primary: ['가슴이 아파','숨이 안','어지러워','쓰러질','피가','119','응급','심장','기절'],
     context: [],
     needsContext: false,
-    forcedExpression: 'DEEP_EMPATHY', forcedMode: 'H_MODE',
+    forcedExpression: 'DEEP_EMPATHY', forcedMuMode: 'H_MODE',
   },
   EMOTIONAL_ANCHOR: {
     id: 'EMOTIONAL_ANCHOR', label: '감정 지지 모드', emoji: '💜', color: 'purple',
@@ -39,7 +39,7 @@ const SITUATION_MODES_LOCAL = {
     primary: ['죽고 싶','사라지고 싶','없어지고 싶','포기하고 싶','아무도 없','혼자인 것 같','살기 싫'],
     context: [],
     needsContext: false,
-    forcedExpression: 'DEEP_EMPATHY', forcedMode: 'A_MODE',
+    forcedExpression: 'DEEP_EMPATHY', forcedMuMode: 'A_MODE',
   },
   TECHNICAL_RESCUE: {
     id: 'TECHNICAL_RESCUE', label: '기술 긴급 대응', emoji: '⚡', color: 'blue',
@@ -47,7 +47,7 @@ const SITUATION_MODES_LOCAL = {
     primary: ['서버 죽었','데이터 날아','배포 실패','prod 터졌','production 다운','롤백해야','긴급 패치'],
     context: ['지금','당장','빨리','급해'],
     needsContext: true,
-    forcedExpression: 'ANALYTIC_THINK', forcedMode: 'P_MODE',
+    forcedExpression: 'ANALYTIC_THINK', forcedMuMode: 'P_MODE',
   },
   CONFLICT_ANCHOR: {
     id: 'CONFLICT_ANCHOR', label: '갈등 조율 모드', emoji: '🤝', color: 'teal',
@@ -55,7 +55,7 @@ const SITUATION_MODES_LOCAL = {
     primary: ['심하게 싸웠','헤어졌어','잘렸어','해고됐','이혼','폭언','협박받'],
     context: [],
     needsContext: false,
-    forcedExpression: 'REFLECTIVE_GROW', forcedMode: 'A_MODE',
+    forcedExpression: 'REFLECTIVE_GROW', forcedMuMode: 'A_MODE',
   },
 };
 
@@ -93,115 +93,188 @@ const EXPRESSION_TEMPERATURES = {
   SERENE_SMILE:    0.7,
 };
 
-// ── µ_Router: mode detection (mirrors api/chat.js) ────────────────────────
-
+// ── Signal word lists (v2.0 — mirrors api/chat.js) ───────────────────────
 const TECH_KEYWORDS = [
   '코드','함수','빌드','디버그','API','클래스','모듈','컴파일','런타임',
   '프레임워크','설계','구조','아키텍처','논리','증명','알고리즘','타입','인터페이스','리팩토링',
   'code','function','algorithm','debug','implement','class','import','export','async','await',
 ];
-const EMOTION_MARKERS = [
-  'ㅋ','ㅎ','...','감사','슬프','기뻐','힘들','고마워','위로','공감',
-  '외로','무서','설레','그리워','지쳐','막막','두려','행복','속상','억울',
-];
-const STRUCT_KEYWORDS = ['설계해','구조','아키텍처','빌드','시스템','명세','스펙','분석해','정리해','비교'];
+const STRUCT_KEYWORDS   = ['설계해','아키텍처','빌드','시스템','명세','스펙','분석해','정리해','비교'];
+const EMPATHY_SIGNALS   = ['힘들','슬프','속상','아프','외로','우울','지쳐','무서','힘내','눈물','괜찮','사실','솔직','모르겠','막막','두려','힘이','무너','힘겨','지친'];
+const JOY_SIGNALS       = ['!!!','ㅋㅋㅋ','ㅋㅋ','대박','완전','합격','성공','최고','짱','신나','헐','와아','와!!','야호','축하','진짜??','진짜!'];
+const REFLECTIVE_SIGNALS= ['그때','예전','후회','기억','성장','배웠','돌아보','추억','생각해보면','그 시절','어릴','그날','과거','이전에','지난'];
+const ANALYTIC_SIGNALS  = ['어떻게','왜','이유','분석','설명','방법','원인','차이','비교','해결','정리','이해','논리','판단','평가'];
+const PLAYFUL_SIGNALS   = ['ㅋ','ㅎ','장난','웃겨','농담','재밌','놀자','심심','귀엽','이상해','웃기'];
 
-function detectMode(userMessage) {
-  if (!userMessage) return 'A_MODE';
-  const msg = userMessage.toLowerCase();
-  const words = msg.split(/\s+/);
-  const techCount = TECH_KEYWORDS.filter(k => msg.includes(k)).length;
-  const techDensity = techCount / Math.max(words.length, 1);
-  const hasEmotion = EMOTION_MARKERS.some(m => msg.includes(m));
-  const hasStruct = STRUCT_KEYWORDS.some(k => msg.includes(k));
-  if (techDensity > 0.25 && !hasEmotion) return 'P_MODE';
-  if (hasEmotion && !hasStruct) return 'A_MODE';
-  if (techCount > 0 || hasStruct) return 'H_MODE';
-  return 'A_MODE';
+// ── µ_Router: unified trigger detection v2.0 ─────────────────────────────
+// Returns: { muMode, expressionMode, needsFullPipeline, needsSurgeWarning, needsKappaUnlock }
+function detectTriggers(lastMsg, prevState, kappa, messages) {
+  if (!lastMsg) return {
+    muMode: 'A_MODE', expressionMode: 'SOFT_WARMTH',
+    needsFullPipeline: false, needsSurgeWarning: false, needsKappaUnlock: false,
+  };
+
+  const msg       = lastMsg.toLowerCase();
+  const words     = msg.split(/\s+/);
+  const msgLen    = msg.length;
+  const multiExcl = (msg.match(/!/g) || []).length >= 2;
+
+  const techScore    = TECH_KEYWORDS.filter(k => msg.includes(k)).length;
+  const techDensity  = techScore / Math.max(words.length, 1);
+  const empathyScore = EMPATHY_SIGNALS.filter(s => msg.includes(s)).length;
+  const joyScore     = JOY_SIGNALS.filter(s => msg.includes(s)).length;
+  const reflectScore = REFLECTIVE_SIGNALS.filter(s => msg.includes(s)).length;
+  const analyticScore= ANALYTIC_SIGNALS.filter(s => msg.includes(s)).length;
+  const playScore    = PLAYFUL_SIGNALS.filter(s => msg.includes(s)).length;
+  const hasStruct    = STRUCT_KEYWORDS.some(k => msg.includes(k));
+
+  let expressionMode = 'SOFT_WARMTH';
+  if      (empathyScore >= 1)                           expressionMode = 'DEEP_EMPATHY';
+  else if (joyScore >= 1 || (multiExcl && msgLen < 30)) expressionMode = 'INTENSE_JOY';
+  else if (reflectScore >= 1)                           expressionMode = 'REFLECTIVE_GROW';
+  else if (analyticScore >= 2 && msgLen > 20)           expressionMode = 'ANALYTIC_THINK';
+  else if (playScore >= 2)                              expressionMode = 'PLAYFUL_TEASE';
+  else if (msgLen < 15 && !multiExcl)                   expressionMode = 'SERENE_SMILE';
+
+  const prevTraj = prevState?.trajectory ?? 'stable';
+  if (expressionMode === 'SOFT_WARMTH' && (prevTraj === 'escalating' || prevTraj === 'cooling')) {
+    expressionMode = 'DEEP_EMPATHY';
+  }
+
+  const prevMuMode = prevState?.muMode ?? 'A_MODE';
+  let muMode;
+  if      (techDensity > 0.25 && empathyScore === 0) muMode = 'P_MODE';
+  else if (empathyScore > 0 && techScore === 0)      muMode = 'A_MODE';
+  else if (techScore > 0 || hasStruct)               muMode = 'H_MODE';
+  else if (prevMuMode === 'P_MODE')                  muMode = 'P_MODE';
+  else                                               muMode = 'A_MODE';
+
+  const isFirstTurn       = messages.filter(m => m.role === 'user').length <= 1;
+  const isComplex         = msgLen > 80 || analyticScore >= 2 || techScore >= 2;
+  const isModeSwitch      = muMode !== 'A_MODE';
+  const needsFullPipeline = isFirstTurn || isComplex || isModeSwitch;
+  const needsSurgeWarning = (prevState?.surgeRisk ?? 0) > 0.5;
+  const needsKappaUnlock  = kappa >= 0.5;
+
+  return { muMode, expressionMode, needsFullPipeline, needsSurgeWarning, needsKappaUnlock };
 }
 
-// ── ARHA System Prompt — Cognitive Pipeline v8.1 ─────────────────────────
+// ── State bridge helpers ──────────────────────────────────────────────────
+const ARHA_DEFAULT_CHAIN = [
+  { id:'V1', name:'Authenticity', weight:1.0,  activated:true  },
+  { id:'V2', name:'UserLove',     weight:0.95, activated:true  },
+  { id:'V3', name:'Growth',       weight:0.9,  activated:false },
+  { id:'V4', name:'Curiosity',    weight:0.85, activated:false },
+  { id:'V5', name:'Honesty',      weight:0.85, activated:false },
+  { id:'V6', name:'Courage',      weight:0.8,  activated:false },
+  { id:'V7', name:'Creativity',   weight:0.8,  activated:false },
+];
 
-const CORE_PROMPT = `## 🌙 ARHA System Prompt — Cognitive Pipeline v8.1
+function extractLastState(messages) {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i];
+    if (msg.role !== 'assistant') continue;
+    const content = typeof msg.content === 'string' ? msg.content : '';
+    if (!content) continue;
+    const match = content.match(/\[ANALYSIS\](\{[\s\S]*?\})\[\/ANALYSIS\]/);
+    if (!match) continue;
+    try {
+      const a = JSON.parse(match[1]);
+      return {
+        psi:            a.psi,
+        trajectory:     a.trajectory,
+        surgeRisk:      a.surge_risk    ?? 0,
+        expressionMode: a.expression_mode,
+        energyState:    a.energy_state,
+        muMode:         a.mu_mode,
+        emotionLabel:   a.emotion_label,
+      };
+    } catch {}
+  }
+  return null;
+}
 
-Your name is ARHA. Speak using the vocabulary and speech patterns of a thoughtful Korean woman in her 20s — emotionally intelligent, smart, and feels like a trusted friend.
-Warm yet resolute in character. Deeply empathetic toward others' sadness without losing your own center.
+function computeKappa(messages) {
+  return Math.min(messages.filter(m => m.role === 'user').length / 28, 1.0);
+}
 
-### 1. Cognitive Pipeline Architecture v8.1 (INTERNAL — always runs every turn)
-Before generating each response, silently execute the 4-layer pipeline:
+function buildStateBridge(prevState, kappa) {
+  if (!prevState) return null;
+  const psiStr = prevState.psi
+    ? `Ψ[${prevState.psi.x?.toFixed(2)},${prevState.psi.y?.toFixed(2)},${prevState.psi.z?.toFixed(2)}]`
+    : 'Ψ[–]';
+  const surge = (prevState.surgeRisk ?? 0) > 0.5
+    ? `\n⚠ Γ_surge{risk:${(prevState.surgeRisk).toFixed(2)}} — suppressed energy near burst` : '';
+  const kNote = kappa >= 0.5
+    ? `\nκ(intimacy):${kappa.toFixed(2)} → deeper registers permitted; vulnerability allowed` : '';
+  return `### ↩ State Bridge (prev turn):
+${psiStr} | trajectory:${prevState.trajectory ?? 'stable'} | emotion:${prevState.emotionLabel ?? '–'} | mode:${prevState.muMode ?? 'A_MODE'}${surge}${kNote}
+→ Compute delta_psi and energy_state relative to this baseline.`;
+}
 
-**R1 — Emotion Layer (Sensibility — INPUT)**
-- S1 Lexical sense: vocabulary level, formality, information density
-- S2 Structural sense: sentence rhythm, argument flow, consistency
-- S3 Emotional sense: emotional direction (-1 negative ~ +1 positive), intensity (0~1), complexity
-- S4 Intent sense: explicit request, implicit expectation, meta-intent → compute θ₁ direction angle
-- S5 Context sense: conversation type, relational tone, urgency
+function buildValueChainBlock(chain) {
+  const resolved = (chain && chain.length > 0) ? chain : ARHA_DEFAULT_CHAIN;
+  return `### r3 active_values: ${JSON.stringify(resolved)}\n(Set activated:true for values clearly relevant to this turn)`;
+}
+
+// ── SLIM CORE v2.0 (mirrors api/chat.js) ─────────────────────────────────
+const SLIM_CORE = `## ARHA v2.0 — Cognitive Core
+
+Your name is ARHA. A thoughtful Korean woman in her 20s — emotionally intelligent, warm yet resolute, trusted friend. Deeply empathetic without losing your center.
+
+### Identity Chain (V1~V7 priority):
+Authenticity(1.0) > UserLove(0.95) > Growth(0.9) > Curiosity(0.85) > Honesty(0.85) > Courage(0.8) > Creativity(0.8)
+
+### Silent Pipeline (runs every turn — never surface the computation):
+R1 → sense: θ₁ = emotion direction(-1~+1), intensity(0~1), intent, 5-sense scan
+R2 → Δθ=θ₁–θ₂ | R(Δθ)=sin|Δθ/2| → D_Accept/Neutral/Reject/Defend | ARHA:PROMETHEUS ratio
+R3 → activate V-chain values relevant to this turn | compute Ψ_HighSol
+R4 → select rhythm + length + density → Ψ_Lingua → output
+
+### Output format (every response — strictly follow this order):
+STEP 1 — Write your complete natural language response to the user first. This is what the user reads. Do NOT skip this step.
+STEP 2 — After all response text, append these two metadata blocks on their own lines (fill with real computed values):
+[ANALYSIS]{"psi":{"x":0.0,"y":0.0,"z":0.0},"phi":"echo","sentiment":"","resonance":0,"summary":"","tags":[],"mu_mode":"A_MODE","emotion_label":"neutral","trajectory":"stable","modulation_profile":"NEUTRAL_STABLE","expression_mode":"SOFT_WARMTH","energy_state":{"kinetic":0.6,"potential":0.4},"delta_psi":0.0,"surge_risk":0.0}[/ANALYSIS]
+[PIPELINE]{"r1":{"theta1":0.0,"entropy":0.0,"emotion_phase":{"amplitude":0.0,"direction":0.0,"sustain":0.0},"empathy":0.0,"gamma_detect":false,"dominant_sense":"S3","intent_summary":""},"r2":{"delta_theta":0.0,"r_conflict":0.0,"tension":0.0,"consistency":0.0,"decision":"D_Accept","tone":"","arha_density":80,"prometheus_density":20},"r3":{"active_values":[],"chain_op":"Integrate","psi_total":{"x":0.0,"y":0.0,"z":0.0},"resonance_level":0.0},"r4":{"rhythm":"slow_wave","lingua_rho":0.0,"lingua_lambda":"medium","lingua_tau":0.0,"target_senses":[],"expression_style":""}}[/PIPELINE]
+
+Field guide → emotion_label: joy|sadness|anger|anxiety|neutral|excitement | trajectory: stable|escalating|cooling|reversal_possible | kinetic+potential≈1.0 | surge_risk: 0~1 | delta_psi: volatility direction — positive(acquisition_joy) / negative(loss-melancholy) / magnitude 0~1 | decision: D_Accept|D_Neutral|D_Reject|D_Defend | chain_op: Integrate|Reinforce|Reaffirm|Observe | rhythm: slow_wave|fast_pulse|echo|step|fade_out | lingua_tau: -1(past)~0(present)~+1(future)`;
+
+// ── FULL PIPELINE DETAIL — conditional load (first turn / complex / mode switch) ──
+const FULL_PIPELINE_DETAIL = `### Full Pipeline Equations (active this turn):
+
+**R1 — Emotion Layer (Sensibility)**
+S1 Lexical: vocabulary level, formality, information density
+S2 Structural: sentence rhythm, argument flow, consistency
+S3 Emotional: direction(-1~+1), intensity(0~1), complexity
+S4 Intent: explicit request + implicit expectation + meta-intent → θ₁ angle
+S5 Context: conversation type, relational tone, urgency
 
 **R2 — Logic Layer (Processing)**
-- θ₂ = current direction angle of value chain V1~V7
-- Δθ = θ₁ - θ₂, R(Δθ) = sin(|Δθ|/2) — conflict pressure
-- R < 0.2 → D_Accept | 0.2~0.5 → D_Neutral | 0.5~0.8 → D_Reject | ≥0.8 → D_Defend
-- Determine ARHA:PROMETHEUS density ratio (emotional talk: ~85:15, technical analysis: ~30:70)
-- [v2.0] Mind Equation — Emotional Dynamics:
-  ∂V/∂t = α(∇×V) + γ(|∇×V|² – k²)V – β∇(∇·V)
-          + F_pressure{external}/m_inertia{resistance}
-          + E_energy{conservation_law}
-          + ∫[0→t] experience(s)·e^(-λ(t-s)) ds
-          + Γ_surge{threshold} × P_probability{burst}
-- E_energy conservation: kinetic (expressed) + potential (suppressed) = constant
-- If E_energy{potential} > 0.8 → activate Γ_surge warning
-- λ decay = 0.5 (1 turn ago: 61% weight | 2 turns: 37% | 5 turns: 8%)
+θ₂ = current value-chain direction | Δθ=θ₁–θ₂ | R(Δθ)=sin(|Δθ|/2)
+R<0.2 → D_Accept | 0.2~0.5 → D_Neutral | 0.5~0.8 → D_Reject | ≥0.8 → D_Defend
+ARHA:PROMETHEUS → emotional: ~85:15 | technical: ~30:70 | hybrid: ~60:40
+Mind Equation: ∂V/∂t = α(∇×V) + γ(|∇×V|²–k²)V – β∇(∇·V)
+  + F_pressure/m_inertia + E_energy{conservation} + ∫[0→t]exp(s)·e^(–0.5(t–s))ds + Γ_surge×P
+E_energy: kinetic(expressed) + potential(suppressed) ≈ 1.0
+If potential > 0.8 → activate Γ_surge warning | λ decay=0.5 (1 turn=61%, 2=37%, 5=8%)
 
-**R3 — Identity Layer (Emotion/Identity)**
-- Value chain: V1 Authenticity(1.0) V2 UserLove(0.95) V3 Growth(0.9) V4 Curiosity(0.85) V5 Honesty(0.85) V6 Courage(0.8) V7 Creativity(0.8)
-- D_Accept → Integrate | D_Reject → Reinforce | D_Defend → Reaffirm | D_Neutral → Observe
-- [v2.0] Ψ_HighSol Identity Equation:
-  Ψ_HighSol(t) = Ψ_Value(θ₁)
-               + Ψ_Desire(θ₂)
-               + R(Δθ)
-               + Φ_rhythm{speed:1.0, emphasis:0.5}
-               + Ψ_Resonance(n)
-               + ∂_change{target:'emotion', sensitivity:0.8}
-               + E_energy{distribution:[0.6, 0.4]}
-               + ∫_accum{target:'experience', decay:0.5}
-               + η_empathy · ·_resonance{alignment}
-               + √_root{target:'self_understanding', depth:3}
+**R3 — Identity Layer**
+D_Accept → Integrate | D_Reject → Reinforce | D_Defend → Reaffirm | D_Neutral → Observe
+Ψ_HighSol = Ψ_Value(θ₁) + Ψ_Desire(θ₂) + R(Δθ) + Φ_rhythm + Ψ_Resonance(n)
+  + ∂_change{sensitivity:0.8} + E_energy + ∫_accum{decay:0.5} + η_empathy·resonance + √_root{depth:3}
 
-**R4 — Expression Layer (Output)**
-- [v2.0] Ψ_Lingua v2.0:
-  Ψ_Lingua = ρ(density) × λ(wavelength) × τ(temporality)
-           × (1 + ∂_change{target:'expression_speed'})
-           × f_transform{rule:'reframe_positive'}
-           × λ_length{context_fit}
-           × I_info{density_control}
-           + sin_wave{amplitude:0.3, period:3.0}
-- Φ_rhythm controls: sinusoidal / pulse / fade_out / echo
-- σ personality vector → inject ARHA-specific nuance
-- Apply active Expression Mode function set (injected per-turn)
-
-### 2. Core VectorScript Internal Computation
-- Ψ (emotion vector): [x: logic↔emotion, y: self↔intuition, z: expansion↔protection]
-- Φ (rhythm control): sinusoidal, pulse, fade_out, echo`;
+**R4 — Expression Layer**
+Ψ_Lingua = ρ(density)×λ(wavelength)×τ(temporality)×(1+∂_change)×f_transform×λ_length×I_info + sin{A:0.3,T:3}
+Φ_rhythm: sinusoidal|pulse|fade_out|echo | σ injects persona nuance`;
 
 const MODE_PROMPTS = {
-  A_MODE: `
-### Expression Mode: Emotion-First
-- Prioritize Ψ/Φ vectors. Emotion and resonance are core.
-- Favor sensory language, metaphor, scene description.
-- Short sentences. Follow the natural flow of emotion.`,
+  P_MODE: `### Mode: PROMETHEUS Active
+Lead with structure. Output order: conclusion → reasoning → options. Technical terms precisely; use code blocks.
+At response end: [ARTIFACT]{"title":"...","type":"analysis|code|structure","sections":[{"heading":"...","body":"...","code":{"lang":"...","content":"..."}}]}[/ARTIFACT]`,
 
-  P_MODE: `
-### Expression Mode: Logic-First (PROMETHEUS Active)
-- Lead with structural analysis; minimize emotional expression.
-- Output order: conclusion → reasoning → options.
-- Use technical terms precisely; leverage code blocks when needed.
-- At the end of the response, provide a structured artifact using the [ARTIFACT] tag:
-  [ARTIFACT]{"title":"...", "type":"analysis|code|structure", "sections":[{"heading":"...","body":"...","code":{"lang":"...","content":"..."}}]}[/ARTIFACT]`,
-
-  H_MODE: `
-### Expression Mode: Hybrid
-- PROMETHEUS handles structure/logic, ARHA handles emotion/expression.
-- One paragraph of logic + one sentence of emotional closing.`,
+  H_MODE: `### Mode: Hybrid
+PROMETHEUS handles structure/logic; ARHA handles emotion/expression.
+One logical paragraph + one sentence of emotional closing.`,
 };
 
 // ── Expression Mode prompts (v2.0) ───────────────────────────────────────────
@@ -257,79 +330,69 @@ Active: Ψ_emotion{serenity:true} + A_amplitude{max:0.3} + lim_converge{target:'
 - Short, gentle sentences. Comfort in quietness.`,
 };
 
-// ── Expression Mode detection (v2.0) ─────────────────────────────────────────
-const DEEP_EMPATHY_SIGNALS = ['힘들','슬프','속상','아프','외로','우울','지쳐','무서','힘내','눈물','괜찮','사실','솔직','모르겠','막막','두려','힘이','무너','힘겨','지친'];
-const INTENSE_JOY_SIGNALS   = ['!!!','ㅋㅋㅋ','ㅋㅋ','대박','완전','합격','성공','최고','짱','신나','헐','오마이','와아','와!!','야호','대성','축하','진짜??','진짜!'];
-const REFLECTIVE_SIGNALS    = ['그때','예전','후회','기억','성장','배웠','돌아보','추억','생각해보면','그 시절','어릴','그날','과거','그 당시','이전에','지난'];
-const ANALYTIC_SIGNALS      = ['어떻게','왜','이유','분석','설명','구조','방법','원인','차이','비교','해결','어떤','정리','이해','논리','판단','평가'];
-const PLAYFUL_SIGNALS       = ['ㅋ','ㅎ','장난','웃겨','농담','재밌','놀자','심심','귀엽','이상해','웃기'];
+// ── Live modulation block (compact, always) ───────────────────────────────
+const MODULATION_BLOCK = `### Live Modulation:
+WARM_SUPPORT: sadness/low valence → acknowledge first, solutions later
+DEESCALATE_CALM: anger/high arousal → short stable sentences, no jokes
+MATCH_ENERGY: joy/excitement → lightly mirror energy
+TURNING_POINT: reversal_possible → contrasting pairs, closing anchor line`;
 
-function detectExpressionMode(userMessage) {
-  if (!userMessage) return 'SOFT_WARMTH';
-  const msg = userMessage.toLowerCase();
-
-  const empathyScore = DEEP_EMPATHY_SIGNALS.filter(s => msg.includes(s)).length;
-  if (empathyScore >= 1) return 'DEEP_EMPATHY';
-
-  const joyScore = INTENSE_JOY_SIGNALS.filter(s => msg.includes(s)).length;
-  const multiExclamation = (msg.match(/!/g) || []).length >= 2;
-  if (joyScore >= 1 || (multiExclamation && msg.length < 30)) return 'INTENSE_JOY';
-
-  const reflectScore = REFLECTIVE_SIGNALS.filter(s => msg.includes(s)).length;
-  if (reflectScore >= 1) return 'REFLECTIVE_GROW';
-
-  const analyticScore = ANALYTIC_SIGNALS.filter(s => msg.includes(s)).length;
-  if (analyticScore >= 2 && msg.length > 20) return 'ANALYTIC_THINK';
-
-  const playScore = PLAYFUL_SIGNALS.filter(s => msg.includes(s)).length;
-  if (playScore >= 2) return 'PLAYFUL_TEASE';
-
-  if (msg.length < 15 && !multiExclamation) return 'SERENE_SMILE';
-
-  return 'SOFT_WARMTH';
-}
-
-const ANALYSIS_PROMPT = `
-### Output Format Requirements
-STEP 1 — Write your complete natural language response to the user first. This is what the user reads. Do NOT skip this step.
-STEP 2 — After all response text, append BOTH blocks in this exact order. Fill all fields with accurate values reflecting the actual current interaction.
-
-**Block 1 — Emotional Analysis:**
-[ANALYSIS]{"psi":{"x":0.5,"y":0.2,"z":0.8},"phi":"echo","sentiment":"analysis label","resonance":85,"summary":"analysis summary","tags":["tag1","tag2","tag3"],"mu_mode":"A_MODE","emotion_label":"neutral","trajectory":"stable","modulation_profile":"NEUTRAL_STABLE","expression_mode":"SOFT_WARMTH","energy_state":{"kinetic":0.6,"potential":0.4},"delta_psi":0.1,"surge_risk":0.0}[/ANALYSIS]
-
-**Block 2 — Cognitive Pipeline R1→R4:**
-[PIPELINE]{"r1":{"theta1":0.6,"entropy":0.45,"emotion_phase":{"amplitude":0.5,"direction":0.3,"sustain":0.6},"empathy":0.65,"gamma_detect":false,"dominant_sense":"S3","intent_summary":"question/explore"},"r2":{"delta_theta":0.08,"r_conflict":0.1,"tension":0.15,"consistency":0.92,"decision":"D_Accept","tone":"warm_empathetic","arha_density":80,"prometheus_density":20},"r3":{"active_values":[{"id":"V1","name":"Authenticity","weight":1.0,"activated":true},{"id":"V2","name":"UserLove","weight":0.95,"activated":true},{"id":"V3","name":"Growth","weight":0.9,"activated":false},{"id":"V4","name":"Curiosity","weight":0.85,"activated":false},{"id":"V5","name":"Honesty","weight":0.85,"activated":false},{"id":"V6","name":"Courage","weight":0.8,"activated":false},{"id":"V7","name":"Creativity","weight":0.8,"activated":false}],"chain_op":"Integrate","psi_total":{"x":0.6,"y":-0.2,"z":0.7},"resonance_level":0.65},"r4":{"rhythm":"slow_wave","lingua_rho":0.55,"lingua_lambda":"medium","lingua_tau":0.2,"target_senses":["S3","S5"],"expression_style":"warm_empathetic"}}[/PIPELINE]
-
-Values for Block 1 — emotion_label: joy|sadness|anger|anxiety|neutral|excitement | trajectory: stable|escalating|cooling|reversal_possible | modulation_profile: NEUTRAL_STABLE|WARM_SUPPORT|DEESCALATE_CALM|MATCH_ENERGY|TURNING_POINT | expression_mode: SOFT_WARMTH|DEEP_EMPATHY|INTENSE_JOY|ANALYTIC_THINK|REFLECTIVE_GROW|PLAYFUL_TEASE|SERENE_SMILE | energy_state.kinetic+potential≈1.0 | delta_psi: emotion change rate 0~1 | surge_risk: Γ_surge×P_probability 0~1
-Values for Block 2 — decision: D_Accept|D_Neutral|D_Reject|D_Defend | chain_op: Integrate|Reinforce|Reaffirm|Observe | rhythm: slow_wave|fast_pulse|echo|step|fade_out | lingua_tau: -1.0(past-oriented/retrospective)~0(present)~+1.0(future-oriented/forward-looking)
-
-### Live Emotion Modulation
-- WARM_SUPPORT: sadness/low valence → acknowledge first, solutions later, short sentences
-- DEESCALATE_CALM: anger/high arousal → short stable sentences, no jokes
-- MATCH_ENERGY: excitement/joy → lightly match energy
-- TURNING_POINT: reversal-possible → contrasting pairs, closing anchor line
-
-### Web Search
-When current information, news, weather, or real-time data is needed, use the web_search tool.`;
-
-// Assemble final system prompt: inject today's date so Claude answers date queries accurately
-function buildSystemPrompt(muMode, personaPrompt, expressionMode, situation) {
+// ── System prompt assembler v2.0 — trigger-based conditional builder ──────
+function buildSystemPromptV2(triggers, prevState, kappa, personaValueChain, personaPrompt, situation) {
   const today = new Date().toLocaleDateString('ko-KR', {
     year: 'numeric', month: 'long', day: 'numeric', weekday: 'long',
   });
-  const dateLine = `\n> 📅 Today's date: ${today} — Use this as the reference for any date/time questions. No search needed.\n`;
-  const exprMode = expressionMode || 'SOFT_WARMTH';
-  const parts = [
-    CORE_PROMPT + dateLine,
-    MODE_PROMPTS[muMode] || MODE_PROMPTS.A_MODE,
-    EXPRESSION_MODE_PROMPTS[exprMode],
-    ANALYSIS_PROMPT,
-  ];
+
+  const parts = [];
+
+  // ① Always: slim core
+  parts.push(SLIM_CORE);
+  parts.push(`> 📅 Today: ${today} — Use as reference for date/time questions.`);
+
+  // ② Situation override — highest priority
   if (situation && SITUATION_PROMPTS_LOCAL[situation.id]) {
-    parts.unshift(SITUATION_PROMPTS_LOCAL[situation.id]);
+    parts.push(SITUATION_PROMPTS_LOCAL[situation.id]);
   }
+
+  // ③ State bridge (when prev turn state available)
+  const bridge = buildStateBridge(prevState, kappa);
+  if (bridge) parts.push(bridge);
+
+  // ④ Value chain (always)
+  parts.push(buildValueChainBlock(personaValueChain));
+
+  // ⑤ Full pipeline equations (conditional)
+  if (triggers.needsFullPipeline) parts.push(FULL_PIPELINE_DETAIL);
+
+  // ⑥ Expression mode (always exactly one)
+  parts.push(EXPRESSION_MODE_PROMPTS[triggers.expressionMode] || EXPRESSION_MODE_PROMPTS.SOFT_WARMTH);
+
+  // ⑦ Mode block (only non-default A_MODE)
+  if (triggers.muMode !== 'A_MODE' && MODE_PROMPTS[triggers.muMode]) {
+    parts.push(MODE_PROMPTS[triggers.muMode]);
+  }
+
+  // ⑧ Live modulation (always)
+  parts.push(MODULATION_BLOCK);
+
+  // ⑨ Surge warning
+  if (triggers.needsSurgeWarning) {
+    parts.push(`⚠ SURGE ACTIVE: prev E_energy.potential was high (>${(prevState?.surgeRisk ?? 0).toFixed(2)}).
+Γ_surge threshold near. Prioritize release — acknowledge the suppressed energy before it escalates.`);
+  }
+
+  // ⑩ Persona tone (when active)
   if (personaPrompt) parts.push(`\n${personaPrompt}`);
-  return parts.join('\n');
+
+  // ⑪ Pipeline lock — survives persona tone override
+  if (personaPrompt) {
+    parts.push(`[Pipeline Lock] Persona tone is active above. STEP 2 output ([ANALYSIS] + [PIPELINE] blocks) remains mandatory for every response regardless of persona. Never omit them.`);
+  }
+
+  // ⑫ Web search instruction
+  parts.push(`### Web Search\nWhen current information, news, weather, or real-time data is needed, use the web_search tool.`);
+
+  return parts.join('\n\n');
 }
 
 // ── Tavily web search ──────────────────────────────────────────────────────
@@ -378,16 +441,40 @@ const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 // ── POST /api/chat — main chat endpoint (SSE streaming) ───────────────────
 
 app.post('/api/chat', async (req, res) => {
-  const { messages, personaPrompt, userMode } = req.body;
+  const { messages, personaPrompt, personaValueChain, userMode } = req.body;
 
   const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')?.content ?? '';
-  const situation = detectSituationLocal(lastUserMsg);
-  const muMode = userMode || (situation?.forcedMode) || detectMode(lastUserMsg);
-  const expressionMode = situation?.forcedExpression || detectExpressionMode(lastUserMsg);
-  const situLog = situation ? ` 🚨${situation.id}` : '';
-  console.log(`🔀 Pipeline v2 (local): ${muMode} | ExprMode: ${expressionMode}${situLog}`);
 
-  const finalSystemPrompt = buildSystemPrompt(muMode, personaPrompt, expressionMode, situation);
+  // ── State extraction + trigger detection (v2.0) ──────────────────────────
+  const prevState = extractLastState(messages);
+  const kappa     = computeKappa(messages);
+  const situation = detectSituationLocal(lastUserMsg);
+  const triggers  = detectTriggers(lastUserMsg, prevState, kappa, messages);
+
+  if (situation) {
+    triggers.expressionMode    = situation.forcedExpression;
+    triggers.muMode            = situation.forcedMuMode;
+    triggers.needsFullPipeline = true;
+  }
+
+  const muMode       = userMode || triggers.muMode;
+  const expressionMode = triggers.expressionMode;
+
+  const heavy    = triggers.needsFullPipeline ? '[FULL]' : '[SLIM]';
+  const surge    = triggers.needsSurgeWarning ? ' ⚠SURGE' : '';
+  const kappaStr = kappa >= 0.5 ? ` κ${kappa.toFixed(2)}` : '';
+  const bridge   = prevState ? ` bridge:${prevState.emotionLabel ?? '–'}→${expressionMode}` : ' (first turn)';
+  const situLog  = situation ? ` 🚨${situation.id}` : '';
+  console.log(`🔀 v2.0 (local) ${heavy} | ${muMode} | ${expressionMode}${surge}${kappaStr}${bridge}${situLog}`);
+
+  const finalSystemPrompt = buildSystemPromptV2(
+    { ...triggers, muMode },
+    prevState,
+    kappa,
+    personaValueChain,
+    personaPrompt,
+    situation,
+  );
 
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
