@@ -132,7 +132,7 @@ function detectTriggers(lastMsg, prevState, kappa, messages) {
   if      (techDensity > 0.25 && empathyScore === 0)      muMode = 'P_MODE';
   else if (empathyScore > 0 && techScore === 0)            muMode = 'A_MODE';
   else if (techScore > 0 || hasStruct)                     muMode = 'H_MODE';
-  else if (prevMuMode === 'P_MODE' && techScore > 0)       muMode = 'P_MODE'; // mode stickiness
+  else if (prevMuMode === 'P_MODE')                        muMode = 'P_MODE'; // mode stickiness
   else                                                     muMode = 'A_MODE';
 
   // ── Trigger flags ────────────────────────────────────────────────────────
@@ -589,8 +589,8 @@ export default async function handler(req, res) {
           searchResults.push({ query: toolUseBlock.input.query, urls: searchUrls });
           currentMessages = [
             ...currentMessages,
-            { role: 'user',      content: data.content },
-            { role: 'assistant', content: [{ type:'tool_result', tool_use_id:toolUseBlock.id, content:searchText }] },
+            { role: 'assistant', content: data.content },
+            { role: 'user',      content: [{ type:'tool_result', tool_use_id:toolUseBlock.id, content:searchText }] },
           ];
           continue;
         }
