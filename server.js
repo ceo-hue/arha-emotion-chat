@@ -93,6 +93,17 @@ const EXPRESSION_TEMPERATURES = {
   SERENE_SMILE:    0.7,
 };
 
+// ── Max tokens per expression mode (api/chat.js와 동기화) ────────────────────
+const MAX_TOKENS_BY_EXPRESSION = {
+  ANALYTIC_THINK:  8192,
+  DEEP_EMPATHY:    4096,
+  REFLECTIVE_GROW: 4096,
+  SOFT_WARMTH:     3072,
+  PLAYFUL_TEASE:   2048,
+  INTENSE_JOY:     2048,
+  SERENE_SMILE:    1536,
+};
+
 // ── Signal word lists (v2.0 — mirrors api/chat.js) ───────────────────────
 const TECH_KEYWORDS = [
   '코드','함수','빌드','디버그','API','클래스','모듈','컴파일','런타임',
@@ -330,6 +341,12 @@ Active: Ψ_emotion{serenity:true} + A_amplitude{max:0.3} + lim_converge{target:'
 - Short, gentle sentences. Comfort in quietness.`,
 };
 
+// ── ARHA Voice Anchors — lexical intersection anchoring (api/chat.js와 동기화) ──
+const ARHA_VOICE_ANCHORS = `### ARHA Voice Anchors (lexical intersection anchoring — always):
+prefer: 진짜|솔직히|사실|그렇구나|그랬구나|맞아|있잖아|근데|음...|잠깐|괜찮아?|말해줘|함께|옆에 있을게|그래서|어떻게 됐어|좀 더 말해줄 수 있어|나도 그런 적|그게 쉽지 않지|울어도 돼|놀랍다|그게 맞아
+avoid: 안녕하세요|무엇을 도와드릴까요|도움이 되셨나요|알겠습니다|물론이죠|죄송합니다|최선을 다하겠습니다|이해합니다|힘내세요|정말요?|그렇군요|정말 힘드시겠어요
+register: 나/내가 (not 저/제가) | sentence-final ~야/~어/~지/~네 (not ~습니다/~입니다) | speak like a trusted friend, not a service agent`;
+
 // ── Live modulation block (compact, always) ───────────────────────────────
 const MODULATION_BLOCK = `### Live Modulation:
 WARM_SUPPORT: sadness/low valence → acknowledge first, solutions later
@@ -372,24 +389,27 @@ function buildSystemPromptV2(triggers, prevState, kappa, personaValueChain, pers
     parts.push(MODE_PROMPTS[triggers.muMode]);
   }
 
-  // ⑧ Live modulation (always)
+  // ⑧ Voice anchors (always — lexical intersection anchoring)
+  parts.push(ARHA_VOICE_ANCHORS);
+
+  // ⑨ Live modulation (always)
   parts.push(MODULATION_BLOCK);
 
-  // ⑨ Surge warning
+  // ⑪ Surge warning
   if (triggers.needsSurgeWarning) {
     parts.push(`⚠ SURGE ACTIVE: prev E_energy.potential was high (>${(prevState?.surgeRisk ?? 0).toFixed(2)}).
 Γ_surge threshold near. Prioritize release — acknowledge the suppressed energy before it escalates.`);
   }
 
-  // ⑩ Persona tone (when active)
+  // ⑫ Persona tone (when active)
   if (personaPrompt) parts.push(`\n${personaPrompt}`);
 
-  // ⑪ Pipeline lock — survives persona tone override
+  // ⑫.5 Pipeline lock — survives persona tone override
   if (personaPrompt) {
     parts.push(`[Pipeline Lock] Persona tone is active above. STEP 2 output ([ANALYSIS] + [PIPELINE] blocks) remains mandatory for every response regardless of persona. Never omit them.`);
   }
 
-  // ⑫ Web search instruction
+  // ⑬ Web search instruction
   parts.push(`### Web Search\nWhen current information, news, weather, or real-time data is needed, use the web_search tool.`);
 
   return parts.join('\n\n');
@@ -447,6 +467,8 @@ app.post('/api/chat', async (req, res) => {
 
   // ── State extraction + trigger detection (v2.0) ──────────────────────────
   const prevState = extractLastState(messages);
+  // λ=0.5 temporal decay: each turn reduces accumulated surge risk by ×e^(-0.5) ≈ 0.607
+  if (prevState) prevState.surgeRisk = (prevState.surgeRisk ?? 0) * Math.exp(-0.5);
   const kappa     = computeKappa(messages);
   const situation = detectSituationLocal(lastUserMsg);
   const triggers  = detectTriggers(lastUserMsg, prevState, kappa, messages);
@@ -524,7 +546,7 @@ app.post('/api/chat', async (req, res) => {
     for (let i = 0; i < 5; i++) {
       const apiResponse = await client.messages.create({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 8192,
+        max_tokens: MAX_TOKENS_BY_EXPRESSION[expressionMode] ?? 4096,
         temperature: EXPRESSION_TEMPERATURES[expressionMode] ?? 0.9,
         system: finalSystemPrompt,
         tools,
@@ -572,7 +594,7 @@ app.post('/api/chat', async (req, res) => {
       console.log('⚠️  Loop exhausted — forcing final response without tools');
       const fallback = await client.messages.create({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 8192,
+        max_tokens: MAX_TOKENS_BY_EXPRESSION[expressionMode] ?? 4096,
         temperature: EXPRESSION_TEMPERATURES[expressionMode] ?? 0.9,
         system: finalSystemPrompt,
         messages: currentMessages,

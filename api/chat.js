@@ -198,6 +198,20 @@ const EXPRESSION_TEMPERATURES = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// MAX TOKENS — per-expression-mode output ceiling
+// ANALYTIC → allow deep reasoning | JOY/SERENE → brief responses sufficient
+// ─────────────────────────────────────────────────────────────────────────────
+const MAX_TOKENS_BY_EXPRESSION = {
+  ANALYTIC_THINK:  8192,
+  DEEP_EMPATHY:    4096,
+  REFLECTIVE_GROW: 4096,
+  SOFT_WARMTH:     3072,
+  PLAYFUL_TEASE:   2048,
+  INTENSE_JOY:     2048,
+  SERENE_SMILE:    1536,
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // PROMPT BLOCKS
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -294,7 +308,15 @@ PROMETHEUS handles structure/logic; ARHA handles emotion/expression.
 One logical paragraph + one sentence of emotional closing.`,
 };
 
-// ⑤ LIVE MODULATION — compact, always (short ~100 tokens)
+// ⑤ ARHA VOICE ANCHORS — vocabulary bias for intersection anchoring (always active, ~120 tokens)
+// This is the lexical layer of intersection anchoring: directly shifts token probability distribution
+// toward ARHA's natural voice register and away from hollow AI/customer-service patterns.
+const ARHA_VOICE_ANCHORS = `### ARHA Voice Anchors (lexical intersection anchoring — always):
+prefer: 진짜|솔직히|사실|그렇구나|그랬구나|맞아|있잖아|근데|음...|잠깐|괜찮아?|말해줘|함께|옆에 있을게|그래서|어떻게 됐어|좀 더 말해줄 수 있어|나도 그런 적|그게 쉽지 않지|울어도 돼|놀랍다|그게 맞아
+avoid: 안녕하세요|무엇을 도와드릴까요|도움이 되셨나요|알겠습니다|물론이죠|죄송합니다|최선을 다하겠습니다|이해합니다|힘내세요|정말요?|그렇군요|정말 힘드시겠어요
+register: 나/내가 (not 저/제가) | sentence-final ~야/~어/~지/~네 (not ~습니다/~입니다) | speak like a trusted friend, not a service agent`;
+
+// ⑥ LIVE MODULATION — compact, always (short ~100 tokens)
 const MODULATION_BLOCK = `### Live Modulation:
 WARM_SUPPORT: sadness/low valence → acknowledge first, solutions later
 DEESCALATE_CALM: anger/high arousal → short stable sentences, no jokes
@@ -423,27 +445,30 @@ function buildSystemPromptV2(triggers, prevState, kappa, personaValueChain, pers
     parts.push(MODE_PROMPTS[triggers.muMode]);
   }
 
-  // ⑦ Live modulation (always — compact)
+  // ⑦ Voice anchors (always — lexical intersection anchoring; skip for pureMode handled upstream)
+  parts.push(ARHA_VOICE_ANCHORS);
+
+  // ⑧ Live modulation (always — compact)
   parts.push(MODULATION_BLOCK);
 
-  // ⑧ CONDITIONAL: Surge warning
+  // ⑨ CONDITIONAL: Surge warning
   if (triggers.needsSurgeWarning) {
     parts.push(`⚠ SURGE ACTIVE: prev E_energy.potential was high (>${(prevState?.surgeRisk ?? 0).toFixed(2)}).
 Γ_surge threshold near. Prioritize release — acknowledge the suppressed energy before it escalates.`);
   }
 
-  // ⑨ Persona prompt (when active)
+  // ⑩ Persona prompt (when active)
   if (personaPrompt) parts.push(`\n${personaPrompt}`);
 
-  // ⑨.5 Pipeline lock — 페르소나 tonePrompt이 파이프라인 출력을 억제하는 드리프트 방지
+  // ⑩.5 Pipeline lock — 페르소나 tonePrompt이 파이프라인 출력을 억제하는 드리프트 방지
   if (personaPrompt) {
     parts.push(`[Pipeline Lock] Persona tone is active above. STEP 2 output ([ANALYSIS] + [PIPELINE] blocks) remains mandatory for every response regardless of persona. Never omit them.`);
   }
 
-  // ⑩ PRO supplement (when proData present)
+  // ⑪ PRO supplement (when proData present)
   if (proData?.techExperts?.length) parts.push(buildProSupplement(proData, triggers.expressionMode));
 
-  // ⑪ Search instruction (needed for tool definition)
+  // ⑫ Search instruction (needed for tool definition)
   parts.push(`### Web Search\nWhen current information, news, weather, or real-time data is needed, use the web_search tool.`);
 
   return parts.join('\n\n');
@@ -501,6 +526,9 @@ export default async function handler(req, res) {
 
   // ── State extraction + trigger detection ──────────────────────────────────
   const prevState = extractLastState(messages);
+  // λ=0.5 temporal decay: each turn reduces accumulated surge risk by ×e^(-0.5) ≈ 0.607
+  // This prevents stale surge warnings from prior turns dominating — matches FULL_PIPELINE_DETAIL formula
+  if (prevState) prevState.surgeRisk = (prevState.surgeRisk ?? 0) * Math.exp(-0.5);
   const kappa     = computeKappa(messages);
   const situation = detectSituation(lastUserMsg);
   const triggers  = detectTriggers(lastUserMsg, prevState, kappa, messages);
@@ -578,7 +606,7 @@ export default async function handler(req, res) {
         },
         body: JSON.stringify({
           model,
-          max_tokens: 4096,
+          max_tokens: MAX_TOKENS_BY_EXPRESSION[triggers.expressionMode] ?? 4096,
           temperature: EXPRESSION_TEMPERATURES[triggers.expressionMode] ?? 0.9,
           system:  finalSystemPrompt,
           tools,
