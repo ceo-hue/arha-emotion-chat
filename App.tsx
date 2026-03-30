@@ -1416,11 +1416,13 @@ const App: React.FC = () => {
         />
       )}
 
-      {/* Video Studio */}
+      {/* Video Studio — 함수언어체계 브릿지: currentAnalysis → expressionMode/trajectory 전달 */}
       {showVideoStudio && (
         <VideoStudio
           initialPrompt={input}
           onClose={() => setShowVideoStudio(false)}
+          expressionMode={currentAnalysis?.expression_mode}
+          trajectory={currentAnalysis?.trajectory}
         />
       )}
 

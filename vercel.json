@@ -17,6 +17,9 @@
     },
     "api/webhook.js": {
       "maxDuration": 30
+    },
+    "api/narration.js": {
+      "maxDuration": 60
     }
   },
   "redirects": [
@@ -27,7 +30,8 @@
     { "source": "/api/internet-status", "destination": "/api/internet-status" },
     { "source": "/api/checkout", "destination": "/api/checkout" },
     { "source": "/api/portal", "destination": "/api/portal" },
-    { "source": "/api/webhook", "destination": "/api/webhook" },
+    { "source": "/api/webhook",   "destination": "/api/webhook" },
+    { "source": "/api/narration", "destination": "/api/narration" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

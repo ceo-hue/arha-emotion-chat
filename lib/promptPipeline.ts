@@ -86,6 +86,20 @@ const ART_DIRECTION: Readonly<Record<string, string>> = {
 const ARHA_SIGNATURE =
   'quiet poetic atmosphere, melancholic beauty, soft light scatter, timeless nostalgic mood, emotional resonance'
 
+// ── Expression Visual Grammar — 함수언어체계 expressionMode → 카메라 문법 매핑 ──
+// 채팅 expressionMode가 영상 비주얼 언어로 이식되는 핵심 브릿지
+// buildSeriesVideoPrompt에서 consistencyAnchor와 함께 주입됨
+
+export const EXPRESSION_VISUAL_MAP: Readonly<Record<string, string>> = {
+  SOFT_WARMTH:     'slow dolly-in, natural warm light, Kodak Portra warmth, intimate medium framing, gentle atmospheric softness',
+  DEEP_EMPATHY:    'slow push-in, rack focus to eyes, muted warm palette, weighted stillness, close-up emotional presence, Terrence Malick mood',
+  INTENSE_JOY:     'handheld kinetic energy, saturated bright palette, burst motion, quick environmental cut implied, golden dynamic light',
+  ANALYTIC_THINK:  'static locked-off frame, symmetrical balanced composition, cool neutral palette, sharp clinical clarity, no camera movement',
+  REFLECTIVE_GROW: 'slow pull-back reveal, golden hour backlight, shallow focus foreground, temporal atmospheric haze, past-tense visual poetry',
+  PLAYFUL_TEASE:   'slightly tilted dutch angle, playful reframe, high contrast punchy colors, unexpected perspective, light bounce energy',
+  SERENE_SMILE:    'gentle imperceptible drift, wide open negative space, soft diffused light, pastel muted tones, breathable composition',
+}
+
 // ── 비디오 모션 사전 — 피사체별 카메라 움직임 ───────────────
 
 const VIDEO_MOTION: Readonly<Record<SubjectType, string>> = {
@@ -144,6 +158,12 @@ export const withArhaSignature: PromptTransformer = p =>
 /** 영상 모션 디렉션 주입 */
 export const withVideoMotion = (subject: SubjectType): PromptTransformer => p =>
   `${p}, ${VIDEO_MOTION[subject]}`
+
+/** expressionMode 기반 카메라 문법 주입 — 함수언어체계 브릿지 */
+export const withExpressionVisual = (expressionMode?: string): PromptTransformer => p =>
+  expressionMode && EXPRESSION_VISUAL_MAP[expressionMode]
+    ? `${p}, ${EXPRESSION_VISUAL_MAP[expressionMode]}`
+    : p
 
 // ── 스타일 suffix 사전 ────────────────────────────────────
 

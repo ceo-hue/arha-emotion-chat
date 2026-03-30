@@ -6,12 +6,15 @@
 // ═══════════════════════════════════════════════════════════
 
 import React, { useState, useCallback, useRef, useEffect } from 'react'
-import { X, Download, Film, RotateCcw, Play, SlidersHorizontal, Brain } from 'lucide-react'
+import { X, Download, Film, RotateCcw, Play, SlidersHorizontal, Brain, Layers } from 'lucide-react'
 import { generateVideo }                   from '../services/videoService'
 import { analyzePrompt, type PromptAnalysis } from '../services/promptAnalyzer'
 import { describeError }                   from '../lib/generationError'
 import { type VideoAspectRatio }           from '../lib/modelStrategy'
 import MediaAnalysisPanel                  from './MediaAnalysisPanel'
+import SeriesVideoStudio                   from './SeriesVideoStudio'
+
+type StudioMode = 'single' | 'series'
 
 // ── 상수 ──────────────────────────────────────────────────
 
@@ -40,13 +43,19 @@ type StudioTab = 'controls' | 'canvas' | 'analysis'
 // ── Props ──────────────────────────────────────────────────
 
 interface Props {
-  onClose:        () => void
-  initialPrompt?: string
+  onClose:         () => void
+  initialPrompt?:  string
+  // 함수언어체계 브릿지 — App.tsx currentAnalysis에서 전달
+  expressionMode?: string
+  trajectory?:     string
 }
 
 // ── 컴포넌트 ───────────────────────────────────────────────
 
-const VideoStudio: React.FC<Props> = ({ onClose, initialPrompt = '' }) => {
+const VideoStudio: React.FC<Props> = ({ onClose, initialPrompt = '', expressionMode, trajectory }) => {
+
+  // ── 스튜디오 모드 (Single / Series) ──────────────────
+  const [studioMode, setStudioMode] = useState<StudioMode>('single')
 
   // ── 모바일 탭 상태 ────────────────────────────────────
   const [activeTab, setActiveTab] = useState<StudioTab>('controls')
@@ -155,6 +164,31 @@ const VideoStudio: React.FC<Props> = ({ onClose, initialPrompt = '' }) => {
               </p>
             </div>
           </div>
+
+          {/* Single / Series 모드 탭 */}
+          <div className="flex items-center gap-1 bg-black/5 dark:bg-white/5 rounded-xl p-1">
+            <button
+              onClick={() => setStudioMode('single')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black transition-all ${
+                studioMode === 'single'
+                  ? 'bg-orange-500 text-white shadow-sm'
+                  : 'text-slate-500 dark:text-white/40 hover:text-slate-700 dark:hover:text-white/60'
+              }`}
+            >
+              <Film size={10} /> Single
+            </button>
+            <button
+              onClick={() => setStudioMode('series')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black transition-all ${
+                studioMode === 'series'
+                  ? 'bg-gradient-to-r from-purple-500 to-orange-500 text-white shadow-sm'
+                  : 'text-slate-500 dark:text-white/40 hover:text-slate-700 dark:hover:text-white/60'
+              }`}
+            >
+              <Layers size={10} /> Series
+            </button>
+          </div>
+
           <button
             onClick={onClose}
             className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-black/10 dark:hover:bg-white/10 transition-all text-slate-500 dark:text-white/50"
@@ -163,8 +197,18 @@ const VideoStudio: React.FC<Props> = ({ onClose, initialPrompt = '' }) => {
           </button>
         </header>
 
-        {/* ── 바디 (3-panel → 반응형) ── */}
-        <div className="flex flex-1 overflow-hidden min-h-0">
+        {/* ── Series Mode ── */}
+        {studioMode === 'series' && (
+          <SeriesVideoStudio
+            initialPrompt={initialPrompt}
+            aspectRatio={aspectRatio}
+            expressionMode={expressionMode}
+            trajectory={trajectory}
+          />
+        )}
+
+        {/* ── Single Mode 바디 (3-panel → 반응형) ── */}
+        {studioMode === 'single' && <div className="flex flex-1 overflow-hidden min-h-0">
 
           {/* ── 왼쪽: 컨트롤 패널 — 모바일: 탭 전환 / sm+: 항상 표시 ── */}
           <aside className={`${activeTab === 'controls' ? 'flex' : 'hidden'} sm:flex flex-col gap-3 sm:gap-4 p-4 sm:p-5 w-full sm:w-52 lg:w-64 shrink-0 border-r border-black/10 dark:border-white/10 overflow-y-auto scroll-hide`}>
@@ -371,10 +415,10 @@ const VideoStudio: React.FC<Props> = ({ onClose, initialPrompt = '' }) => {
               className="flex-1 flex flex-col gap-4 p-4 border-l border-black/8 dark:border-white/8 overflow-y-auto scroll-hide lg:w-56 lg:flex-none"
             />
           </div>
-        </div>
+        </div>}
 
-        {/* ── 모바일 하단 탭 바 ── */}
-        <nav className="sm:hidden flex shrink-0 border-t border-black/10 dark:border-white/10">
+        {/* ── 모바일 하단 탭 바 (Single mode only) ── */}
+        {studioMode === 'single' && <nav className="sm:hidden flex shrink-0 border-t border-black/10 dark:border-white/10">
           {([
             { id: 'controls' as StudioTab, icon: <SlidersHorizontal size={15} />, label: '설정' },
             { id: 'canvas'   as StudioTab, icon: <Film              size={15} />, label: '결과' },
@@ -393,7 +437,7 @@ const VideoStudio: React.FC<Props> = ({ onClose, initialPrompt = '' }) => {
               <span className="text-[8px] font-black uppercase tracking-widest">{tab.label}</span>
             </button>
           ))}
-        </nav>
+        </nav>}
       </div>
     </div>
   )
