@@ -55,13 +55,13 @@ function parseFullResponse(
     }
   }
 
-  // 안전망: Claude가 블록만 출력하고 본문을 쓰지 않은 경우 원문 그대로 노출
+  // 안전망: Claude가 블록만 출력하고 본문을 쓰지 않은 경우
+  // ANALYSIS는 이미 위에서 파싱 완료 — 여기서 다시 제거하면 항상 빈 문자열이 됨
   if (!displayText && fullText.trim()) {
     console.warn('[claudeService] displayText empty after stripping — raw fullText fallback');
     displayText = fullText
       .replace(/\[ARTIFACT\].*?\[\/ARTIFACT\]/s, '')
       .replace(/\[PIPELINE\].*?\[\/PIPELINE\]/s, '')
-      .replace(/\[ANALYSIS\].*?\[\/ANALYSIS\]/s, '')
       .trim();
   }
 
