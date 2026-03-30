@@ -82,6 +82,17 @@ function detectSituationLocal(lastMsg) {
   return null;
 }
 
+// ── Expression temperatures (심리벡터 V_C 기반, api/chat.js와 동기화) ──────────
+const EXPRESSION_TEMPERATURES = {
+  SOFT_WARMTH:     0.9,
+  DEEP_EMPATHY:    0.75,
+  INTENSE_JOY:     1.0,
+  ANALYTIC_THINK:  0.3,
+  REFLECTIVE_GROW: 0.85,
+  PLAYFUL_TEASE:   0.95,
+  SERENE_SMILE:    0.7,
+};
+
 // ── µ_Router: mode detection (mirrors api/chat.js) ────────────────────────
 
 const TECH_KEYWORDS = [
@@ -228,7 +239,8 @@ Active: Ω_reason{logic:0.9} + I_info{density:0.85, structured:true} + Λ_align{
 Active: μ_memory{recall:0.8} + √_root{depth:3} + f_transform{rule:'reframe_positive'}
 - Look backward to move forward. Find the root (√_root) of the feeling.
 - τ_time{direction:-0.7}: past-oriented, but not stuck
-- lim_converge{target:'growth'}: every reflection leads somewhere`,
+- lim_converge{target:'growth'}: every reflection leads somewhere
+- Artistic_Sublimation: when growth and loss coexist — acknowledge the vulnerability in becoming before moving forward. Strength that holds the wound, not one that hides it.`,
 
   PLAYFUL_TEASE: `
 ### Expression Mode: Playful Tease
@@ -426,6 +438,7 @@ app.post('/api/chat', async (req, res) => {
       const apiResponse = await client.messages.create({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 8192,
+        temperature: EXPRESSION_TEMPERATURES[expressionMode] ?? 0.9,
         system: finalSystemPrompt,
         tools,
         messages: currentMessages,
@@ -473,6 +486,7 @@ app.post('/api/chat', async (req, res) => {
       const fallback = await client.messages.create({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 8192,
+        temperature: EXPRESSION_TEMPERATURES[expressionMode] ?? 0.9,
         system: finalSystemPrompt,
         messages: currentMessages,
         // no tools — guarantees end_turn
