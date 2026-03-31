@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { Message, AnalysisData, ChatSession, TaskType, ArtifactContent, MuMode, PipelineData, SearchResultItem, ProModeData, UserProfile, DailyUsage, MonthlyUsage } from './types';
+import { Message, AnalysisData, ChatSession, TaskType, ArtifactContent, MuMode, PipelineData, SearchResultItem, ProModeData, UserProfile, DailyUsage, MonthlyUsage, ValueKey, ValueChainDB, EmotionLifetime, UserMemoryBlock as UserMemoryBlockType, VALUE_NAME_MAP } from './types';
 import { chatWithClaudeStream } from './services/claudeService';
 import { analyzeForPro, resetProSession } from './src/pro';
 import { generateArhaVideo, generateArhaImage } from './services/geminiService';
@@ -22,12 +22,18 @@ import LoginScreen from './components/LoginScreen';
 import ProfileSection from './components/ProfileSection';
 import UsageBanner from './components/UsageBanner';
 import AccountPage from './components/AccountPage';
+import OnboardingCard from './components/OnboardingCard';
+import UserProfilePage from './components/UserProfilePage';
 import PricingModal from './components/PricingModal';
 import SidebarUserCard from './components/SidebarUserCard';
 import HiSolProWorkspace from './src/components/HiSolProWorkspace';
 import ImageStudio from './components/ImageStudio';
 import VideoStudio from './components/VideoStudio';
 import { ensureProfile, getUserProfile } from './services/userProfileService';
+import {
+  getEmotionLifetime, getValueChain, getRecentSessions,
+  aggregateSession, buildUserMemoryBlock, formatUserMemoryBlock,
+} from './services/emotionProfileService';
 import { getDailyUsage, getGuestUsage, incrementDailyUsage, incrementGuestUsage, getMonthlyUsage, incrementMonthlyUsage, canSendMessage } from './services/usageService';
 
   import {
@@ -594,6 +600,17 @@ const App: React.FC = () => {
   const [showAccountPage, setShowAccountPage] = useState(false);
   const [showPricingModal, setShowPricingModal] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+
+  // ── Emotion Profile state ──────────────────────────────────────────────
+  const [emotionLifetime, setEmotionLifetime] = useState<EmotionLifetime | null>(null);
+  const [valueChainDB, setValueChainDB] = useState<ValueChainDB | null>(null);
+  const [sessionValueHits, setSessionValueHits] = useState<Partial<Record<ValueKey, number>>>({});
+  const [sessionExpressionHistory, setSessionExpressionHistory] = useState<string[]>([]);
+  const [sessionStartKappa, setSessionStartKappa] = useState(0);
+  const [sessionTurnCount, setSessionTurnCount] = useState(0);
+  const sessionIdRef = useRef(`session-${Date.now()}`);
+  const [showUserProfilePage, setShowUserProfilePage] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const [dailyUsage, setDailyUsage] = useState<DailyUsage>(() => getGuestUsage());
   const [monthlyUsage, setMonthlyUsage] = useState<MonthlyUsage>({ month: '', count: 0 });
 
@@ -743,6 +760,30 @@ const App: React.FC = () => {
       // Load value profile
       const vp = await loadValueProfile(user.uid);
       setValueProfile(vp);
+
+      // Load emotion profile (non-blocking — won't interrupt chat init)
+      try {
+        const [lifetime, chain] = await Promise.all([
+          getEmotionLifetime(user.uid),
+          getValueChain(user.uid),
+        ]);
+        setEmotionLifetime(lifetime);
+        setValueChainDB(chain);
+        if (lifetime) {
+          const kappaEff = lifetime.kappa_lifetime * 0.7;
+          setSessionStartKappa(kappaEff);
+        }
+        // emotionConsent가 없는 신규 사용자 → 온보딩 카드 표시
+        if (profile.emotionConsent === undefined || profile.emotionConsent === null) {
+          setTimeout(() => setShowOnboarding(true), 1200);
+        }
+      } catch (_) { /* 감성 프로필 로드 실패 → 채팅은 정상 동작 */ }
+
+      // Reset session tracking for new session
+      sessionIdRef.current = `session-${Date.now()}`;
+      setSessionValueHits({});
+      setSessionExpressionHistory([]);
+      setSessionTurnCount(0);
 
       // Request location for weather-based background
       if (navigator.geolocation) {
@@ -970,6 +1011,31 @@ const App: React.FC = () => {
     return () => window.removeEventListener('beforeunload', onUnload);
   }, []);
 
+  // ── visibilitychange: 탭 숨김 시 감성 프로필 세션 집계 (Beacon-safe) ──
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState !== 'hidden') return;
+      if (!user?.uid || sessionTurnCount === 0) return;
+      const kappa = currentAnalysis?.resonance ?? sessionStartKappa;
+      const psi = currentAnalysis?.psi
+        ? (currentAnalysis.psi.x + currentAnalysis.psi.y + currentAnalysis.psi.z) / 3
+        : 0;
+      aggregateSession(user.uid, {
+        sessionId:         sessionIdRef.current,
+        kappa_end:         kappa,
+        turn_count:        sessionTurnCount,
+        psi_end:           psi,
+        valueHits:         sessionValueHits,
+        expressionHistory: sessionExpressionHistory,
+        surgeOccurred:     (currentAnalysis?.surge_risk ?? 0) > 0.7,
+        surgeLevel:        currentAnalysis?.surge_risk,
+        persona_used:      personaConfig?.id ?? 'default',
+      }, emotionLifetime, valueChainDB).catch(() => {});
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [user, sessionTurnCount, sessionValueHits, sessionExpressionHistory, sessionStartKappa, currentAnalysis, personaConfig, emotionLifetime, valueChainDB]);
+
   // ── 로그아웃 전 현재 세션 아카이브 후 signOut ──
   const handleSignOut = useCallback(async () => {
     archiveCurrentSession();
@@ -1111,9 +1177,24 @@ const App: React.FC = () => {
         // onMuMode: deprecated in Pipeline v2 — no-op
         () => {},
         undefined, // userMode: handled server-side in Pipeline v2
-        // onPipeline: receive R1→R4 pipeline data
+        // onPipeline: receive R1→R4 pipeline data + accumulate value hits
         (pipeline) => {
           setPipelineData(pipeline);
+          // active_values 로컬 누적 (V1-V7 공명도 계산용)
+          if (pipeline.r3?.active_values?.length) {
+            setSessionValueHits(prev => {
+              const updated = { ...prev };
+              for (const v of pipeline.r3.active_values) {
+                const name = typeof v === 'string' ? v : v.name;
+                const key = VALUE_NAME_MAP[name] as ValueKey | undefined;
+                if (key) updated[key] = (updated[key] ?? 0) + 1;
+              }
+              return updated;
+            });
+          }
+          if (pipeline.r2?.tone) {
+            setSessionExpressionHistory(prev => [...prev, pipeline.r2.tone]);
+          }
         },
         // onSearching: show live search query indicator in chat
         (query) => {
@@ -1144,6 +1225,12 @@ const App: React.FC = () => {
             return [...prev.slice(0, idx), transitionMsg, ...prev.slice(idx)];
           });
         },
+        // userMemoryBlock: 감성 프로필 → 시스템 프롬프트 주입
+        (() => {
+          if (!emotionLifetime) return undefined;
+          const block = buildUserMemoryBlock(emotionLifetime, valueChainDB, [], sessionStartKappa);
+          return block ? formatUserMemoryBlock(block) : undefined;
+        })(),
       );
       // Attach accumulated search results to the assistant message
       if (pendingSearchResultsRef.current.length > 0) {
@@ -1152,6 +1239,9 @@ const App: React.FC = () => {
           m.id === assistantMsgId ? { ...m, searchResults: collected } : m,
         ));
       }
+
+      // ── Increment session turn count ───────────────────────────────────
+      setSessionTurnCount(prev => prev + 1);
 
       // ── Increment usage count ──────────────────────────────────────────
       if (userProfile) {
@@ -1396,6 +1486,40 @@ const App: React.FC = () => {
           onClose={() => setShowAccountPage(false)}
           onSignOut={async () => { setShowAccountPage(false); await handleSignOut(); }}
           onOpenPricing={() => setShowPricingModal(true)}
+          onOpenEmotionProfile={() => setShowUserProfilePage(true)}
+          emotionTotalTurns={emotionLifetime?.total_turns ?? 0}
+          emotionKappaEff={Math.max(sessionStartKappa, (emotionLifetime?.kappa_lifetime ?? 0) * 0.7)}
+        />
+      )}
+
+      {/* UserProfilePage (감성 프로필) */}
+      {showUserProfilePage && user && userProfile && (
+        <UserProfilePage
+          userProfile={userProfile}
+          emotionLifetime={emotionLifetime}
+          valueChain={valueChainDB}
+          sessionStartKappa={sessionStartKappa}
+          onClose={() => setShowUserProfilePage(false)}
+          onClearProfile={() => {
+            setEmotionLifetime(null);
+            setValueChainDB(null);
+            setSessionValueHits({});
+            setSessionExpressionHistory([]);
+            setSessionTurnCount(0);
+          }}
+        />
+      )}
+
+      {/* OnboardingCard (첫 로그인 감성 프로필 동의) */}
+      {showOnboarding && user && (
+        <OnboardingCard
+          uid={user.uid}
+          onConsent={(consented) => {
+            setShowOnboarding(false);
+            if (consented && userProfile) {
+              setUserProfile(prev => prev ? { ...prev, emotionConsent: true } : prev);
+            }
+          }}
         />
       )}
 

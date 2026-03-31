@@ -410,12 +410,17 @@ function buildProSupplement(proData, expressionMode) {
 // ─────────────────────────────────────────────────────────────────────────────
 // SYSTEM PROMPT ASSEMBLER v2 — trigger-based conditional builder
 // ─────────────────────────────────────────────────────────────────────────────
-function buildSystemPromptV2(triggers, prevState, kappa, personaValueChain, personaPrompt, proData, situation) {
+function buildSystemPromptV2(triggers, prevState, kappa, personaValueChain, personaPrompt, proData, situation, userMemoryBlock) {
   const today = new Date().toLocaleDateString('ko-KR', {
     year:'numeric', month:'long', day:'numeric', weekday:'long',
   });
 
   const parts = [];
+
+  // ⓪ User Memory Block — 감성 프로필 누적 데이터 (충분한 대화가 쌓인 사용자만)
+  if (userMemoryBlock) {
+    parts.push(userMemoryBlock);
+  }
 
   // ① Always: slim core
   parts.push(SLIM_CORE);
@@ -519,7 +524,7 @@ const tools = [{
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { messages, personaPrompt, personaValueChain, userMode, proData, pureMode } = req.body;
+  const { messages, personaPrompt, personaValueChain, userMode, proData, pureMode, userMemoryBlock } = req.body;
   const model = 'claude-sonnet-4-20250514';
 
   const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')?.content ?? '';
@@ -554,6 +559,7 @@ export default async function handler(req, res) {
         personaPrompt,
         proData,
         situation,
+        userMemoryBlock,
       );
 
   if (pureMode) {

@@ -105,6 +105,8 @@ export const chatWithClaudeStream = async (
   pureMode?: boolean,
   /** 상황 기반 상태전이 알림 콜백 */
   onStateTransition?: (data: StateTransitionData) => void,
+  /** User Memory Block — emotionProfile에서 빌드한 시스템 프롬프트 주입용 블록 */
+  userMemoryBlock?: string,
 ) => {
   // system 메시지(상태전이 카드)는 UI 전용 — API 페이로드에서 제외
   const payload = messages
@@ -122,7 +124,7 @@ export const chatWithClaudeStream = async (
   const response = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages: payload, personaPrompt, personaValueChain, userMode, ...(proData ? { proData } : {}), ...(pureMode ? { pureMode: true } : {}) }),
+    body: JSON.stringify({ messages: payload, personaPrompt, personaValueChain, userMode, ...(proData ? { proData } : {}), ...(pureMode ? { pureMode: true } : {}), ...(userMemoryBlock ? { userMemoryBlock } : {}) }),
   });
 
   if (!response.ok) {
