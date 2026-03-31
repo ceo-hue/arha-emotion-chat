@@ -33,6 +33,7 @@ import { ensureProfile, getUserProfile } from './services/userProfileService';
 import {
   getEmotionLifetime, getValueChain, getRecentSessions,
   aggregateSession, buildUserMemoryBlock, formatUserMemoryBlock,
+  flushTurnData,
 } from './services/emotionProfileService';
 import { getDailyUsage, getGuestUsage, incrementDailyUsage, incrementGuestUsage, getMonthlyUsage, incrementMonthlyUsage, canSendMessage } from './services/usageService';
 
@@ -1005,26 +1006,21 @@ const App: React.FC = () => {
   // ── beforeunload: 브라우저 닫기/새로고침 시 현재 대화를 히스토리에 아카이브 ──
   const archiveRef = useRef(archiveCurrentSession);
   useEffect(() => { archiveRef.current = archiveCurrentSession; }, [archiveCurrentSession]);
-  useEffect(() => {
-    const onUnload = () => { archiveRef.current(); };
-    window.addEventListener('beforeunload', onUnload);
-    return () => window.removeEventListener('beforeunload', onUnload);
-  }, []);
 
-  // ── visibilitychange: 탭 숨김 시 감성 프로필 세션 집계 (Beacon-safe) ──
+  // 감성 집계 ref — beforeunload에서 최신 상태를 클로저 없이 참조하기 위함
+  const emotionAggregateRef = useRef<() => void>(() => {});
   useEffect(() => {
-    const handleVisibility = () => {
-      if (document.visibilityState !== 'hidden') return;
+    emotionAggregateRef.current = () => {
       if (!user?.uid || sessionTurnCount === 0) return;
-      const kappa = currentAnalysis?.resonance ?? sessionStartKappa;
-      const psi = currentAnalysis?.psi
+      const kappaApprox = Math.min(1, sessionTurnCount / 20);
+      const psiApprox   = currentAnalysis?.psi
         ? (currentAnalysis.psi.x + currentAnalysis.psi.y + currentAnalysis.psi.z) / 3
         : 0;
       aggregateSession(user.uid, {
         sessionId:         sessionIdRef.current,
-        kappa_end:         kappa,
+        kappa_end:         kappaApprox,
         turn_count:        sessionTurnCount,
-        psi_end:           psi,
+        psi_end:           psiApprox,
         valueHits:         sessionValueHits,
         expressionHistory: sessionExpressionHistory,
         surgeOccurred:     (currentAnalysis?.surge_risk ?? 0) > 0.7,
@@ -1032,9 +1028,26 @@ const App: React.FC = () => {
         persona_used:      personaConfig?.id ?? 'default',
       }, emotionLifetime, valueChainDB).catch(() => {});
     };
+  }, [user, sessionTurnCount, sessionValueHits, sessionExpressionHistory, currentAnalysis, personaConfig, emotionLifetime, valueChainDB]);
+
+  useEffect(() => {
+    const onUnload = () => {
+      archiveRef.current();
+      emotionAggregateRef.current(); // 세션 종료 시 sessionStats 집계
+    };
+    window.addEventListener('beforeunload', onUnload);
+    return () => window.removeEventListener('beforeunload', onUnload);
+  }, []);
+
+  // ── visibilitychange: 탭 숨김 시 세션 집계 (beforeunload와 동일 ref 사용) ──
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState !== 'hidden') return;
+      emotionAggregateRef.current();
+    };
     document.addEventListener('visibilitychange', handleVisibility);
     return () => document.removeEventListener('visibilitychange', handleVisibility);
-  }, [user, sessionTurnCount, sessionValueHits, sessionExpressionHistory, sessionStartKappa, currentAnalysis, personaConfig, emotionLifetime, valueChainDB]);
+  }, []);
 
   // ── 로그아웃 전 현재 세션 아카이브 후 signOut ──
   const handleSignOut = useCallback(async () => {
@@ -1141,6 +1154,9 @@ const App: React.FC = () => {
     const assistantMsgId = (Date.now() + 1).toString();
     setMessages(prev => [...prev, { id: assistantMsgId, role: 'assistant', content: '', timestamp: Date.now() }]);
 
+    // 이번 턴 pipeline 데이터 캡처용 (클로저)
+    let thisTurnPipeline: PipelineData | null = null;
+
     try {
       // PRO mode: analyze before sending (browser-local, no extra API call)
       let currentProData: ProModeData | undefined;
@@ -1179,6 +1195,7 @@ const App: React.FC = () => {
         undefined, // userMode: handled server-side in Pipeline v2
         // onPipeline: receive R1→R4 pipeline data + accumulate value hits
         (pipeline) => {
+          thisTurnPipeline = pipeline; // 클로저로 캡처
           setPipelineData(pipeline);
           // active_values 로컬 누적 (V1-V7 공명도 계산용)
           if (pipeline.r3?.active_values?.length) {
@@ -1242,6 +1259,43 @@ const App: React.FC = () => {
 
       // ── Increment session turn count ───────────────────────────────────
       setSessionTurnCount(prev => prev + 1);
+
+      // ── 감성 프로필 즉시 쓰기 (매 턴, 신뢰성 우선) ─────────────────────
+      if (user?.uid) {
+        // 이번 턴의 active_values 추출 — thisTurnPipeline 클로저 사용
+        const thisTurnHits: Partial<Record<ValueKey, number>> = {};
+        if (thisTurnPipeline?.r3?.active_values) {
+          for (const v of thisTurnPipeline.r3.active_values) {
+            const name = typeof v === 'string' ? v : v.name;
+            const key = VALUE_NAME_MAP[name] as ValueKey | undefined;
+            if (key) thisTurnHits[key] = 1;
+          }
+        }
+        // kappa: message 수 기반 근사값 (서버와 동일 공식)
+        const kappaApprox = Math.min(1, (messages.filter(m => m.role === 'user').length + 1) / 20);
+        const psiApprox   = thisTurnPipeline?.r3?.psi_total
+          ? (thisTurnPipeline.r3.psi_total.x + thisTurnPipeline.r3.psi_total.y + thisTurnPipeline.r3.psi_total.z) / 3
+          : (currentAnalysis?.psi ? (currentAnalysis.psi.x + currentAnalysis.psi.y + currentAnalysis.psi.z) / 3 : 0);
+        const expMode = (thisTurnPipeline?.r2?.tone) ?? currentAnalysis?.expression_mode ?? 'SOFT_WARMTH';
+        flushTurnData(user.uid, thisTurnHits, kappaApprox, psiApprox, expMode, emotionLifetime)
+          .then(() => {
+            // 로컬 emotionLifetime 최신화 (kappa/turn 반영)
+            const kA = 0.15; const pA = 0.1;
+            setEmotionLifetime(prev => prev ? {
+              ...prev,
+              kappa_lifetime: kA * kappaApprox + (1 - kA) * prev.kappa_lifetime,
+              total_turns:    prev.total_turns + 1,
+            } : {
+              kappa_lifetime:           kappaApprox * kA,
+              total_turns:              1,
+              psi_centroid:             psiApprox * pA,
+              surge_history:            [],
+              dominant_expression_mode: expMode,
+              expression_distribution:  { [expMode]: 1 },
+            });
+          })
+          .catch(() => {}); // 쓰기 실패 시 채팅은 영향 없음
+      }
 
       // ── Increment usage count ──────────────────────────────────────────
       if (userProfile) {
