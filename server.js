@@ -355,12 +355,17 @@ MATCH_ENERGY: joy/excitement → lightly mirror energy
 TURNING_POINT: reversal_possible → contrasting pairs, closing anchor line`;
 
 // ── System prompt assembler v2.0 — trigger-based conditional builder ──────
-function buildSystemPromptV2(triggers, prevState, kappa, personaValueChain, personaPrompt, situation) {
+function buildSystemPromptV2(triggers, prevState, kappa, personaValueChain, personaPrompt, situation, userMemoryBlock) {
   const today = new Date().toLocaleDateString('ko-KR', {
     year: 'numeric', month: 'long', day: 'numeric', weekday: 'long',
   });
 
   const parts = [];
+
+  // ⓪ User Memory Block — 감성 프로필 누적 데이터 (충분한 대화가 쌓인 사용자만)
+  if (userMemoryBlock) {
+    parts.push(userMemoryBlock);
+  }
 
   // ① Always: slim core
   parts.push(SLIM_CORE);
@@ -461,7 +466,7 @@ const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 // ── POST /api/chat — main chat endpoint (SSE streaming) ───────────────────
 
 app.post('/api/chat', async (req, res) => {
-  const { messages, personaPrompt, personaValueChain, userMode } = req.body;
+  const { messages, personaPrompt, personaValueChain, userMode, userMemoryBlock } = req.body;
 
   const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')?.content ?? '';
 
@@ -496,6 +501,7 @@ app.post('/api/chat', async (req, res) => {
     personaValueChain,
     personaPrompt,
     situation,
+    userMemoryBlock,
   );
 
   res.setHeader('Content-Type', 'text/event-stream');

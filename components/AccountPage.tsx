@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { User } from 'firebase/auth';
-import { X, LogOut, Download, Trash2, Crown, Shield, User as UserIcon, CreditCard, ExternalLink } from 'lucide-react';
+import { X, LogOut, Download, Trash2, Crown, Shield, User as UserIcon, CreditCard, ExternalLink, Brain } from 'lucide-react';
 import { UserProfile, DailyUsage, MonthlyUsage, TIER_LIMITS, MONTHLY_LIMITS, ChatSession } from '../types';
 import { ValueProfile, getTopKeywords, deleteUserData } from '../services/firestoreService';
 import { remainingMessages } from '../services/usageService';
@@ -15,6 +15,9 @@ interface AccountPageProps {
   onClose: () => void;
   onSignOut: () => Promise<void>;
   onOpenPricing: () => void;
+  onOpenEmotionProfile?: () => void;
+  emotionTotalTurns?: number;
+  emotionKappaEff?: number;
 }
 
 const TIER_LABELS: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
@@ -34,6 +37,9 @@ export default function AccountPage({
   onClose,
   onSignOut,
   onOpenPricing,
+  onOpenEmotionProfile,
+  emotionTotalTurns = 0,
+  emotionKappaEff = 0,
 }: AccountPageProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isPortalLoading, setIsPortalLoading] = useState(false);
@@ -233,6 +239,39 @@ export default function AccountPage({
                 <Download size={13} className="shrink-0" />
                 대화 기록 내보내기 ({sessions.length}개)
               </button>
+            </section>
+          )}
+
+          {/* 감성 프로필 */}
+          {tier !== 'guest' && (
+            <section className="rounded-2xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 p-4">
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-white/30 mb-3">감성 프로필</p>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Brain size={14} className="text-amber-400" />
+                  <span className="text-[12px] text-slate-600 dark:text-white/60">
+                    {emotionTotalTurns >= 5
+                      ? `${emotionTotalTurns}턴 대화 · 친밀도 ${Math.round(emotionKappaEff * 100)}%`
+                      : '대화가 쌓이면 분석을 시작해요'}
+                  </span>
+                </div>
+                {onOpenEmotionProfile && (
+                  <button
+                    onClick={() => { onClose(); onOpenEmotionProfile(); }}
+                    className="text-[11px] text-amber-400 hover:text-amber-300 transition-colors"
+                  >
+                    자세히 보기 →
+                  </button>
+                )}
+              </div>
+              {emotionTotalTurns >= 5 && (
+                <div className="h-1 rounded-full bg-white/10 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-amber-400/60 transition-all duration-700"
+                    style={{ width: `${Math.min(100, Math.round(emotionKappaEff * 100))}%` }}
+                  />
+                </div>
+              )}
             </section>
           )}
 

@@ -70,7 +70,20 @@
       "Bash(git config user.email \"ceo-hue@users.noreply.github.com\")",
       "Bash(git config user.name \"ceo-hue\")",
       "Bash(git remote add origin https://github.com/ceo-hue/hisol-ai-agent.git)",
-      "Bash(git rm src/engines/C-001_ARHAEmotionEngine.ts src/engines/C-002_ARHAAnalyticsEngine.ts src/engines/C-003_ARHAAgentEngine.ts src/engines/C-003_ARHAAgentEngine_V4.ts src/containers/C-004_CommandContainer.ts src/containers/C-005_OrchestrationContainer.ts src/containers/C-006_StatusContainer.ts src/containers/C-007_APIGatewayContainer.ts src/containers/C-008_VibeComplianceContainer.ts src/containers/C-008_VibeComplianceContainer_V2.ts src/containers/C-008_VibeComplianceContainer_V2_OLD.ts)"
+      "Bash(git rm src/engines/C-001_ARHAEmotionEngine.ts src/engines/C-002_ARHAAnalyticsEngine.ts src/engines/C-003_ARHAAgentEngine.ts src/engines/C-003_ARHAAgentEngine_V4.ts src/containers/C-004_CommandContainer.ts src/containers/C-005_OrchestrationContainer.ts src/containers/C-006_StatusContainer.ts src/containers/C-007_APIGatewayContainer.ts src/containers/C-008_VibeComplianceContainer.ts src/containers/C-008_VibeComplianceContainer_V2.ts src/containers/C-008_VibeComplianceContainer_V2_OLD.ts)",
+      "Bash(python -c \"import PyPDF2; print\\(''ok''\\)\")",
+      "Bash(python -c \"import pdfplumber; print\\(''ok''\\)\")",
+      "Bash(python -c \"import pymupdf; print\\(''ok''\\)\")",
+      "Bash(python -c \"import fitz; print\\(''ok''\\)\")",
+      "Bash(pip install pypdf2 --quiet)",
+      "Bash(pip install pypdf --quiet)",
+      "Bash(python -c \"from pypdf import PdfReader; print\\(''ok''\\)\")",
+      "Bash(python:*)",
+      "WebSearch",
+      "WebFetch(domain:polar.sh)",
+      "Bash(gh pr:*)",
+      "Bash(gh run:*)",
+      "Bash(grep -E \"^-.*\\\\.ts$|\\\\.tsx$\")"
     ]
   }
 }
