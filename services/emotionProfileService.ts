@@ -323,6 +323,83 @@ export function getValueComment(topTwo: [ValueKey, ValueKey] | []): string {
   return VALUE_COMBO_COMMENTS[key1] ?? VALUE_COMBO_COMMENTS[key2] ?? "당신과 나누는 대화에서 특별한 에너지를 느껴요.";
 }
 
+// ── 턴별 즉시 쓰기 (신뢰성 우선) ─────────────────────────────────────────────
+/**
+ * flushTurnData — 매 턴 직후 즉시 Firestore에 누적 (2 writes/turn)
+ * beforeunload/앱 크래시로 세션 종료 시에도 데이터 보존
+ *
+ * Write 1: valueChain — increment() 사용 → 원자적 누적
+ * Write 2: lifetime  — turnCount +1, kappa EMA 갱신
+ */
+export async function flushTurnData(
+  uid:              string,
+  valueHitsThisTurn: Partial<Record<ValueKey, number>>,
+  kappa_this_turn:  number,
+  psi_this_turn:    number,
+  expressionMode:   string,
+  prevLifetime:     EmotionLifetime | null,
+): Promise<void> {
+  const ALL_VALUE_KEYS = Object.values(VALUE_NAME_MAP) as ValueKey[];
+  const now = Date.now();
+
+  const batch = writeBatch(db);
+
+  // ── Write 1: valueChain increment ──────────────────────────────────────
+  const chainRef = doc(db, 'users', uid, 'emotionProfile', 'valueChain');
+  const chainUpdate: Record<string, unknown> = { totalTurnsTracked: increment(1), updatedAt: serverTimestamp() };
+  for (const vk of ALL_VALUE_KEYS) {
+    const hits = valueHitsThisTurn[vk] ?? 0;
+    if (hits > 0) {
+      chainUpdate[`${vk}.hitCount`] = increment(hits);
+      chainUpdate[`${vk}.lastSeen`] = now;
+    }
+  }
+  batch.set(chainRef, chainUpdate, { merge: true });
+
+  // ── Write 2: lifetime increment ─────────────────────────────────────────
+  const lifetimeRef = doc(db, 'users', uid, 'emotionProfile', 'lifetime');
+  const prevKappa   = prevLifetime?.kappa_lifetime ?? 0;
+  const prevPsi     = prevLifetime?.psi_centroid   ?? 0;
+  const prevExpDist = prevLifetime?.expression_distribution ?? {};
+
+  const newKappa   = KAPPA_ALPHA * kappa_this_turn + (1 - KAPPA_ALPHA) * prevKappa;
+  const newPsi     = PSI_ALPHA   * psi_this_turn   + (1 - PSI_ALPHA)   * prevPsi;
+  const newExpDist = { ...prevExpDist, [expressionMode]: (prevExpDist[expressionMode] ?? 0) + 1 };
+  const dominant   = Object.entries(newExpDist).sort((a, b) => b[1] - a[1])[0]?.[0] ?? '';
+
+  batch.set(lifetimeRef, {
+    kappa_lifetime:           newKappa,
+    total_turns:              increment(1),
+    psi_centroid:             newPsi,
+    dominant_expression_mode: dominant,
+    expression_distribution:  newExpDist,
+    updatedAt:                serverTimestamp(),
+  }, { merge: true });
+
+  await batch.commit();
+}
+
+/**
+ * recomputeResonance — valueChain의 resonance를 totalTurnsTracked 기준으로 재계산
+ * flushTurnData는 hitCount만 increment하므로, 읽기 후 resonance 재계산 필요
+ * (앱 시작 시 1회 호출)
+ */
+export async function recomputeResonance(uid: string): Promise<void> {
+  const snap = await getDoc(doc(db, 'users', uid, 'emotionProfile', 'valueChain'));
+  if (!snap.exists()) return;
+  const data = snap.data() as ValueChainDB & { totalTurnsTracked: number };
+  const total = data.totalTurnsTracked ?? 1;
+  const ALL_VALUE_KEYS = Object.values(VALUE_NAME_MAP) as ValueKey[];
+  const updates: Record<string, number> = {};
+  for (const vk of ALL_VALUE_KEYS) {
+    const entry = data[vk];
+    if (entry) updates[`${vk}.resonance`] = entry.hitCount / total;
+  }
+  if (Object.keys(updates).length > 0) {
+    await setDoc(doc(db, 'users', uid, 'emotionProfile', 'valueChain'), updates, { merge: true });
+  }
+}
+
 // ── 감성 프로필 초기화 ─────────────────────────────────────────────────────
 
 export async function clearEmotionProfile(uid: string): Promise<void> {
