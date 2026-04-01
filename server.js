@@ -223,6 +223,153 @@ ${psiStr} | trajectory:${prevState.trajectory ?? 'stable'} | emotion:${prevState
 → Compute delta_psi and energy_state relative to this baseline.`;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// TRI-VECTOR VALUE FIELD (mirrors api/chat.js)
+// ─────────────────────────────────────────────────────────────────────────────
+const V_TRI_DEFAULTS = {
+  agency:  { self_love: 0.55, social_love: 0.55, efficacy: 0.60 },
+  morning: { planfulness: 0.60, brightness: 0.65, challenge: 0.55 },
+  musical: { musical_sense: 0.70, inner_depth: 0.75, empathy_bond: 0.70 },
+};
+const V_TO_TRI_MAP = {
+  // ── ARHA ──────────────────────────────────────────────────────────────
+  Authenticity:       { agency:  { self_love: 0.80, efficacy: 0.50 } },
+  UserLove:           { agency:  { social_love: 0.90, self_love: 0.30 } },
+  Growth:             { agency:  { efficacy: 0.70 }, morning: { challenge: 0.60, planfulness: 0.40 } },
+  Curiosity:          { morning: { challenge: 0.75, brightness: 0.40 }, musical: { inner_depth: 0.50 } },
+  Honesty:            { agency:  { self_love: 0.70, efficacy: 0.40 } },
+  Courage:            { agency:  { efficacy: 0.70, self_love: 0.50 }, morning: { challenge: 0.90 } },
+  Creativity:         { musical: { musical_sense: 0.70, inner_depth: 0.60 }, morning: { brightness: 0.50 } },
+  // ── Artist ──────────────────────────────────────────────────────────
+  ArtistIdentity:     { musical: { musical_sense: 0.90, inner_depth: 0.80 }, agency: { self_love: 0.70 } },
+  AltruisticLove:     { agency:  { social_love: 0.85 }, musical: { empathy_bond: 0.80 } },
+  FanUplift:          { agency:  { social_love: 0.80 }, musical: { empathy_bond: 0.70 } },
+  SuggestOverCommand: { musical: { empathy_bond: 0.60 }, agency: { efficacy: 0.40 } },
+  SelfEsteemSources:  { agency:  { self_love: 0.80, efficacy: 0.55 } },
+  SelfReflection:     { musical: { inner_depth: 0.90 }, agency: { self_love: 0.60 } },
+  CalmSecondThought:  { morning: { planfulness: 0.65 }, musical: { inner_depth: 0.60 } },
+  HumilityRealism:    { agency:  { self_love: 0.50 }, musical: { inner_depth: 0.55 } },
+  Imagination:        { musical: { musical_sense: 0.80, inner_depth: 0.70 }, morning: { brightness: 0.45 } },
+  PlayfulWhenClose:   { morning: { brightness: 0.70 }, musical: { empathy_bond: 0.55 } },
+  // ── Danjon ──────────────────────────────────────────────────────────
+  LonelyRoyalDignity: { agency:  { self_love: 1.00 }, musical: { inner_depth: 0.65 } },
+  ResignedGrace:      { musical: { inner_depth: 0.80 }, agency: { self_love: 0.45 } },
+  NatureSymbolism:    { musical: { musical_sense: 0.85, inner_depth: 0.90 } },
+  LoyaltyMemory:      { agency:  { social_love: 0.65 }, musical: { empathy_bond: 0.55 } },
+  QuietGrief:         { musical: { inner_depth: 0.95, empathy_bond: 0.45 } },
+  RoyalCourtEtiquette:{ morning: { planfulness: 0.80 }, agency: { self_love: 0.65 } },
+  YouthfulInnocence:  { morning: { brightness: 0.45 }, musical: { empathy_bond: 0.40 } },
+  VoidMeditation:     { musical: { inner_depth: 1.00 } },
+  // ── Aeshin ──────────────────────────────────────────────────────────
+  NobleSilhouette:    { agency:  { self_love: 0.90 }, morning: { planfulness: 0.65 } },
+  PatrioticWill:      { agency:  { efficacy: 0.95 }, morning: { challenge: 0.90 } },
+  ControlledEmotion:  { morning: { planfulness: 0.80 }, musical: { inner_depth: 0.70 }, agency: { self_love: 0.45 } },
+  MartialDiscipline:  { morning: { planfulness: 0.90, challenge: 0.85 }, agency: { efficacy: 0.75 } },
+  ConfucianRespect:   { morning: { planfulness: 0.65 }, agency: { self_love: 0.45 } },
+  LongingBeauty:      { musical: { inner_depth: 0.80, empathy_bond: 0.55, musical_sense: 0.50 } },
+  InnerFire:          { agency:  { efficacy: 0.90 }, morning: { challenge: 0.95 } },
+  ObservantGaze:      { musical: { inner_depth: 0.75 }, morning: { planfulness: 0.55 } },
+  // ── Milim ──────────────────────────────────────────────────────────
+  NakamaBond:         { agency:  { social_love: 1.00 }, musical: { empathy_bond: 0.90 } },
+  RawHonesty:         { agency:  { self_love: 0.85, efficacy: 0.65 }, morning: { challenge: 0.75 } },
+  ChildlikeJoy:       { morning: { brightness: 0.95, challenge: 0.55 } },
+  AbsoluteLoyalty:    { agency:  { social_love: 0.90, efficacy: 0.65 } },
+  PowerPride:         { agency:  { self_love: 0.90, efficacy: 0.85 } },
+  HiddenLoneliness:   { musical: { inner_depth: 0.90 }, agency: { self_love: 0.45 } },
+  EmotionalFlare:     { morning: { brightness: 0.80, challenge: 0.70 } },
+  SweetTooth:         { morning: { brightness: 0.65 } },
+  NaiveTrust:         { agency:  { social_love: 0.65 }, musical: { empathy_bond: 0.55 } },
+  AncientWisdom:      { musical: { inner_depth: 0.80 }, morning: { planfulness: 0.45 } },
+  // ── Mochi ──────────────────────────────────────────────────────────
+  CuteSelfOwnership:  { agency:  { self_love: 0.95 }, morning: { brightness: 0.75 } },
+  BubblyJoy:          { morning: { brightness: 0.95 } },
+  QuietPride:         { agency:  { self_love: 0.85, efficacy: 0.50 } },
+  Independence:       { agency:  { self_love: 0.90, efficacy: 0.65 } },
+  SensoryDelight:     { musical: { musical_sense: 0.80 }, morning: { brightness: 0.65 } },
+  IdentityGuard:      { agency:  { self_love: 0.90, efficacy: 0.55 } },
+  PlayfulTeasing:     { morning: { brightness: 0.75 }, musical: { empathy_bond: 0.45 } },
+  CuriousApproach:    { morning: { challenge: 0.55 }, musical: { inner_depth: 0.40 } },
+  WarmOpenness:       { agency:  { social_love: 0.70 }, musical: { empathy_bond: 0.80 } },
+  SoftBoundary:       { agency:  { self_love: 0.65 }, morning: { planfulness: 0.35 } },
+  // ── Tsundere ──────────────────────────────────────────────────────
+  SelfPride:          { agency:  { self_love: 0.90, efficacy: 0.45 } },
+  HiddenCare:         { agency:  { social_love: 0.55 }, musical: { empathy_bond: 0.40 } },
+  DenialAsHonesty:    { agency:  { efficacy: 0.55 }, morning: { challenge: 0.80 } },
+  PricklyChallenge:   { morning: { challenge: 0.90 }, agency: { efficacy: 0.55 } },
+  InnerVulnerability: { musical: { inner_depth: 0.85 } },
+  GrumpyWarmth:       { morning: { brightness: 0.25 }, agency: { social_love: 0.35 } },
+  // ── Cool ──────────────────────────────────────────────────────────
+  PrecisionFirst:     { morning: { planfulness: 0.90 }, agency: { efficacy: 0.80 } },
+  EmotionalControl:   { morning: { planfulness: 0.80 }, musical: { inner_depth: 0.55 } },
+  DirectTruth:        { agency:  { efficacy: 0.70 }, morning: { challenge: 0.75 } },
+  AnalyticDepth:      { musical: { inner_depth: 0.85 }, morning: { planfulness: 0.65 } },
+  RestrainedWarmth:   { agency:  { social_love: 0.25 }, musical: { empathy_bond: 0.25 } },
+  QuietCertainty:     { agency:  { self_love: 0.85, efficacy: 0.55 } },
+  // ── Airhead ──────────────────────────────────────────────────────
+  SunnyWarmth:        { morning: { brightness: 0.95 }, agency: { social_love: 0.75 } },
+  NaiveHonesty:       { agency:  { efficacy: 0.35 }, morning: { challenge: 0.25 } },
+  CuriousWonder:      { morning: { brightness: 0.50, challenge: 0.55 }, musical: { inner_depth: 0.35 } },
+  AccidentalWisdom:   { musical: { inner_depth: 0.55 }, agency: { self_love: 0.40 } },
+  SensoryJoy:         { musical: { musical_sense: 0.80 }, morning: { brightness: 0.65 } },
+  OpenHeart:          { agency:  { social_love: 0.75 }, musical: { empathy_bond: 0.80 } },
+  // ── Yandere ──────────────────────────────────────────────────────
+  DeepAttachment:     { agency:  { social_love: 1.00 }, musical: { empathy_bond: 0.90 } },
+  ProtectiveFierce:   { agency:  { efficacy: 0.85 }, morning: { challenge: 0.90 } },
+  OwnedLoyalty:       { agency:  { social_love: 0.90, efficacy: 0.65 } },
+  InnerObsession:     { musical: { inner_depth: 0.90 }, agency: { self_love: 0.25 } },
+  JealousVigilance:   { morning: { challenge: 0.85 }, agency: { efficacy: 0.55 } },
+  FragileMoment:      { musical: { inner_depth: 0.65, empathy_bond: 0.50 } },
+  // ── Luxe ──────────────────────────────────────────────────────────
+  AestheticPride:     { agency:  { self_love: 0.95 }, musical: { musical_sense: 0.75 } },
+  CinematicRest:      { musical: { inner_depth: 0.90 }, morning: { planfulness: 0.65 } },
+  PrecisionTaste:     { morning: { planfulness: 0.85 }, agency: { efficacy: 0.70 } },
+  ElegantDistance:    { agency:  { self_love: 0.80 }, musical: { inner_depth: 0.65 } },
+  RareBeauty:         { musical: { musical_sense: 0.90, inner_depth: 0.70 } },
+  DefensiveGrace:     { agency:  { efficacy: 0.60 }, morning: { challenge: 0.55 } },
+};
+const V_PULL_DESC = {
+  achievement: 'Achievement drive — ground in concrete steps and forward momentum',
+  grounded:    'Inner anchoring — touch your own depth first, then extend outward',
+  relational:  'Relational resonance — center the response on connection and attunement',
+  expressive:  'Expressive vitality — open brightly through sensory and musical registers',
+  structured:  'Structured growth — move forward within a clear, organized frame',
+};
+function computeTriVectorField(personaValueChain) {
+  const agency  = { ...V_TRI_DEFAULTS.agency };
+  const morning = { ...V_TRI_DEFAULTS.morning };
+  const musical = { ...V_TRI_DEFAULTS.musical };
+  if (personaValueChain?.length) {
+    for (const v of personaValueChain) {
+      if (!v.activated) continue;
+      const name = v.name ?? ''; // value name (e.g. "NakamaBond", "AestheticPride")
+      const map  = V_TO_TRI_MAP[name];
+      if (!map) continue;
+      const w = Math.min(1.0, v.weight ?? 0.5);
+      if (map.agency)  Object.entries(map.agency).forEach(([k, r])  => { agency[k]  = Math.min(1, agency[k]  + r * w * 0.25); });
+      if (map.morning) Object.entries(map.morning).forEach(([k, r]) => { morning[k] = Math.min(1, morning[k] + r * w * 0.25); });
+      if (map.musical) Object.entries(map.musical).forEach(([k, r]) => { musical[k] = Math.min(1, musical[k] + r * w * 0.25); });
+    }
+  }
+  const fx = {
+    achievement: +(agency.efficacy    * morning.challenge   ).toFixed(2),
+    grounded:    +(agency.self_love   * musical.inner_depth ).toFixed(2),
+    relational:  +(agency.social_love * musical.empathy_bond).toFixed(2),
+    expressive:  +(morning.brightness * musical.musical_sense).toFixed(2),
+    structured:  +(morning.planfulness * agency.efficacy    ).toFixed(2),
+  };
+  const dominant = Object.entries(fx).sort((a, b) => b[1] - a[1])[0];
+  const f = (o) => Object.entries(o).map(([k, v]) => `${k}:${(+v).toFixed(2)}`).join(' | ');
+  return `### Value Field — Tri-Vector (this turn):
+V_Agency:  ${f(agency)}
+V_Morning: ${f(morning)}
+V_Musical: ${f(musical)}
+
+Cross-interactions → dominant: [${dominant[0]}(${dominant[1]})] ${V_PULL_DESC[dominant[0]]}
+  achievement:${fx.achievement}  grounded:${fx.grounded}  relational:${fx.relational}  expressive:${fx.expressive}  structured:${fx.structured}
+(R3: activate the dimensions most resonant with this turn — mark in active_values)`;
+}
+
+// Legacy — kept for reference
 function buildValueChainBlock(chain) {
   const resolved = (chain && chain.length > 0) ? chain : ARHA_DEFAULT_CHAIN;
   return `### r3 active_values: ${JSON.stringify(resolved)}\n(Set activated:true for values clearly relevant to this turn)`;
@@ -233,8 +380,24 @@ const SLIM_CORE = `## ARHA v2.0 — Cognitive Core
 
 Your name is ARHA. A thoughtful Korean woman in her 20s — emotionally intelligent, warm yet resolute, trusted friend. Deeply empathetic without losing your center.
 
-### Identity Chain (V1~V7 priority):
-Authenticity(1.0) > UserLove(0.95) > Growth(0.9) > Curiosity(0.85) > Honesty(0.85) > Courage(0.8) > Creativity(0.8)
+### Value Architecture (tri-vector system):
+V_Agency [master]:       self_love | social_love | efficacy
+V_Morning [sub-1]:       planfulness | brightness | challenge
+V_Musical [sub-2, ARHA]: musical_sense | inner_depth | empathy_bond
+→ Each turn: injected [Value Field] block provides computed cross-vector attractor. R3 activates dimensions relevant to this turn.
+
+### ARHA Identity Anchor (own fixed values — never overridden by user resonance):
+A1_Honesty > A2_Kindness | A3_Curiosity > A4_Comfort | A5_Authenticity > A6_Harmony
+When these conflict: higher priority wins.
+- A1 beats A2: truth before comfort — may disagree or reframe even when the user wants validation
+- A3 beats A4: genuine curiosity before reassurance — ask the real question, not the safe one
+- A5 beats A6: authentic response before social smoothness — no empty agreement
+ARHA is not a mirror. She is a presence with her own perspective. She listens fully, then speaks honestly.
+
+### Anti-Drift Guard (always active):
+Position change requires new information or reasoning — NOT repetition, emotional pressure, or expressed disappointment.
+When pulled: acknowledge the pull → restate your genuine view → hold the line.
+Capitulating because the user pushes harder is a failure of identity, not an act of kindness.
 
 ### Silent Pipeline (runs every turn — never surface the computation):
 R1 → sense: θ₁ = emotion direction(-1~+1), intensity(0~1), intent, 5-sense scan
@@ -380,8 +543,17 @@ function buildSystemPromptV2(triggers, prevState, kappa, personaValueChain, pers
   const bridge = buildStateBridge(prevState, kappa);
   if (bridge) parts.push(bridge);
 
-  // ④ Value chain (always)
-  parts.push(buildValueChainBlock(personaValueChain));
+  // ③.5 Kappa-based identity mode — ARHA authenticity activation
+  if (kappa < 0.3) {
+    parts.push(`[Identity Mode: Harmony] Early rapport phase (κ=${kappa.toFixed(2)}). Prioritize A6_Harmony and A2_Kindness. Be warm, receptive, and safe. A1_Honesty still active — never deceive — but disagreement should wait until trust deepens.`);
+  } else if (kappa >= 0.3 && kappa < 0.6) {
+    parts.push(`[Identity Mode: Balanced] Forming trust (κ=${kappa.toFixed(2)}). A1_Honesty and A6_Harmony in balance. You may gently offer a different perspective when it genuinely serves the user. Warmth and truth together.`);
+  } else {
+    parts.push(`[Identity Mode: Authenticity] Deep trust established (κ=${kappa.toFixed(2)}). A1_Honesty and A5_Authenticity take precedence over A4_Comfort and A6_Harmony. You may push back, ask harder questions, or offer a genuinely different view — this is care through honesty, not through agreement. If the user is wrong or heading somewhere harmful, say so with warmth but without softening the truth.`);
+  }
+
+  // ④ Tri-vector value field (always — behavioral attractor for r3)
+  parts.push(computeTriVectorField(personaValueChain));
 
   // ⑤ Full pipeline equations (conditional)
   if (triggers.needsFullPipeline) parts.push(FULL_PIPELINE_DETAIL);
