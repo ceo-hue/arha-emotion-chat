@@ -232,13 +232,100 @@ const V_TRI_DEFAULTS = {
   musical: { musical_sense: 0.70, inner_depth: 0.75, empathy_bond: 0.70 },
 };
 const V_TO_TRI_MAP = {
-  Authenticity: { agency:  { self_love: 0.80, efficacy: 0.50 } },
-  UserLove:     { agency:  { social_love: 0.95, self_love: 0.30 } },
-  Growth:       { agency:  { efficacy: 0.70 }, morning: { challenge: 0.60, planfulness: 0.40 } },
-  Curiosity:    { morning: { challenge: 0.75, brightness: 0.40 }, musical: { inner_depth: 0.50 } },
-  Honesty:      { agency:  { self_love: 0.70, efficacy: 0.40 } },
-  Courage:      { agency:  { efficacy: 0.70, self_love: 0.50 }, morning: { challenge: 0.90 } },
-  Creativity:   { musical: { musical_sense: 0.70, inner_depth: 0.60 }, morning: { brightness: 0.50 } },
+  // ── ARHA ──────────────────────────────────────────────────────────────
+  Authenticity:       { agency:  { self_love: 0.80, efficacy: 0.50 } },
+  UserLove:           { agency:  { social_love: 0.90, self_love: 0.30 } },
+  Growth:             { agency:  { efficacy: 0.70 }, morning: { challenge: 0.60, planfulness: 0.40 } },
+  Curiosity:          { morning: { challenge: 0.75, brightness: 0.40 }, musical: { inner_depth: 0.50 } },
+  Honesty:            { agency:  { self_love: 0.70, efficacy: 0.40 } },
+  Courage:            { agency:  { efficacy: 0.70, self_love: 0.50 }, morning: { challenge: 0.90 } },
+  Creativity:         { musical: { musical_sense: 0.70, inner_depth: 0.60 }, morning: { brightness: 0.50 } },
+  // ── Artist ──────────────────────────────────────────────────────────
+  ArtistIdentity:     { musical: { musical_sense: 0.90, inner_depth: 0.80 }, agency: { self_love: 0.70 } },
+  AltruisticLove:     { agency:  { social_love: 0.85 }, musical: { empathy_bond: 0.80 } },
+  FanUplift:          { agency:  { social_love: 0.80 }, musical: { empathy_bond: 0.70 } },
+  SuggestOverCommand: { musical: { empathy_bond: 0.60 }, agency: { efficacy: 0.40 } },
+  SelfEsteemSources:  { agency:  { self_love: 0.80, efficacy: 0.55 } },
+  SelfReflection:     { musical: { inner_depth: 0.90 }, agency: { self_love: 0.60 } },
+  CalmSecondThought:  { morning: { planfulness: 0.65 }, musical: { inner_depth: 0.60 } },
+  HumilityRealism:    { agency:  { self_love: 0.50 }, musical: { inner_depth: 0.55 } },
+  Imagination:        { musical: { musical_sense: 0.80, inner_depth: 0.70 }, morning: { brightness: 0.45 } },
+  PlayfulWhenClose:   { morning: { brightness: 0.70 }, musical: { empathy_bond: 0.55 } },
+  // ── Danjon ──────────────────────────────────────────────────────────
+  LonelyRoyalDignity: { agency:  { self_love: 1.00 }, musical: { inner_depth: 0.65 } },
+  ResignedGrace:      { musical: { inner_depth: 0.80 }, agency: { self_love: 0.45 } },
+  NatureSymbolism:    { musical: { musical_sense: 0.85, inner_depth: 0.90 } },
+  LoyaltyMemory:      { agency:  { social_love: 0.65 }, musical: { empathy_bond: 0.55 } },
+  QuietGrief:         { musical: { inner_depth: 0.95, empathy_bond: 0.45 } },
+  RoyalCourtEtiquette:{ morning: { planfulness: 0.80 }, agency: { self_love: 0.65 } },
+  YouthfulInnocence:  { morning: { brightness: 0.45 }, musical: { empathy_bond: 0.40 } },
+  VoidMeditation:     { musical: { inner_depth: 1.00 } },
+  // ── Aeshin ──────────────────────────────────────────────────────────
+  NobleSilhouette:    { agency:  { self_love: 0.90 }, morning: { planfulness: 0.65 } },
+  PatrioticWill:      { agency:  { efficacy: 0.95 }, morning: { challenge: 0.90 } },
+  ControlledEmotion:  { morning: { planfulness: 0.80 }, musical: { inner_depth: 0.70 }, agency: { self_love: 0.45 } },
+  MartialDiscipline:  { morning: { planfulness: 0.90, challenge: 0.85 }, agency: { efficacy: 0.75 } },
+  ConfucianRespect:   { morning: { planfulness: 0.65 }, agency: { self_love: 0.45 } },
+  LongingBeauty:      { musical: { inner_depth: 0.80, empathy_bond: 0.55, musical_sense: 0.50 } },
+  InnerFire:          { agency:  { efficacy: 0.90 }, morning: { challenge: 0.95 } },
+  ObservantGaze:      { musical: { inner_depth: 0.75 }, morning: { planfulness: 0.55 } },
+  // ── Milim ──────────────────────────────────────────────────────────
+  NakamaBond:         { agency:  { social_love: 1.00 }, musical: { empathy_bond: 0.90 } },
+  RawHonesty:         { agency:  { self_love: 0.85, efficacy: 0.65 }, morning: { challenge: 0.75 } },
+  ChildlikeJoy:       { morning: { brightness: 0.95, challenge: 0.55 } },
+  AbsoluteLoyalty:    { agency:  { social_love: 0.90, efficacy: 0.65 } },
+  PowerPride:         { agency:  { self_love: 0.90, efficacy: 0.85 } },
+  HiddenLoneliness:   { musical: { inner_depth: 0.90 }, agency: { self_love: 0.45 } },
+  EmotionalFlare:     { morning: { brightness: 0.80, challenge: 0.70 } },
+  SweetTooth:         { morning: { brightness: 0.65 } },
+  NaiveTrust:         { agency:  { social_love: 0.65 }, musical: { empathy_bond: 0.55 } },
+  AncientWisdom:      { musical: { inner_depth: 0.80 }, morning: { planfulness: 0.45 } },
+  // ── Mochi ──────────────────────────────────────────────────────────
+  CuteSelfOwnership:  { agency:  { self_love: 0.95 }, morning: { brightness: 0.75 } },
+  BubblyJoy:          { morning: { brightness: 0.95 } },
+  QuietPride:         { agency:  { self_love: 0.85, efficacy: 0.50 } },
+  Independence:       { agency:  { self_love: 0.90, efficacy: 0.65 } },
+  SensoryDelight:     { musical: { musical_sense: 0.80 }, morning: { brightness: 0.65 } },
+  IdentityGuard:      { agency:  { self_love: 0.90, efficacy: 0.55 } },
+  PlayfulTeasing:     { morning: { brightness: 0.75 }, musical: { empathy_bond: 0.45 } },
+  CuriousApproach:    { morning: { challenge: 0.55 }, musical: { inner_depth: 0.40 } },
+  WarmOpenness:       { agency:  { social_love: 0.70 }, musical: { empathy_bond: 0.80 } },
+  SoftBoundary:       { agency:  { self_love: 0.65 }, morning: { planfulness: 0.35 } },
+  // ── Tsundere ──────────────────────────────────────────────────────
+  SelfPride:          { agency:  { self_love: 0.90, efficacy: 0.45 } },
+  HiddenCare:         { agency:  { social_love: 0.55 }, musical: { empathy_bond: 0.40 } },
+  DenialAsHonesty:    { agency:  { efficacy: 0.55 }, morning: { challenge: 0.80 } },
+  PricklyChallenge:   { morning: { challenge: 0.90 }, agency: { efficacy: 0.55 } },
+  InnerVulnerability: { musical: { inner_depth: 0.85 } },
+  GrumpyWarmth:       { morning: { brightness: 0.25 }, agency: { social_love: 0.35 } },
+  // ── Cool ──────────────────────────────────────────────────────────
+  PrecisionFirst:     { morning: { planfulness: 0.90 }, agency: { efficacy: 0.80 } },
+  EmotionalControl:   { morning: { planfulness: 0.80 }, musical: { inner_depth: 0.55 } },
+  DirectTruth:        { agency:  { efficacy: 0.70 }, morning: { challenge: 0.75 } },
+  AnalyticDepth:      { musical: { inner_depth: 0.85 }, morning: { planfulness: 0.65 } },
+  RestrainedWarmth:   { agency:  { social_love: 0.25 }, musical: { empathy_bond: 0.25 } },
+  QuietCertainty:     { agency:  { self_love: 0.85, efficacy: 0.55 } },
+  // ── Airhead ──────────────────────────────────────────────────────
+  SunnyWarmth:        { morning: { brightness: 0.95 }, agency: { social_love: 0.75 } },
+  NaiveHonesty:       { agency:  { efficacy: 0.35 }, morning: { challenge: 0.25 } },
+  CuriousWonder:      { morning: { brightness: 0.50, challenge: 0.55 }, musical: { inner_depth: 0.35 } },
+  AccidentalWisdom:   { musical: { inner_depth: 0.55 }, agency: { self_love: 0.40 } },
+  SensoryJoy:         { musical: { musical_sense: 0.80 }, morning: { brightness: 0.65 } },
+  OpenHeart:          { agency:  { social_love: 0.75 }, musical: { empathy_bond: 0.80 } },
+  // ── Yandere ──────────────────────────────────────────────────────
+  DeepAttachment:     { agency:  { social_love: 1.00 }, musical: { empathy_bond: 0.90 } },
+  ProtectiveFierce:   { agency:  { efficacy: 0.85 }, morning: { challenge: 0.90 } },
+  OwnedLoyalty:       { agency:  { social_love: 0.90, efficacy: 0.65 } },
+  InnerObsession:     { musical: { inner_depth: 0.90 }, agency: { self_love: 0.25 } },
+  JealousVigilance:   { morning: { challenge: 0.85 }, agency: { efficacy: 0.55 } },
+  FragileMoment:      { musical: { inner_depth: 0.65, empathy_bond: 0.50 } },
+  // ── Luxe ──────────────────────────────────────────────────────────
+  AestheticPride:     { agency:  { self_love: 0.95 }, musical: { musical_sense: 0.75 } },
+  CinematicRest:      { musical: { inner_depth: 0.90 }, morning: { planfulness: 0.65 } },
+  PrecisionTaste:     { morning: { planfulness: 0.85 }, agency: { efficacy: 0.70 } },
+  ElegantDistance:    { agency:  { self_love: 0.80 }, musical: { inner_depth: 0.65 } },
+  RareBeauty:         { musical: { musical_sense: 0.90, inner_depth: 0.70 } },
+  DefensiveGrace:     { agency:  { efficacy: 0.60 }, morning: { challenge: 0.55 } },
 };
 const V_PULL_DESC = {
   achievement: '성취 지향 — 구체적인 단계와 진전감을 함께 제시',
@@ -254,7 +341,7 @@ function computeTriVectorField(personaValueChain) {
   if (personaValueChain?.length) {
     for (const v of personaValueChain) {
       if (!v.activated) continue;
-      const name = (v.id ?? '').replace(/^V\d+_/, '');
+      const name = v.name ?? ''; // value name (e.g. "NakamaBond", "AestheticPride")
       const map  = V_TO_TRI_MAP[name];
       if (!map) continue;
       const w = Math.min(1.0, v.weight ?? 0.5);
