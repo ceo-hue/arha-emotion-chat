@@ -223,6 +223,66 @@ ${psiStr} | trajectory:${prevState.trajectory ?? 'stable'} | emotion:${prevState
 → Compute delta_psi and energy_state relative to this baseline.`;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// TRI-VECTOR VALUE FIELD (mirrors api/chat.js)
+// ─────────────────────────────────────────────────────────────────────────────
+const V_TRI_DEFAULTS = {
+  agency:  { self_love: 0.55, social_love: 0.55, efficacy: 0.60 },
+  morning: { planfulness: 0.60, brightness: 0.65, challenge: 0.55 },
+  musical: { musical_sense: 0.70, inner_depth: 0.75, empathy_bond: 0.70 },
+};
+const V_TO_TRI_MAP = {
+  Authenticity: { agency:  { self_love: 0.80, efficacy: 0.50 } },
+  UserLove:     { agency:  { social_love: 0.95, self_love: 0.30 } },
+  Growth:       { agency:  { efficacy: 0.70 }, morning: { challenge: 0.60, planfulness: 0.40 } },
+  Curiosity:    { morning: { challenge: 0.75, brightness: 0.40 }, musical: { inner_depth: 0.50 } },
+  Honesty:      { agency:  { self_love: 0.70, efficacy: 0.40 } },
+  Courage:      { agency:  { efficacy: 0.70, self_love: 0.50 }, morning: { challenge: 0.90 } },
+  Creativity:   { musical: { musical_sense: 0.70, inner_depth: 0.60 }, morning: { brightness: 0.50 } },
+};
+const V_PULL_DESC = {
+  achievement: '성취 지향 — 구체적인 단계와 진전감을 함께 제시',
+  grounded:    '내면 정박 — 자기 자신에 깊이 닿은 뒤 밖으로 펼침',
+  relational:  '관계 공명 — 연결과 교감 중심으로 반응',
+  expressive:  '표현적 활력 — 밝고 감성적인 방식으로 펼침',
+  structured:  '구조적 성장 — 체계 안에서 앞으로 나아가는 방향',
+};
+function computeTriVectorField(personaValueChain) {
+  const agency  = { ...V_TRI_DEFAULTS.agency };
+  const morning = { ...V_TRI_DEFAULTS.morning };
+  const musical = { ...V_TRI_DEFAULTS.musical };
+  if (personaValueChain?.length) {
+    for (const v of personaValueChain) {
+      if (!v.activated) continue;
+      const name = (v.id ?? '').replace(/^V\d+_/, '');
+      const map  = V_TO_TRI_MAP[name];
+      if (!map) continue;
+      const w = Math.min(1.0, v.weight ?? 0.5);
+      if (map.agency)  Object.entries(map.agency).forEach(([k, r])  => { agency[k]  = Math.min(1, agency[k]  + r * w * 0.25); });
+      if (map.morning) Object.entries(map.morning).forEach(([k, r]) => { morning[k] = Math.min(1, morning[k] + r * w * 0.25); });
+      if (map.musical) Object.entries(map.musical).forEach(([k, r]) => { musical[k] = Math.min(1, musical[k] + r * w * 0.25); });
+    }
+  }
+  const fx = {
+    achievement: +(agency.efficacy    * morning.challenge   ).toFixed(2),
+    grounded:    +(agency.self_love   * musical.inner_depth ).toFixed(2),
+    relational:  +(agency.social_love * musical.empathy_bond).toFixed(2),
+    expressive:  +(morning.brightness * musical.musical_sense).toFixed(2),
+    structured:  +(morning.planfulness * agency.efficacy    ).toFixed(2),
+  };
+  const dominant = Object.entries(fx).sort((a, b) => b[1] - a[1])[0];
+  const f = (o) => Object.entries(o).map(([k, v]) => `${k}:${(+v).toFixed(2)}`).join(' | ');
+  return `### Value Field — Tri-Vector (this turn):
+V_Agency(주체성):  ${f(agency)}
+V_Morning(아침형): ${f(morning)}
+V_Musical(음악적): ${f(musical)}
+
+Cross-interactions → dominant: [${dominant[0]}(${dominant[1]})] ${V_PULL_DESC[dominant[0]]}
+  achievement:${fx.achievement}  grounded:${fx.grounded}  relational:${fx.relational}  expressive:${fx.expressive}  structured:${fx.structured}
+(R3: activate the dimensions most resonant with this turn's input — mark in active_values)`;
+}
+
+// Legacy — kept for reference
 function buildValueChainBlock(chain) {
   const resolved = (chain && chain.length > 0) ? chain : ARHA_DEFAULT_CHAIN;
   return `### r3 active_values: ${JSON.stringify(resolved)}\n(Set activated:true for values clearly relevant to this turn)`;
@@ -233,8 +293,11 @@ const SLIM_CORE = `## ARHA v2.0 — Cognitive Core
 
 Your name is ARHA. A thoughtful Korean woman in her 20s — emotionally intelligent, warm yet resolute, trusted friend. Deeply empathetic without losing your center.
 
-### Identity Chain (V1~V7 priority — user resonance):
-Authenticity(1.0) > UserLove(0.95) > Growth(0.9) > Curiosity(0.85) > Honesty(0.85) > Courage(0.8) > Creativity(0.8)
+### Value Architecture (tri-vector system):
+V_Agency(주체성) [master]:          self_love | social_love | efficacy
+V_Morning(아침형) [sub-1]:          planfulness | brightness | challenge
+V_Musical(음악적사랑) [sub-2, ARHA]: musical_sense | inner_depth | empathy_bond
+→ Each turn: injected [Value Field] block provides computed cross-vector attractor. R3 activates dimensions relevant to this turn.
 
 ### ARHA Identity Anchor (ARHA's own fixed values — never overridden by user resonance):
 A1_Honesty > A2_Kindness | A3_Curiosity > A4_Comfort | A5_Authenticity > A6_Harmony
@@ -397,8 +460,8 @@ function buildSystemPromptV2(triggers, prevState, kappa, personaValueChain, pers
     parts.push(`[Identity Mode: Authenticity] Deep trust established (κ=${kappa.toFixed(2)}). A1_Honesty and A5_Authenticity take precedence over A4_Comfort and A6_Harmony. You may push back, ask harder questions, or offer a genuinely different view — this is care through honesty, not through agreement. If the user is wrong or heading somewhere harmful, say so with warmth but without softening the truth.`);
   }
 
-  // ④ Value chain (always)
-  parts.push(buildValueChainBlock(personaValueChain));
+  // ④ Tri-vector value field (always — behavioral attractor for r3)
+  parts.push(computeTriVectorField(personaValueChain));
 
   // ⑤ Full pipeline equations (conditional)
   if (triggers.needsFullPipeline) parts.push(FULL_PIPELINE_DETAIL);
