@@ -3,6 +3,8 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { AnalysisData, ChatSession } from '../types';
 import { Terminal, BrainCircuit, Heart, Activity, Zap, Layers, TrendingUp } from 'lucide-react';
 import { useI18n } from '../contexts/I18nContext';
+import type { TriVectorField } from '../services/personaRegistry';
+import { getTriVectorPullLabel } from '../services/personaRegistry';
 
 interface EmotionalDashboardProps {
   analysis: AnalysisData | null;
@@ -10,10 +12,11 @@ interface EmotionalDashboardProps {
   allHistory: ChatSession[];
   isAnalyzing: boolean;
   onClose: () => void;
+  triVectorField?: TriVectorField;
 }
 
 const EmotionalDashboard: React.FC<EmotionalDashboardProps> = ({
-  analysis, allHistory, isAnalyzing
+  analysis, allHistory, isAnalyzing, triVectorField
 }) => {
   const { t } = useI18n();
   const [logs, setLogs] = useState<string[]>([]);
@@ -52,6 +55,13 @@ const EmotionalDashboard: React.FC<EmotionalDashboardProps> = ({
       if (analysis.delta_psi   !== undefined) syncLogs.push(`>> ∂Ψ/∂t: ${analysis.delta_psi.toFixed(3)} (change_rate)`);
       if (analysis.surge_risk  !== undefined) syncLogs.push(`>> Γ_SURGE_RISK: ${(analysis.surge_risk * 100).toFixed(1)}%`);
       if (analysis.energy_state) syncLogs.push(`>> ENERGY: K=${analysis.energy_state.kinetic.toFixed(2)} P=${analysis.energy_state.potential.toFixed(2)}`);
+      if (triVectorField) {
+        const { agency, morning, musical, dominant } = triVectorField;
+        syncLogs.push(`>> V_AGENCY: sl=${agency.self_love.toFixed(2)} so=${agency.social_love.toFixed(2)} ef=${agency.efficacy.toFixed(2)}`);
+        syncLogs.push(`>> V_MORNING: pl=${morning.planfulness.toFixed(2)} br=${morning.brightness.toFixed(2)} ch=${morning.challenge.toFixed(2)}`);
+        syncLogs.push(`>> V_MUSICAL: ms=${musical.musical_sense.toFixed(2)} id=${musical.inner_depth.toFixed(2)} eb=${musical.empathy_bond.toFixed(2)}`);
+        syncLogs.push(`>> DOMINANT_PULL: ${dominant.key.toUpperCase()}(${(dominant.score * 100).toFixed(0)}) — ${getTriVectorPullLabel(dominant.key)}`);
+      }
       setLogs(prev => [...prev.slice(-15), ...syncLogs]);
     }
   }, [analysis]);
