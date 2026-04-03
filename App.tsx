@@ -4,7 +4,7 @@ import { Message, AnalysisData, ChatSession, TaskType, ArtifactContent, MuMode, 
 import { chatWithClaudeStream } from './services/claudeService';
 import { analyzeForPro, resetProSession } from './src/pro';
 import { generateArhaVideo, generateArhaImage } from './services/geminiService';
-import { getPersonaValueChain, buildPersonaSystemPrompt } from './services/personaRegistry';
+import { getPersonaValueChain, buildPersonaSystemPrompt, computeTriVector, getTriVectorPullLabel } from './services/personaRegistry';
 import { GoogleGenAI, Modality } from '@google/genai';
 import { ARHA_SYSTEM_PROMPT } from './constants';
 import {
@@ -1755,6 +1755,7 @@ const App: React.FC = () => {
               allHistory={history}
               isAnalyzing={isAnalyzing}
               onClose={() => setShowDashboard(false)}
+              triVectorField={pipelineData ? computeTriVector(pipelineData.r3.active_values) : computeTriVector(activeValueChain)}
             />
           </div>
         )}
@@ -1864,32 +1865,85 @@ const App: React.FC = () => {
                   </div>
                 </div>
 
-                {/* R3 — Identity Layer */}
-                <div className="rounded-2xl border border-emerald-400/15 bg-emerald-500/5 px-3 py-2.5">
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <span className="text-[8px] font-black uppercase tracking-widest text-emerald-400/70">R3</span>
-                    <span className="text-[9px] font-black text-slate-500 dark:text-white/50">{t.r3Label}</span>
-                    <span className="ml-auto text-[7px] font-black text-emerald-400/70 bg-emerald-400/10 px-1.5 py-0.5 rounded-full">{pipelineData.r3.chain_op}</span>
-                  </div>
-                  <div className="space-y-1">
-                    {pipelineData.r3.active_values.map(v => (
-                      <div key={v.id} className="flex items-center gap-1.5">
-                        <span className={`text-[7px] font-black w-3 ${v.activated ? 'text-emerald-400' : 'text-slate-300 dark:text-white/20'}`}>{v.id}</span>
-                        <div className="flex-1 h-1 bg-white/10 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full rounded-full transition-all ${v.activated ? 'bg-emerald-400/80' : 'bg-white/20'}`}
-                            style={{ width: `${v.weight * 100}%` }}
-                          />
-                        </div>
-                        <span className={`text-[7px] w-14 truncate ${v.activated ? 'text-slate-700 dark:text-white/60 font-black' : 'text-slate-300 dark:text-white/25'}`}>{v.name}</span>
-                      </div>
-                    ))}
-                    <div className="flex items-center justify-between mt-1">
-                      <span className="text-[8px] text-slate-400 dark:text-white/30">{t.r3Resonance}</span>
-                      <span className="text-[9px] font-black text-emerald-300">{(pipelineData.r3.resonance_level * 100).toFixed(0)}%</span>
+                {/* R3 — Identity / Value Field */}
+                {(() => {
+                  const tvf = computeTriVector(pipelineData.r3.active_values);
+                  const bar = (val: number, color: string) => (
+                    <div className="flex-1 h-1 bg-white/10 rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${val * 100}%` }} />
                     </div>
-                  </div>
-                </div>
+                  );
+                  const dimRow = (label: string, val: number, color: string) => (
+                    <div className="flex items-center gap-1">
+                      <span className="text-[7px] text-slate-400 dark:text-white/30 w-16 truncate">{label}</span>
+                      {bar(val, color)}
+                      <span className="text-[7px] font-black text-slate-500 dark:text-white/40 w-5 text-right">{(val * 100).toFixed(0)}</span>
+                    </div>
+                  );
+                  return (
+                    <div className="rounded-2xl border border-emerald-400/15 bg-emerald-500/5 px-3 py-2.5 space-y-2">
+                      {/* header */}
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[8px] font-black uppercase tracking-widest text-emerald-400/70">R3</span>
+                        <span className="text-[9px] font-black text-slate-500 dark:text-white/50">{t.r3Label}</span>
+                        <span className="ml-auto text-[7px] font-black text-emerald-400/70 bg-emerald-400/10 px-1.5 py-0.5 rounded-full">{pipelineData.r3.chain_op}</span>
+                      </div>
+
+                      {/* Tri-Vector Field */}
+                      <div className="bg-black/5 dark:bg-white/5 rounded-xl px-2 py-1.5 space-y-1.5">
+                        {/* V_Agency */}
+                        <div className="space-y-0.5">
+                          <span className="text-[7px] font-black text-emerald-400/80 uppercase tracking-wider">V_Agency</span>
+                          {dimRow('self_love',   tvf.agency.self_love,   'bg-emerald-400/80')}
+                          {dimRow('social_love', tvf.agency.social_love, 'bg-emerald-300/70')}
+                          {dimRow('efficacy',    tvf.agency.efficacy,    'bg-emerald-500/70')}
+                        </div>
+                        {/* V_Morning */}
+                        <div className="space-y-0.5">
+                          <span className="text-[7px] font-black text-sky-400/80 uppercase tracking-wider">V_Morning</span>
+                          {dimRow('planfulness', tvf.morning.planfulness, 'bg-sky-400/70')}
+                          {dimRow('brightness',  tvf.morning.brightness,  'bg-sky-300/70')}
+                          {dimRow('challenge',   tvf.morning.challenge,   'bg-sky-500/70')}
+                        </div>
+                        {/* V_Musical */}
+                        <div className="space-y-0.5">
+                          <span className="text-[7px] font-black text-violet-400/80 uppercase tracking-wider">V_Musical</span>
+                          {dimRow('musical_sense', tvf.musical.musical_sense, 'bg-violet-400/70')}
+                          {dimRow('inner_depth',   tvf.musical.inner_depth,   'bg-violet-500/70')}
+                          {dimRow('empathy_bond',  tvf.musical.empathy_bond,  'bg-violet-300/70')}
+                        </div>
+                        {/* Dominant pull */}
+                        <div className="flex items-center gap-1 pt-0.5 border-t border-white/10">
+                          <span className="text-[7px] text-slate-400 dark:text-white/30">dominant</span>
+                          <span className="text-[7px] font-black text-emerald-300 bg-emerald-400/10 px-1.5 rounded-full">
+                            {tvf.dominant.key} · {(tvf.dominant.score * 100).toFixed(0)}
+                          </span>
+                          <span className="text-[7px] text-slate-400 dark:text-white/30 truncate">{getTriVectorPullLabel(tvf.dominant.key)}</span>
+                        </div>
+                      </div>
+
+                      {/* Active values (model-selected) */}
+                      {pipelineData.r3.active_values.filter(v => v.activated).length > 0 && (
+                        <div className="space-y-0.5">
+                          <span className="text-[7px] text-slate-400 dark:text-white/30 uppercase tracking-wider">active</span>
+                          {pipelineData.r3.active_values.map(v => v.activated && (
+                            <div key={v.id} className="flex items-center gap-1.5">
+                              <div className="flex-1 h-0.5 bg-white/10 rounded-full overflow-hidden">
+                                <div className="h-full bg-emerald-400/60 rounded-full" style={{ width: `${v.weight * 100}%` }} />
+                              </div>
+                              <span className="text-[7px] text-slate-600 dark:text-white/50 font-black truncate w-20">{v.name}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between">
+                        <span className="text-[8px] text-slate-400 dark:text-white/30">{t.r3Resonance}</span>
+                        <span className="text-[9px] font-black text-emerald-300">{(pipelineData.r3.resonance_level * 100).toFixed(0)}%</span>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* R4 — Expression Layer: Ψ_Lingua vector (ρ · λ · τ) */}
                 <div className="rounded-2xl border border-amber-400/15 bg-amber-500/5 px-3 py-2.5">

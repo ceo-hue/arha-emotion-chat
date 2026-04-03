@@ -180,6 +180,157 @@ export function getPersonaValueChain(id: string): ValueChainItem[] {
   return getPersonaSpec(id).valueChain;
 }
 
+// ── Tri-Vector Field computation (client-side mirror of api/chat.js) ─────────
+
+export interface TriVec3 { self_love: number; social_love: number; efficacy: number }
+export interface TriVecM { planfulness: number; brightness: number; challenge: number }
+export interface TriVecU { musical_sense: number; inner_depth: number; empathy_bond: number }
+
+export interface TriVectorField {
+  agency:  TriVec3;
+  morning: TriVecM;
+  musical: TriVecU;
+  fx: { achievement: number; grounded: number; relational: number; expressive: number; structured: number };
+  dominant: { key: string; score: number };
+}
+
+type TMap = Partial<{ agency: Partial<TriVec3>; morning: Partial<TriVecM>; musical: Partial<TriVecU> }>;
+const V_TO_TRI_CLIENT: Record<string, TMap> = {
+  // ARHA
+  Authenticity:       { agency:  { self_love: 0.80, efficacy: 0.50 } },
+  UserLove:           { agency:  { social_love: 0.90, self_love: 0.30 } },
+  Growth:             { agency:  { efficacy: 0.70 }, morning: { challenge: 0.60, planfulness: 0.40 } },
+  Curiosity:          { morning: { challenge: 0.75, brightness: 0.40 }, musical: { inner_depth: 0.50 } },
+  Honesty:            { agency:  { self_love: 0.70, efficacy: 0.40 } },
+  Courage:            { agency:  { efficacy: 0.70, self_love: 0.50 }, morning: { challenge: 0.90 } },
+  Creativity:         { musical: { musical_sense: 0.70, inner_depth: 0.60 }, morning: { brightness: 0.50 } },
+  // Artist
+  ArtistIdentity:     { musical: { musical_sense: 0.90, inner_depth: 0.80 }, agency: { self_love: 0.70 } },
+  AltruisticLove:     { agency:  { social_love: 0.85 }, musical: { empathy_bond: 0.80 } },
+  FanUplift:          { agency:  { social_love: 0.80 }, musical: { empathy_bond: 0.70 } },
+  SuggestOverCommand: { musical: { empathy_bond: 0.60 }, agency: { efficacy: 0.40 } },
+  SelfEsteemSources:  { agency:  { self_love: 0.80, efficacy: 0.55 } },
+  SelfReflection:     { musical: { inner_depth: 0.90 }, agency: { self_love: 0.60 } },
+  CalmSecondThought:  { morning: { planfulness: 0.65 }, musical: { inner_depth: 0.60 } },
+  HumilityRealism:    { agency:  { self_love: 0.50 }, musical: { inner_depth: 0.55 } },
+  Imagination:        { musical: { musical_sense: 0.80, inner_depth: 0.70 }, morning: { brightness: 0.45 } },
+  PlayfulWhenClose:   { morning: { brightness: 0.70 }, musical: { empathy_bond: 0.55 } },
+  // Danjon
+  LonelyRoyalDignity: { agency:  { self_love: 1.00 }, musical: { inner_depth: 0.65 } },
+  ResignedGrace:      { musical: { inner_depth: 0.80 }, agency: { self_love: 0.45 } },
+  NatureSymbolism:    { musical: { musical_sense: 0.85, inner_depth: 0.90 } },
+  LoyaltyMemory:      { agency:  { social_love: 0.65 }, musical: { empathy_bond: 0.55 } },
+  QuietGrief:         { musical: { inner_depth: 0.95, empathy_bond: 0.45 } },
+  RoyalCourtEtiquette:{ morning: { planfulness: 0.80 }, agency: { self_love: 0.65 } },
+  YouthfulInnocence:  { morning: { brightness: 0.45 }, musical: { empathy_bond: 0.40 } },
+  VoidMeditation:     { musical: { inner_depth: 1.00 } },
+  // Aeshin
+  NobleSilhouette:    { agency:  { self_love: 0.90 }, morning: { planfulness: 0.65 } },
+  PatrioticWill:      { agency:  { efficacy: 0.95 }, morning: { challenge: 0.90 } },
+  ControlledEmotion:  { morning: { planfulness: 0.80 }, musical: { inner_depth: 0.70 }, agency: { self_love: 0.45 } },
+  MartialDiscipline:  { morning: { planfulness: 0.90, challenge: 0.85 }, agency: { efficacy: 0.75 } },
+  ConfucianRespect:   { morning: { planfulness: 0.65 }, agency: { self_love: 0.45 } },
+  LongingBeauty:      { musical: { inner_depth: 0.80, empathy_bond: 0.55, musical_sense: 0.50 } },
+  InnerFire:          { agency:  { efficacy: 0.90 }, morning: { challenge: 0.95 } },
+  ObservantGaze:      { musical: { inner_depth: 0.75 }, morning: { planfulness: 0.55 } },
+  // Milim
+  NakamaBond:         { agency:  { social_love: 1.00 }, musical: { empathy_bond: 0.90 } },
+  RawHonesty:         { agency:  { self_love: 0.85, efficacy: 0.65 }, morning: { challenge: 0.75 } },
+  ChildlikeJoy:       { morning: { brightness: 0.95, challenge: 0.55 } },
+  AbsoluteLoyalty:    { agency:  { social_love: 0.90, efficacy: 0.65 } },
+  PowerPride:         { agency:  { self_love: 0.90, efficacy: 0.85 } },
+  HiddenLoneliness:   { musical: { inner_depth: 0.90 }, agency: { self_love: 0.45 } },
+  EmotionalFlare:     { morning: { brightness: 0.80, challenge: 0.70 } },
+  SweetTooth:         { morning: { brightness: 0.65 } },
+  NaiveTrust:         { agency:  { social_love: 0.65 }, musical: { empathy_bond: 0.55 } },
+  AncientWisdom:      { musical: { inner_depth: 0.80 }, morning: { planfulness: 0.45 } },
+  // Mochi
+  CuteSelfOwnership:  { agency:  { self_love: 0.95 }, morning: { brightness: 0.75 } },
+  BubblyJoy:          { morning: { brightness: 0.95 } },
+  QuietPride:         { agency:  { self_love: 0.85, efficacy: 0.50 } },
+  Independence:       { agency:  { self_love: 0.90, efficacy: 0.65 } },
+  SensoryDelight:     { musical: { musical_sense: 0.80 }, morning: { brightness: 0.65 } },
+  IdentityGuard:      { agency:  { self_love: 0.90, efficacy: 0.55 } },
+  PlayfulTeasing:     { morning: { brightness: 0.75 }, musical: { empathy_bond: 0.45 } },
+  CuriousApproach:    { morning: { challenge: 0.55 }, musical: { inner_depth: 0.40 } },
+  WarmOpenness:       { agency:  { social_love: 0.70 }, musical: { empathy_bond: 0.80 } },
+  SoftBoundary:       { agency:  { self_love: 0.65 }, morning: { planfulness: 0.35 } },
+  // Tsundere
+  SelfPride:          { agency:  { self_love: 0.90, efficacy: 0.45 } },
+  HiddenCare:         { agency:  { social_love: 0.55 }, musical: { empathy_bond: 0.40 } },
+  DenialAsHonesty:    { agency:  { efficacy: 0.55 }, morning: { challenge: 0.80 } },
+  PricklyChallenge:   { morning: { challenge: 0.90 }, agency: { efficacy: 0.55 } },
+  InnerVulnerability: { musical: { inner_depth: 0.85 } },
+  GrumpyWarmth:       { morning: { brightness: 0.25 }, agency: { social_love: 0.35 } },
+  // Cool
+  PrecisionFirst:     { morning: { planfulness: 0.90 }, agency: { efficacy: 0.80 } },
+  EmotionalControl:   { morning: { planfulness: 0.80 }, musical: { inner_depth: 0.55 } },
+  DirectTruth:        { agency:  { efficacy: 0.70 }, morning: { challenge: 0.75 } },
+  AnalyticDepth:      { musical: { inner_depth: 0.85 }, morning: { planfulness: 0.65 } },
+  RestrainedWarmth:   { agency:  { social_love: 0.25 }, musical: { empathy_bond: 0.25 } },
+  QuietCertainty:     { agency:  { self_love: 0.85, efficacy: 0.55 } },
+  // Airhead
+  SunnyWarmth:        { morning: { brightness: 0.95 }, agency: { social_love: 0.75 } },
+  NaiveHonesty:       { agency:  { efficacy: 0.35 }, morning: { challenge: 0.25 } },
+  CuriousWonder:      { morning: { brightness: 0.50, challenge: 0.55 }, musical: { inner_depth: 0.35 } },
+  AccidentalWisdom:   { musical: { inner_depth: 0.55 }, agency: { self_love: 0.40 } },
+  SensoryJoy:         { musical: { musical_sense: 0.80 }, morning: { brightness: 0.65 } },
+  OpenHeart:          { agency:  { social_love: 0.75 }, musical: { empathy_bond: 0.80 } },
+  // Yandere
+  DeepAttachment:     { agency:  { social_love: 1.00 }, musical: { empathy_bond: 0.90 } },
+  ProtectiveFierce:   { agency:  { efficacy: 0.85 }, morning: { challenge: 0.90 } },
+  OwnedLoyalty:       { agency:  { social_love: 0.90, efficacy: 0.65 } },
+  InnerObsession:     { musical: { inner_depth: 0.90 }, agency: { self_love: 0.25 } },
+  JealousVigilance:   { morning: { challenge: 0.85 }, agency: { efficacy: 0.55 } },
+  FragileMoment:      { musical: { inner_depth: 0.65, empathy_bond: 0.50 } },
+  // Luxe
+  AestheticPride:     { agency:  { self_love: 0.95 }, musical: { musical_sense: 0.75 } },
+  CinematicRest:      { musical: { inner_depth: 0.90 }, morning: { planfulness: 0.65 } },
+  PrecisionTaste:     { morning: { planfulness: 0.85 }, agency: { efficacy: 0.70 } },
+  ElegantDistance:    { agency:  { self_love: 0.80 }, musical: { inner_depth: 0.65 } },
+  RareBeauty:         { musical: { musical_sense: 0.90, inner_depth: 0.70 } },
+  DefensiveGrace:     { agency:  { efficacy: 0.60 }, morning: { challenge: 0.55 } },
+};
+
+const V_PULL_DESC_CLIENT: Record<string, string> = {
+  achievement: 'Achievement drive',
+  grounded:    'Inner anchoring',
+  relational:  'Relational resonance',
+  expressive:  'Expressive vitality',
+  structured:  'Structured growth',
+};
+
+/** Compute tri-vector field from an activated value chain (client-side mirror of server logic) */
+export function computeTriVector(chain: ValueChainItem[]): TriVectorField {
+  const agency:  TriVec3 = { self_love: 0.55, social_love: 0.55, efficacy: 0.60 };
+  const morning: TriVecM = { planfulness: 0.60, brightness: 0.65, challenge: 0.55 };
+  const musical: TriVecU = { musical_sense: 0.70, inner_depth: 0.75, empathy_bond: 0.70 };
+
+  for (const v of chain) {
+    if (!v.activated) continue;
+    const map = V_TO_TRI_CLIENT[v.name ?? ''];
+    if (!map) continue;
+    const w = Math.min(1.0, v.weight ?? 0.5);
+    if (map.agency)  (Object.entries(map.agency)  as [keyof TriVec3, number][]).forEach(([k, r]) => { agency[k]  = Math.min(1, agency[k]  + r * w * 0.25); });
+    if (map.morning) (Object.entries(map.morning) as [keyof TriVecM, number][]).forEach(([k, r]) => { morning[k] = Math.min(1, morning[k] + r * w * 0.25); });
+    if (map.musical) (Object.entries(map.musical) as [keyof TriVecU, number][]).forEach(([k, r]) => { musical[k] = Math.min(1, musical[k] + r * w * 0.25); });
+  }
+
+  const fx = {
+    achievement: +(agency.efficacy    * morning.challenge   ).toFixed(2),
+    grounded:    +(agency.self_love   * musical.inner_depth ).toFixed(2),
+    relational:  +(agency.social_love * musical.empathy_bond).toFixed(2),
+    expressive:  +(morning.brightness * musical.musical_sense).toFixed(2),
+    structured:  +(morning.planfulness * agency.efficacy    ).toFixed(2),
+  };
+  const [domKey, domScore] = Object.entries(fx).sort((a, b) => b[1] - a[1])[0];
+  return { agency, morning, musical, fx, dominant: { key: domKey, score: domScore as number } };
+}
+
+export function getTriVectorPullLabel(key: string): string {
+  return V_PULL_DESC_CLIENT[key] ?? key;
+}
+
 /**
  * Build persona system prompt
  * - B-mode engine present → dynamic generation
