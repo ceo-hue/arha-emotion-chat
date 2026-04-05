@@ -5,6 +5,7 @@ import { chatWithClaudeStream } from './services/claudeService';
 import { analyzeForPro, resetProSession } from './src/pro';
 import { generateArhaVideo, generateArhaImage } from './services/geminiService';
 import { getPersonaValueChain, buildPersonaSystemPrompt, computeTriVector, getTriVectorPullLabel } from './services/personaRegistry';
+import { buildAnchorConfig } from './services/anchorConfig';
 import { GoogleGenAI, Modality } from '@google/genai';
 import { ARHA_SYSTEM_PROMPT } from './constants';
 import {
@@ -1758,6 +1759,11 @@ const App: React.FC = () => {
               isAnalyzing={isAnalyzing}
               onClose={() => setShowDashboard(false)}
               triVectorField={pipelineData ? computeTriVector(pipelineData.r3.active_values) : computeTriVector(activeValueChain)}
+              anchorConfig={(() => {
+                const lastUserGoal = [...messages].reverse().find(m => m.role === 'user')?.content;
+                if (!lastUserGoal) return undefined;
+                return buildAnchorConfig(personaConfig.id, activeValueChain, lastUserGoal);
+              })()}
             />
           </div>
         )}

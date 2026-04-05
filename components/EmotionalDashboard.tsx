@@ -1,10 +1,11 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { AnalysisData, ChatSession } from '../types';
-import { Terminal, BrainCircuit, Heart, Activity, Zap, Layers, TrendingUp } from 'lucide-react';
+import { Terminal, BrainCircuit, Heart, Activity, Zap, Layers, TrendingUp, Target } from 'lucide-react';
 import { useI18n } from '../contexts/I18nContext';
 import type { TriVectorField } from '../services/personaRegistry';
 import { getTriVectorPullLabel } from '../services/personaRegistry';
+import type { AnchorConfig } from '../services/anchorConfig';
 
 interface EmotionalDashboardProps {
   analysis: AnalysisData | null;
@@ -13,10 +14,11 @@ interface EmotionalDashboardProps {
   isAnalyzing: boolean;
   onClose: () => void;
   triVectorField?: TriVectorField;
+  anchorConfig?: AnchorConfig;
 }
 
 const EmotionalDashboard: React.FC<EmotionalDashboardProps> = ({
-  analysis, allHistory, isAnalyzing, triVectorField
+  analysis, allHistory, isAnalyzing, triVectorField, anchorConfig
 }) => {
   const { t } = useI18n();
   const [logs, setLogs] = useState<string[]>([]);
@@ -166,6 +168,62 @@ const EmotionalDashboard: React.FC<EmotionalDashboardProps> = ({
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* ── Row 2.5: Anchor Hierarchy (L0/L1/L2) — v3.1 Prompt Anchor Injection ── */}
+        {anchorConfig && (
+          <div className="space-y-2">
+            <span className="text-[9px] font-black text-emerald-600/60 dark:text-emerald-300/40 uppercase tracking-widest flex items-center gap-2">
+              <Target size={10} /> Anchor Hierarchy
+              <span className="ml-auto text-[8px] font-mono text-emerald-500/70 normal-case tracking-normal">
+                mode:{anchorConfig.mode} · c={anchorConfig.complexity.toFixed(2)}
+              </span>
+            </span>
+
+            {/* L0 — locked identity */}
+            <div className="bg-violet-500/5 border border-violet-500/20 rounded-lg px-2.5 py-1.5">
+              <div className="flex items-center justify-between mb-0.5">
+                <span className="text-[8px] font-black text-violet-500 uppercase tracking-wider">L0 · locked · gravity 1.0</span>
+                <span className="text-[7px] font-mono text-violet-400/70">drift ≤ {anchorConfig.L0.driftTolerance.toFixed(2)}</span>
+              </div>
+              <div className="text-[9px] font-bold text-slate-700 dark:text-violet-200/90 mb-0.5">{anchorConfig.L0.identityName}</div>
+              <div className="text-[8px] font-mono text-slate-500 dark:text-violet-200/60 leading-snug break-all">
+                {anchorConfig.L0.hierarchyNotation}
+              </div>
+            </div>
+
+            {/* L1 — session main vectors */}
+            {anchorConfig.L1_main.length > 0 && (
+              <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-lg px-2.5 py-1.5">
+                <div className="text-[8px] font-black text-emerald-500 uppercase tracking-wider mb-1">L1 Main · gravity 0.90</div>
+                <div className="space-y-0.5">
+                  {anchorConfig.L1_main.map((m) => (
+                    <div key={m.key} className="flex items-center gap-2">
+                      <span className="text-[8px] font-mono text-emerald-400 w-16 shrink-0">{m.key}</span>
+                      <div className="flex-1 h-1 bg-emerald-900/20 rounded-full overflow-hidden">
+                        <div className="h-full bg-emerald-400 transition-all duration-700" style={{ width: `${m.score * 100}%` }} />
+                      </div>
+                      <span className="text-[8px] font-mono text-emerald-400 w-8 text-right">{m.score.toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* L2 — task sub-dimensions */}
+            {anchorConfig.L2_subs.length > 0 && (
+              <div className="bg-sky-500/5 border border-sky-500/20 rounded-lg px-2.5 py-1.5">
+                <div className="text-[8px] font-black text-sky-500 uppercase tracking-wider mb-1">L2 Sub · gravity 0.75</div>
+                <div className="flex flex-wrap gap-1">
+                  {anchorConfig.L2_subs.map((s, i) => (
+                    <span key={i} className="px-1.5 py-0.5 rounded-md bg-sky-500/10 border border-sky-500/20 text-[8px] font-mono text-sky-400">
+                      {s.dimension}<span className="text-sky-500/60 ml-1">{s.score.toFixed(2)}</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
