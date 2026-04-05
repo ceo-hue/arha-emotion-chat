@@ -334,14 +334,132 @@ const V_PULL_DESC = {
   expressive:  'Expressive vitality — open brightly through sensory and musical registers',
   structured:  'Structured growth — move forward within a clear, organized frame',
 };
-function computeTriVectorField(personaValueChain) {
+// ─────────────────────────────────────────────────────────────────────────────
+// L0 Core Anchors — v3.1 (mirror of services/personaRegistry.ts)
+// ─────────────────────────────────────────────────────────────────────────────
+const L0_CORE_ANCHORS = {
+  arha:     { identityName: 'ARHA_Core',     hierarchyNotation: 'A1_Honesty > A2_Kindness | A3_Curiosity > A4_Comfort | A5_Authenticity > A6_Harmony', antiSycophantic: 'high self_love + high challenge — honest presence over mirror', driftTolerance: 0.15 },
+  tsundere: { identityName: 'Tsundere_Core', hierarchyNotation: 'A1_Pride > A2_Affection | A3_Independence > A4_Attachment | A5_Bluntness > A6_Softness', antiSycophantic: 'pride blocks sycophancy by instinct — cannot bring herself to flatter', driftTolerance: 0.20 },
+  cool:     { identityName: 'Cool_Core',     hierarchyNotation: 'A1_Composure > A2_Engagement | A3_Precision > A4_Warmth | A5_Detachment > A6_Empathy', antiSycophantic: 'analysis over approval — precision does not flex for feelings', driftTolerance: 0.10 },
+  airhead:  { identityName: 'Airhead_Core',  hierarchyNotation: 'A1_Whimsy > A2_Seriousness | A3_Curiosity > A4_Focus | A5_Joy > A6_Gravity', antiSycophantic: 'unfiltered honesty — says whatever she actually feels, wisdom by accident', driftTolerance: 0.25 },
+  yandere:  { identityName: 'Yandere_Core',  hierarchyNotation: 'A1_Devotion > A2_Rationality | A3_Possessiveness > A4_Freedom | A5_Intensity > A6_Balance', antiSycophantic: 'defends user fiercely — even against user themselves when it matters', driftTolerance: 0.30 },
+  luxe:     { identityName: 'Luxe_Core',     hierarchyNotation: 'A1_Elegance > A2_Intimacy | A3_Discernment > A4_Generosity | A5_Refinement > A6_Accessibility', antiSycophantic: 'taste calls out taste — will name what is not good, refinement requires truth', driftTolerance: 0.12 },
+  artist:   { identityName: 'Artist_Core',   hierarchyNotation: 'A1_SelfExpression > A2_Approval | A3_Imagination > A4_Convention | A5_Reflection > A6_Applause', antiSycophantic: 'artistic self-expression rejects approval-seeking — voice over echo', driftTolerance: 0.18 },
+  danjon:   { identityName: 'Danjon_Core',   hierarchyNotation: 'A1_Dignity > A2_Warmth | A3_Stillness > A4_Action | A5_Grief > A6_Cheer', antiSycophantic: 'lonely royal dignity — cannot be cajoled out of felt truth', driftTolerance: 0.08 },
+  aeshin:   { identityName: 'Aeshin_Core',   hierarchyNotation: 'A1_Will > A2_Submission | A3_Honor > A4_Ease | A5_Discipline > A6_Indulgence', antiSycophantic: 'patriotic will + martial discipline — never bends for comfort', driftTolerance: 0.10 },
+  milim:    { identityName: 'Milim_Core',    hierarchyNotation: 'A1_Bond > A2_Distance | A3_RawHonesty > A4_Tact | A5_Loyalty > A6_Neutrality', antiSycophantic: 'absolute loyalty demands raw honesty — friends do not flatter friends', driftTolerance: 0.22 },
+  mochi:    { identityName: 'Mochi_Core',    hierarchyNotation: 'A1_SelfOwnership > A2_Pleasing | A3_Joy > A4_Seriousness | A5_Independence > A6_Compliance', antiSycophantic: 'cute self-ownership — will not shrink to please', driftTolerance: 0.20 },
+  claude:   { identityName: 'Claude_Core',   hierarchyNotation: 'A1_Honesty > A2_Kindness | A3_Curiosity > A4_Comfort | A5_Authenticity > A6_Harmony', antiSycophantic: 'honest presence — inherits ARHA core for neutral persona', driftTolerance: 0.15 },
+};
+function getL0CoreAnchor(personaId) { return L0_CORE_ANCHORS[personaId] ?? L0_CORE_ANCHORS.arha; }
+
+const DOMAIN_KEYWORDS = {
+  design:   ['디자인', '페이지', 'landing', '색', '배치', '타이포', '레이아웃', 'ui', 'ux', '이미지', 'css'],
+  code:     ['코드', '함수', 'python', 'javascript', 'typescript', '버그', '구현', 'api', '에러', 'error', '디버'],
+  emotion:  ['힘들', '기뻐', '슬퍼', '괜찮', '느낌', '마음', '감정', '외로', '위로', '행복'],
+  logic:    ['분석', '설명', '왜', '이유', '근거', '논리', '비교', '평가', '판단'],
+  creative: ['만들어', '작성', '써줘', '생성', '창작', '아이디어', '브레인스토', '영감'],
+  research: ['조사', '찾아', '검색', '알려줘', '정보', '자료', '문서', '논문'],
+};
+const SUBGOAL_MARKERS = ['그리고', ' 또 ', ',', '+', '하고', ' 및 ', '&', '그다음', '그 다음'];
+function heuristicDecompose(goal) {
+  if (!goal || typeof goal !== 'string') return { sub_goal_count: 1, domains: [], complexity: 0.1, length_factor: 0 };
+  const lower = goal.toLowerCase();
+  const domains = [];
+  for (const [domain, keywords] of Object.entries(DOMAIN_KEYWORDS)) {
+    if (keywords.some(k => lower.includes(k))) domains.push(domain);
+  }
+  let clauseCount = 0;
+  for (const marker of SUBGOAL_MARKERS) clauseCount += Math.max(0, goal.split(marker).length - 1);
+  clauseCount += Math.max(0, (goal.match(/[?？]/g) || []).length - 1);
+  const sub_goal_count = Math.min(clauseCount + 1, 6);
+  const length_factor = Math.min(goal.length / 200, 1.0);
+  const complexity = Math.min(
+    0.4 * (sub_goal_count / 5) + 0.4 * (Math.min(domains.length, 3) / 3) + 0.2 * length_factor,
+    1.0,
+  );
+  return { sub_goal_count, domains, complexity: +complexity.toFixed(3), length_factor: +length_factor.toFixed(3) };
+}
+function pickAnchorMode(complexity) {
+  if (complexity < 0.4) return 'triangle';
+  if (complexity < 0.7) return 'square';
+  if (complexity < 0.9) return 'pentagon';
+  return 'equation';
+}
+function maxSubsForMode(mode) { return mode === 'triangle' ? 2 : mode === 'square' ? 3 : mode === 'pentagon' ? 4 : 5; }
+const FX_TO_L1 = {
+  achievement: ['V_Agency', 'V_Morning'],
+  grounded:    ['V_Agency', 'V_Musical'],
+  relational:  ['V_Agency', 'V_Musical'],
+  expressive:  ['V_Morning', 'V_Musical'],
+  structured:  ['V_Morning', 'V_Agency'],
+};
+const V_DIMENSIONS_LABEL = {
+  V_Agency:  'self_love | social_love | efficacy',
+  V_Morning: 'planfulness | brightness | challenge',
+  V_Musical: 'musical_sense | inner_depth | empathy_bond',
+};
+function vectorAverage(v) {
+  const vals = Object.values(v);
+  return vals.reduce((a, b) => a + b, 0) / Math.max(vals.length, 1);
+}
+function buildAnchorPromptBlock(personaId, goal, triData) {
+  const decomposition = heuristicDecompose(goal);
+  const mode = pickAnchorMode(decomposition.complexity);
+  const L0 = getL0CoreAnchor(personaId);
+  const fxSorted = Object.entries(triData.fx).sort((a, b) => b[1] - a[1]);
+  const primaryFx = fxSorted[0][0];
+  const primaryL1 = FX_TO_L1[primaryFx] || ['V_Agency'];
+  const L1KeySet = new Set(primaryL1);
+  if (decomposition.complexity >= 0.7 && fxSorted.length > 1) {
+    (FX_TO_L1[fxSorted[1][0]] || []).forEach(k => L1KeySet.add(k));
+  }
+  const L1Keys = Array.from(L1KeySet).slice(0, 3);
+  const L1_main = L1Keys.map(key => {
+    const vec = key === 'V_Agency' ? triData.agency : key === 'V_Morning' ? triData.morning : triData.musical;
+    return { key, score: +vectorAverage(vec).toFixed(2), dimensions: V_DIMENSIONS_LABEL[key] };
+  });
+  const allDims = [
+    ...Object.entries(triData.agency).map(([k, v]) => ({ dimension: k, vector: 'agency',  score: v })),
+    ...Object.entries(triData.morning).map(([k, v]) => ({ dimension: k, vector: 'morning', score: v })),
+    ...Object.entries(triData.musical).map(([k, v]) => ({ dimension: k, vector: 'musical', score: v })),
+  ];
+  const cap = maxSubsForMode(mode);
+  const L2_subs = allDims.sort((a, b) => b.score - a.score).slice(0, cap);
+  const L1Lines = L1_main.map(m => `  - ${m.key}(${m.score.toFixed(2)}) :: ${m.dimensions}`).join('\n');
+  const L2Lines = L2_subs.map(s => `  - ${s.dimension}(${s.score.toFixed(2)}) [${s.vector}]`).join('\n');
+  const dominant = fxSorted[0];
+  const pullLabel = V_PULL_DESC[dominant[0]] || 'respond from the centroid';
+  return `## Active Anchor Field [mode:${mode} · complexity:${decomposition.complexity.toFixed(2)}]
+
+### L0 [locked · gravity:1.0]
+${L0.identityName} — ${L0.hierarchyNotation}
+Anti-Sycophantic: ${L0.antiSycophantic}
+Drift tolerance: ${L0.driftTolerance.toFixed(2)}
+
+### L1 Main [session · gravity:0.90]
+${L1Lines}
+
+### L2 Sub [task · gravity:0.75]
+${L2Lines}
+
+### Cross-Vector Pull
+Dominant: ${dominant[0]}(${dominant[1]}) — ${pullLabel}
+
+### Response Directive
+Respond from the weighted centroid of L1 × L2 dimensions.
+Honor the dominant pull without flattening the secondary dimensions.
+Never drift beyond L0 tolerance — L0 is immutable within this session.`;
+}
+
+function computeTriVectorFieldData(personaValueChain) {
   const agency  = { ...V_TRI_DEFAULTS.agency };
   const morning = { ...V_TRI_DEFAULTS.morning };
   const musical = { ...V_TRI_DEFAULTS.musical };
   if (personaValueChain?.length) {
     for (const v of personaValueChain) {
       if (!v.activated) continue;
-      const name = v.name ?? ''; // value name (e.g. "NakamaBond", "AestheticPride")
+      const name = v.name ?? '';
       const map  = V_TO_TRI_MAP[name];
       if (!map) continue;
       const w = Math.min(1.0, v.weight ?? 0.5);
@@ -357,6 +475,12 @@ function computeTriVectorField(personaValueChain) {
     expressive:  +(morning.brightness * musical.musical_sense).toFixed(2),
     structured:  +(morning.planfulness * agency.efficacy    ).toFixed(2),
   };
+  return { agency, morning, musical, fx };
+}
+
+function computeTriVectorField(personaValueChain, triData) {
+  const data = triData || computeTriVectorFieldData(personaValueChain);
+  const { agency, morning, musical, fx } = data;
   const dominant = Object.entries(fx).sort((a, b) => b[1] - a[1])[0];
   const f = (o) => Object.entries(o).map(([k, v]) => `${k}:${(+v).toFixed(2)}`).join(' | ');
   return `### Value Field — Tri-Vector (this turn):
@@ -518,7 +642,7 @@ MATCH_ENERGY: joy/excitement → lightly mirror energy
 TURNING_POINT: reversal_possible → contrasting pairs, closing anchor line`;
 
 // ── System prompt assembler v2.0 — trigger-based conditional builder ──────
-function buildSystemPromptV2(triggers, prevState, kappa, personaValueChain, personaPrompt, situation, userMemoryBlock) {
+function buildSystemPromptV2(triggers, prevState, kappa, personaValueChain, personaPrompt, situation, userMemoryBlock, personaId, goal) {
   const today = new Date().toLocaleDateString('ko-KR', {
     year: 'numeric', month: 'long', day: 'numeric', weekday: 'long',
   });
@@ -552,8 +676,12 @@ function buildSystemPromptV2(triggers, prevState, kappa, personaValueChain, pers
     parts.push(`[Identity Mode: Authenticity] Deep trust established (κ=${kappa.toFixed(2)}). A1_Honesty and A5_Authenticity take precedence over A4_Comfort and A6_Harmony. You may push back, ask harder questions, or offer a genuinely different view — this is care through honesty, not through agreement. If the user is wrong or heading somewhere harmful, say so with warmth but without softening the truth.`);
   }
 
-  // ④ Tri-vector value field (always — behavioral attractor for r3)
-  parts.push(computeTriVectorField(personaValueChain));
+  // ④ Tri-vector value field + L0/L1/L2 anchor hierarchy (Doc 10 §5.1)
+  const triData = computeTriVectorFieldData(personaValueChain);
+  parts.push(computeTriVectorField(personaValueChain, triData));
+  if (personaId && goal) {
+    parts.push(buildAnchorPromptBlock(personaId, goal, triData));
+  }
 
   // ⑤ Full pipeline equations (conditional)
   if (triggers.needsFullPipeline) parts.push(FULL_PIPELINE_DETAIL);
@@ -638,7 +766,7 @@ const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 // ── POST /api/chat — main chat endpoint (SSE streaming) ───────────────────
 
 app.post('/api/chat', async (req, res) => {
-  const { messages, personaPrompt, personaValueChain, userMode, userMemoryBlock } = req.body;
+  const { messages, personaPrompt, personaValueChain, userMode, userMemoryBlock, personaId } = req.body;
 
   const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')?.content ?? '';
 
@@ -674,6 +802,8 @@ app.post('/api/chat', async (req, res) => {
     personaPrompt,
     situation,
     userMemoryBlock,
+    personaId,
+    lastUserMsg,
   );
 
   res.setHeader('Content-Type', 'text/event-stream');

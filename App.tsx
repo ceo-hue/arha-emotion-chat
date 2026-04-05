@@ -1248,6 +1248,8 @@ const App: React.FC = () => {
           const block = buildUserMemoryBlock(emotionLifetime, valueChainDB, [], sessionStartKappa);
           return block ? formatUserMemoryBlock(block) : undefined;
         })(),
+        // personaId: v3.1 L0 Core Anchor 주입용
+        personaConfig.id,
       );
       // Attach accumulated search results to the assistant message
       if (pendingSearchResultsRef.current.length > 0) {
