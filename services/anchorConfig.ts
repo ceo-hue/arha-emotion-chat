@@ -15,6 +15,7 @@
 
 import type { ValueChainItem } from '../types';
 import { getL0CoreAnchor, computeTriVector, type L0CoreAnchor, type TriVectorField } from './personaRegistry';
+import { selectL3, formatL3Block, type L3Selection } from './l3Selector';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Types
@@ -51,6 +52,7 @@ export interface AnchorConfig {
   L0: L0CoreAnchor;
   L1_main: L1MainAnchor[];       // 1~3 vectors
   L2_subs: L2SubAnchor[];        // 2~5 dimensions
+  L3_support: L3Selection[];     // 0~5 dynamic domain anchors
   triVector: TriVectorField;
 }
 
@@ -203,6 +205,10 @@ export function buildAnchorConfig(
     .sort((a, b) => b.score - a.score)
     .slice(0, cap);
 
+  // L3 support — dynamic domain anchors (k scales with mode)
+  const l3K = mode === 'triangle' ? 2 : mode === 'square' ? 3 : mode === 'pentagon' ? 4 : 5;
+  const L3_support = selectL3(goal, decomposition, l3K);
+
   return {
     personaId,
     mode,
@@ -211,6 +217,7 @@ export function buildAnchorConfig(
     L0,
     L1_main,
     L2_subs,
+    L3_support,
     triVector,
   };
 }
@@ -221,7 +228,7 @@ export function buildAnchorConfig(
 // ──────────────────────────────────────────────────────────────────────────────
 
 export function buildAnchorPromptBlock(config: AnchorConfig): string {
-  const { L0, L1_main, L2_subs, triVector, mode, complexity } = config;
+  const { L0, L1_main, L2_subs, L3_support, triVector, mode, complexity } = config;
 
   const L1Lines = L1_main.map(
     (m) => `  - ${m.key}(${m.score.toFixed(2)}) :: ${m.dimensions}`,
@@ -230,6 +237,10 @@ export function buildAnchorPromptBlock(config: AnchorConfig): string {
   const L2Lines = L2_subs.map(
     (s) => `  - ${s.dimension}(${s.score.toFixed(2)}) [${s.vector}]`,
   ).join('\n');
+
+  const L3Block = L3_support && L3_support.length > 0
+    ? '\n\n' + formatL3Block(L3_support)
+    : '';
 
   const { dominant } = triVector;
   const pullLabel = getPullLabel(dominant.key);
@@ -245,7 +256,7 @@ Drift tolerance: ${L0.driftTolerance.toFixed(2)}
 ${L1Lines}
 
 ### L2 Sub [task · gravity:0.75]
-${L2Lines}
+${L2Lines}${L3Block}
 
 ### Cross-Vector Pull
 Dominant: ${dominant.key}(${dominant.score.toFixed(2)}) — ${pullLabel}
@@ -268,7 +279,7 @@ function getPullLabel(key: string): string {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// anchor_fit_score (Phase 1 keyword-based approximation)
+// anchor_fit_score — Phase 3 dual-mode (embedding centroid + keyword fallback)
 // Operational definition per Doc 10 §3.2
 // ──────────────────────────────────────────────────────────────────────────────
 
@@ -285,8 +296,37 @@ const DIMENSION_KEYWORDS: Record<string, string[]> = {
 };
 
 /**
+ * Compute anchor fit score — embedding centroid version (Phase 3).
+ * Uses lazy dynamic import of retrievalService to avoid pulling embedding
+ * chain into non-embedding code paths.
+ * Returns [0, 1]. Falls back to keyword-based if import fails.
+ */
+export async function computeAnchorFitEmbedding(
+  responseText: string,
+  config: AnchorConfig,
+): Promise<number> {
+  if (!responseText || !responseText.trim()) return 0;
+
+  try {
+    const { computeAnchorFitScore } = await import('./retrievalService');
+    const anchorTexts = config.L2_subs.map(
+      (s) => `${s.dimension} (${s.vector}): weight ${s.score.toFixed(2)}`,
+    );
+    if (anchorTexts.length === 0) return computeAnchorFit(responseText, config);
+
+    const embeddingFit = await computeAnchorFitScore(responseText, anchorTexts);
+    // Blend: 70% embedding + 30% keyword for calibration stability
+    const keywordFit = computeAnchorFit(responseText, config);
+    return +(0.7 * embeddingFit + 0.3 * keywordFit).toFixed(3);
+  } catch {
+    // Embedding not available — full keyword fallback
+    return computeAnchorFit(responseText, config);
+  }
+}
+
+/**
  * Compute anchor fit score from response text and anchor config.
- * Phase 1: keyword-based approximation (no embedding).
+ * Keyword-based (always available, synchronous).
  * Returns [0, 1]. Threshold for pass: > 0.65 per Doc 10 §3.2.
  */
 export function computeAnchorFit(responseText: string, config: AnchorConfig): number {

@@ -611,8 +611,92 @@ function getL0CoreAnchor(personaId) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Δ_GoalDecompose (heuristic Phase 1 — no LLM call)
+// Δ_GoalDecompose — Phase 3 LLM structured output + heuristic fallback
 // Operational definition per Doc 10 §3.1
+// LLM version uses Claude Haiku for fast, cheap structured decomposition.
+// Falls back to heuristic on timeout (2s), error, or missing API key.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const VALID_DOMAINS = ['emotion', 'code', 'design', 'logic', 'creative', 'research'];
+
+async function llmDecompose(goal) {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return null;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 2000); // 2s hard timeout
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type':      'application/json',
+        'x-api-key':         apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      signal: controller.signal,
+      body: JSON.stringify({
+        model: 'claude-haiku-4-20250514',
+        max_tokens: 200,
+        system: `You are a goal decomposition engine. Given a user goal, output ONLY valid JSON (no markdown, no explanation) with this exact schema:
+{"sub_goals":["..."],"domains":["..."],"reasoning":"one sentence"}
+sub_goals: list of distinct sub-tasks the user wants done (1-6 items).
+domains: list from [emotion, code, design, logic, creative, research] that apply.
+reasoning: one sentence explaining the decomposition.`,
+        messages: [{ role: 'user', content: goal }],
+      }),
+    });
+    clearTimeout(timeout);
+
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    const text = data.content?.[0]?.text;
+    if (!text) return null;
+
+    // Parse — strip markdown fences if present
+    const cleaned = text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+    const parsed = JSON.parse(cleaned);
+    if (!Array.isArray(parsed.sub_goals) || !Array.isArray(parsed.domains)) return null;
+
+    const sub_goal_count = Math.min(Math.max(parsed.sub_goals.length, 1), 6);
+    const domains = parsed.domains.filter(d => VALID_DOMAINS.includes(d));
+    const length_factor = Math.min(goal.length / 200, 1.0);
+    const complexity = Math.min(
+      0.4 * (sub_goal_count / 5) +
+      0.4 * (Math.min(domains.length, 3) / 3) +
+      0.2 * length_factor,
+      1.0,
+    );
+
+    return {
+      sub_goal_count,
+      domains,
+      complexity: +complexity.toFixed(3),
+      length_factor: +length_factor.toFixed(3),
+      source: 'llm',
+      sub_goals: parsed.sub_goals,
+    };
+  } catch (e) {
+    clearTimeout(timeout);
+    if (e.name === 'AbortError') console.log('⏱ llmDecompose timeout (2s) — falling back to heuristic');
+    else console.log('⚠ llmDecompose error:', e.message, '— falling back to heuristic');
+    return null;
+  }
+}
+
+/**
+ * Unified decompose: tries LLM first, falls back to heuristic.
+ * Returns GoalDecomposition with optional `source` and `sub_goals` fields.
+ */
+async function goalDecompose(goal) {
+  const llmResult = await llmDecompose(goal);
+  if (llmResult) return llmResult;
+  const heuristic = heuristicDecompose(goal);
+  return { ...heuristic, source: 'heuristic' };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Δ_GoalDecompose (heuristic — always available as fallback)
 // ─────────────────────────────────────────────────────────────────────────────
 const DOMAIN_KEYWORDS = {
   design:   ['디자인', '페이지', 'landing', '색', '배치', '타이포', '레이아웃', 'ui', 'ux', '이미지', 'css'],
@@ -683,8 +767,18 @@ function vectorAverage(v) {
   return vals.reduce((a, b) => a + b, 0) / Math.max(vals.length, 1);
 }
 
-function buildAnchorPromptBlock(personaId, goal, triData) {
-  const decomposition = heuristicDecompose(goal);
+function formatL3Block(l3Support) {
+  if (!Array.isArray(l3Support) || l3Support.length === 0) return '';
+  const lines = l3Support.map(
+    s => `  - [${s.domain}] ${s.text}  (id:${s.id}, score:${(+s.score).toFixed(2)})`
+  );
+  const mode = l3Support[0].mode || 'domain';
+  return `### L3 Support [task · gravity:0.60 · mode:${mode}]
+${lines.join('\n')}`;
+}
+
+function buildAnchorPromptBlock(personaId, goal, triData, l3Support, preDecomposition) {
+  const decomposition = preDecomposition || heuristicDecompose(goal);
   const mode = pickAnchorMode(decomposition.complexity);
   const L0 = getL0CoreAnchor(personaId);
 
@@ -713,6 +807,8 @@ function buildAnchorPromptBlock(personaId, goal, triData) {
 
   const L1Lines = L1_main.map(m => `  - ${m.key}(${m.score.toFixed(2)}) :: ${m.dimensions}`).join('\n');
   const L2Lines = L2_subs.map(s => `  - ${s.dimension}(${s.score.toFixed(2)}) [${s.vector}]`).join('\n');
+  const L3Block = formatL3Block(l3Support);
+  const L3Section = L3Block ? '\n\n' + L3Block : '';
   const dominant = fxSorted[0];
   const pullLabel = V_PULL_DESC[dominant[0]] || 'respond from the centroid';
 
@@ -727,7 +823,7 @@ Drift tolerance: ${L0.driftTolerance.toFixed(2)}
 ${L1Lines}
 
 ### L2 Sub [task · gravity:0.75]
-${L2Lines}
+${L2Lines}${L3Section}
 
 ### Cross-Vector Pull
 Dominant: ${dominant[0]}(${dominant[1]}) — ${pullLabel}
@@ -821,7 +917,7 @@ function buildProSupplement(proData, expressionMode) {
 // ─────────────────────────────────────────────────────────────────────────────
 // SYSTEM PROMPT ASSEMBLER v2 — trigger-based conditional builder
 // ─────────────────────────────────────────────────────────────────────────────
-function buildSystemPromptV2(triggers, prevState, kappa, personaValueChain, personaPrompt, proData, situation, userMemoryBlock, personaId, goal) {
+function buildSystemPromptV2(triggers, prevState, kappa, personaValueChain, personaPrompt, proData, situation, userMemoryBlock, personaId, goal, l3Support, decomposition) {
   const today = new Date().toLocaleDateString('ko-KR', {
     year:'numeric', month:'long', day:'numeric', weekday:'long',
   });
@@ -859,7 +955,7 @@ function buildSystemPromptV2(triggers, prevState, kappa, personaValueChain, pers
   const triData = computeTriVectorFieldData(personaValueChain);
   parts.push(computeTriVectorField(personaValueChain, triData));
   if (personaId && goal) {
-    parts.push(buildAnchorPromptBlock(personaId, goal, triData));
+    parts.push(buildAnchorPromptBlock(personaId, goal, triData, l3Support, decomposition));
   }
 
   // ④ CONDITIONAL: Full pipeline equations
@@ -948,7 +1044,7 @@ const tools = [{
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { messages, personaPrompt, personaValueChain, userMode, proData, pureMode, userMemoryBlock, personaId } = req.body;
+  const { messages, personaPrompt, personaValueChain, userMode, proData, pureMode, userMemoryBlock, personaId, l3Support } = req.body;
   const model = 'claude-sonnet-4-20250514';
 
   const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')?.content ?? '';
@@ -972,6 +1068,14 @@ export default async function handler(req, res) {
   // userMode (client override) takes precedence over auto-detected muMode
   const muMode = userMode || triggers.muMode;
 
+  // ── Phase 3: LLM-based goal decomposition (async, 2s timeout, heuristic fallback) ──
+  const decomposition = (personaId && lastUserMsg && !pureMode)
+    ? await goalDecompose(lastUserMsg)
+    : null;
+  if (decomposition) {
+    console.log(`🧩 GoalDecompose [${decomposition.source}] sub_goals:${decomposition.sub_goal_count} domains:[${decomposition.domains}] c=${decomposition.complexity}`);
+  }
+
   // ── System prompt assembly ────────────────────────────────────────────────
   const finalSystemPrompt = pureMode
     ? undefined
@@ -986,6 +1090,8 @@ export default async function handler(req, res) {
         userMemoryBlock,
         personaId,
         lastUserMsg,
+        l3Support,
+        decomposition,
       );
 
   if (pureMode) {
@@ -1123,6 +1229,8 @@ export default async function handler(req, res) {
 // ─────────────────────────────────────────────────────────────────────────────
 export {
   heuristicDecompose,
+  llmDecompose,
+  goalDecompose,
   pickAnchorMode,
   maxSubsForMode,
   getL0CoreAnchor,

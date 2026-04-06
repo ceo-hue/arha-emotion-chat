@@ -224,6 +224,29 @@ const EmotionalDashboard: React.FC<EmotionalDashboardProps> = ({
                 </div>
               </div>
             )}
+
+            {/* L3 Support — dynamic domain anchors (Phase 2 W5) */}
+            {anchorConfig.L3_support && anchorConfig.L3_support.length > 0 && (
+              <div className="bg-amber-500/5 border border-amber-500/20 rounded-lg px-2.5 py-1.5">
+                <div className="flex items-center justify-between mb-1">
+                  <div className="text-[8px] font-black text-amber-500 uppercase tracking-wider">L3 Support · gravity 0.60</div>
+                  <span className="text-[7px] font-mono text-amber-500/60">mode:{anchorConfig.L3_support[0].mode}</span>
+                </div>
+                <div className="space-y-1">
+                  {anchorConfig.L3_support.map((l, i) => (
+                    <div key={i} className="flex items-start gap-1.5">
+                      <span className="px-1 py-0.5 rounded bg-amber-500/15 border border-amber-500/20 text-[7px] font-mono text-amber-400 shrink-0 mt-0.5">
+                        {l.domain}
+                      </span>
+                      <span className="text-[8px] leading-snug text-slate-600 dark:text-amber-100/80 line-clamp-2">
+                        {l.text}
+                      </span>
+                      <span className="text-[7px] font-mono text-amber-500/50 shrink-0 mt-0.5">{l.score.toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 

@@ -1169,6 +1169,17 @@ const App: React.FC = () => {
         setProData(currentProData);
       }
 
+      // L3 Support pre-computation (Phase 2 W5) — client-side domain-mode selection,
+      // passed to the server so the prompt injection mirrors the dashboard view.
+      const l3Support = (() => {
+        try {
+          const cfg = buildAnchorConfig(personaConfig.id, activeValueChain, input.trim());
+          return cfg.L3_support.map(s => ({
+            id: s.id, domain: s.domain, text: s.text, score: s.score, mode: s.mode,
+          }));
+        } catch { return undefined; }
+      })();
+
       let currentContent = '';
       await chatWithClaudeStream(
         [...messages, userMsg],
@@ -1251,6 +1262,8 @@ const App: React.FC = () => {
         })(),
         // personaId: v3.1 L0 Core Anchor 주입용
         personaConfig.id,
+        // l3Support: Phase 2 W5 — dynamic domain anchors
+        l3Support,
       );
       // Attach accumulated search results to the assistant message
       if (pendingSearchResultsRef.current.length > 0) {

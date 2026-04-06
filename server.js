@@ -353,6 +353,58 @@ const L0_CORE_ANCHORS = {
 };
 function getL0CoreAnchor(personaId) { return L0_CORE_ANCHORS[personaId] ?? L0_CORE_ANCHORS.arha; }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Δ_GoalDecompose — Phase 3 LLM structured output + heuristic fallback
+// Mirror of api/chat.js. Keep in lockstep.
+// ─────────────────────────────────────────────────────────────────────────────
+const VALID_DOMAINS = ['emotion', 'code', 'design', 'logic', 'creative', 'research'];
+
+async function llmDecompose(goal) {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return null;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 2000);
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+      signal: controller.signal,
+      body: JSON.stringify({
+        model: 'claude-haiku-4-20250514',
+        max_tokens: 200,
+        system: `You are a goal decomposition engine. Given a user goal, output ONLY valid JSON (no markdown, no explanation) with this exact schema:
+{"sub_goals":["..."],"domains":["..."],"reasoning":"one sentence"}
+sub_goals: list of distinct sub-tasks the user wants done (1-6 items).
+domains: list from [emotion, code, design, logic, creative, research] that apply.
+reasoning: one sentence explaining the decomposition.`,
+        messages: [{ role: 'user', content: goal }],
+      }),
+    });
+    clearTimeout(timeout);
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    const text = data.content?.[0]?.text;
+    if (!text) return null;
+    const cleaned = text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+    const parsed = JSON.parse(cleaned);
+    if (!Array.isArray(parsed.sub_goals) || !Array.isArray(parsed.domains)) return null;
+    const sub_goal_count = Math.min(Math.max(parsed.sub_goals.length, 1), 6);
+    const domains = parsed.domains.filter(d => VALID_DOMAINS.includes(d));
+    const length_factor = Math.min(goal.length / 200, 1.0);
+    const complexity = Math.min(0.4*(sub_goal_count/5)+0.4*(Math.min(domains.length,3)/3)+0.2*length_factor, 1.0);
+    return { sub_goal_count, domains, complexity: +complexity.toFixed(3), length_factor: +length_factor.toFixed(3), source: 'llm', sub_goals: parsed.sub_goals };
+  } catch (e) {
+    clearTimeout(timeout);
+    return null;
+  }
+}
+
+async function goalDecompose(goal) {
+  const llmResult = await llmDecompose(goal);
+  if (llmResult) return llmResult;
+  return { ...heuristicDecompose(goal), source: 'heuristic' };
+}
+
 const DOMAIN_KEYWORDS = {
   design:   ['디자인', '페이지', 'landing', '색', '배치', '타이포', '레이아웃', 'ui', 'ux', '이미지', 'css'],
   code:     ['코드', '함수', 'python', 'javascript', 'typescript', '버그', '구현', 'api', '에러', 'error', '디버'],
@@ -403,8 +455,16 @@ function vectorAverage(v) {
   const vals = Object.values(v);
   return vals.reduce((a, b) => a + b, 0) / Math.max(vals.length, 1);
 }
-function buildAnchorPromptBlock(personaId, goal, triData) {
-  const decomposition = heuristicDecompose(goal);
+function formatL3Block(l3Support) {
+  if (!Array.isArray(l3Support) || l3Support.length === 0) return '';
+  const lines = l3Support.map(
+    s => `  - [${s.domain}] ${s.text}  (id:${s.id}, score:${(+s.score).toFixed(2)})`
+  );
+  const mode = l3Support[0].mode || 'domain';
+  return `### L3 Support [task · gravity:0.60 · mode:${mode}]\n${lines.join('\n')}`;
+}
+function buildAnchorPromptBlock(personaId, goal, triData, l3Support, preDecomposition) {
+  const decomposition = preDecomposition || heuristicDecompose(goal);
   const mode = pickAnchorMode(decomposition.complexity);
   const L0 = getL0CoreAnchor(personaId);
   const fxSorted = Object.entries(triData.fx).sort((a, b) => b[1] - a[1]);
@@ -428,6 +488,8 @@ function buildAnchorPromptBlock(personaId, goal, triData) {
   const L2_subs = allDims.sort((a, b) => b.score - a.score).slice(0, cap);
   const L1Lines = L1_main.map(m => `  - ${m.key}(${m.score.toFixed(2)}) :: ${m.dimensions}`).join('\n');
   const L2Lines = L2_subs.map(s => `  - ${s.dimension}(${s.score.toFixed(2)}) [${s.vector}]`).join('\n');
+  const L3Block = formatL3Block(l3Support);
+  const L3Section = L3Block ? '\n\n' + L3Block : '';
   const dominant = fxSorted[0];
   const pullLabel = V_PULL_DESC[dominant[0]] || 'respond from the centroid';
   return `## Active Anchor Field [mode:${mode} · complexity:${decomposition.complexity.toFixed(2)}]
@@ -441,7 +503,7 @@ Drift tolerance: ${L0.driftTolerance.toFixed(2)}
 ${L1Lines}
 
 ### L2 Sub [task · gravity:0.75]
-${L2Lines}
+${L2Lines}${L3Section}
 
 ### Cross-Vector Pull
 Dominant: ${dominant[0]}(${dominant[1]}) — ${pullLabel}
@@ -642,7 +704,7 @@ MATCH_ENERGY: joy/excitement → lightly mirror energy
 TURNING_POINT: reversal_possible → contrasting pairs, closing anchor line`;
 
 // ── System prompt assembler v2.0 — trigger-based conditional builder ──────
-function buildSystemPromptV2(triggers, prevState, kappa, personaValueChain, personaPrompt, situation, userMemoryBlock, personaId, goal) {
+function buildSystemPromptV2(triggers, prevState, kappa, personaValueChain, personaPrompt, situation, userMemoryBlock, personaId, goal, l3Support, decomposition) {
   const today = new Date().toLocaleDateString('ko-KR', {
     year: 'numeric', month: 'long', day: 'numeric', weekday: 'long',
   });
@@ -680,7 +742,7 @@ function buildSystemPromptV2(triggers, prevState, kappa, personaValueChain, pers
   const triData = computeTriVectorFieldData(personaValueChain);
   parts.push(computeTriVectorField(personaValueChain, triData));
   if (personaId && goal) {
-    parts.push(buildAnchorPromptBlock(personaId, goal, triData));
+    parts.push(buildAnchorPromptBlock(personaId, goal, triData, l3Support, decomposition));
   }
 
   // ⑤ Full pipeline equations (conditional)
@@ -766,7 +828,7 @@ const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 // ── POST /api/chat — main chat endpoint (SSE streaming) ───────────────────
 
 app.post('/api/chat', async (req, res) => {
-  const { messages, personaPrompt, personaValueChain, userMode, userMemoryBlock, personaId } = req.body;
+  const { messages, personaPrompt, personaValueChain, userMode, userMemoryBlock, personaId, l3Support } = req.body;
 
   const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')?.content ?? '';
 
@@ -794,6 +856,14 @@ app.post('/api/chat', async (req, res) => {
   const situLog  = situation ? ` 🚨${situation.id}` : '';
   console.log(`🔀 v2.0 (local) ${heavy} | ${muMode} | ${expressionMode}${surge}${kappaStr}${bridge}${situLog}`);
 
+  // Phase 3: LLM-based goal decomposition (async, 2s timeout, heuristic fallback)
+  const decomposition = (personaId && lastUserMsg)
+    ? await goalDecompose(lastUserMsg)
+    : null;
+  if (decomposition) {
+    console.log(`🧩 GoalDecompose [${decomposition.source}] sub_goals:${decomposition.sub_goal_count} domains:[${decomposition.domains}] c=${decomposition.complexity}`);
+  }
+
   const finalSystemPrompt = buildSystemPromptV2(
     { ...triggers, muMode },
     prevState,
@@ -804,6 +874,8 @@ app.post('/api/chat', async (req, res) => {
     userMemoryBlock,
     personaId,
     lastUserMsg,
+    l3Support,
+    decomposition,
   );
 
   res.setHeader('Content-Type', 'text/event-stream');
