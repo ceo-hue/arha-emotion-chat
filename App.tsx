@@ -5,6 +5,7 @@ import { chatWithClaudeStream } from './services/claudeService';
 import { analyzeForPro, resetProSession } from './src/pro';
 import { generateArhaVideo, generateArhaImage } from './services/geminiService';
 import { getPersonaValueChain, buildPersonaSystemPrompt, computeTriVector, getTriVectorPullLabel } from './services/personaRegistry';
+import { buildAnchorConfig } from './services/anchorConfig';
 import { GoogleGenAI, Modality } from '@google/genai';
 import { ARHA_SYSTEM_PROMPT } from './constants';
 import {
@@ -1168,6 +1169,17 @@ const App: React.FC = () => {
         setProData(currentProData);
       }
 
+      // L3 Support pre-computation (Phase 2 W5) — client-side domain-mode selection,
+      // passed to the server so the prompt injection mirrors the dashboard view.
+      const l3Support = (() => {
+        try {
+          const cfg = buildAnchorConfig(personaConfig.id, activeValueChain, input.trim());
+          return cfg.L3_support.map(s => ({
+            id: s.id, domain: s.domain, text: s.text, score: s.score, mode: s.mode,
+          }));
+        } catch { return undefined; }
+      })();
+
       let currentContent = '';
       await chatWithClaudeStream(
         [...messages, userMsg],
@@ -1248,6 +1260,10 @@ const App: React.FC = () => {
           const block = buildUserMemoryBlock(emotionLifetime, valueChainDB, [], sessionStartKappa);
           return block ? formatUserMemoryBlock(block) : undefined;
         })(),
+        // personaId: v3.1 L0 Core Anchor 주입용
+        personaConfig.id,
+        // l3Support: Phase 2 W5 — dynamic domain anchors
+        l3Support,
       );
       // Attach accumulated search results to the assistant message
       if (pendingSearchResultsRef.current.length > 0) {
@@ -1756,6 +1772,11 @@ const App: React.FC = () => {
               isAnalyzing={isAnalyzing}
               onClose={() => setShowDashboard(false)}
               triVectorField={pipelineData ? computeTriVector(pipelineData.r3.active_values) : computeTriVector(activeValueChain)}
+              anchorConfig={(() => {
+                const lastUserGoal = [...messages].reverse().find(m => m.role === 'user')?.content;
+                if (!lastUserGoal) return undefined;
+                return buildAnchorConfig(personaConfig.id, activeValueChain, lastUserGoal);
+              })()}
             />
           </div>
         )}

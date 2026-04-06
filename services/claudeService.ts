@@ -107,6 +107,10 @@ export const chatWithClaudeStream = async (
   onStateTransition?: (data: StateTransitionData) => void,
   /** User Memory Block — emotionProfile에서 빌드한 시스템 프롬프트 주입용 블록 */
   userMemoryBlock?: string,
+  /** 페르소나 ID — 서버에서 L0 Core Anchor 주입용 (v3.1) */
+  personaId?: string,
+  /** L3 Support 앵커 선택 결과 — 클라이언트에서 사전 계산, 서버 프롬프트에 주입 (Phase 2 W5) */
+  l3Support?: Array<{ id: string; domain: string; text: string; score: number; mode: string }>,
 ) => {
   // system 메시지(상태전이 카드)는 UI 전용 — API 페이로드에서 제외
   const payload = messages
@@ -124,7 +128,7 @@ export const chatWithClaudeStream = async (
   const response = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages: payload, personaPrompt, personaValueChain, userMode, ...(proData ? { proData } : {}), ...(pureMode ? { pureMode: true } : {}), ...(userMemoryBlock ? { userMemoryBlock } : {}) }),
+    body: JSON.stringify({ messages: payload, personaPrompt, personaValueChain, userMode, ...(proData ? { proData } : {}), ...(pureMode ? { pureMode: true } : {}), ...(userMemoryBlock ? { userMemoryBlock } : {}), ...(personaId ? { personaId } : {}), ...(l3Support && l3Support.length ? { l3Support } : {}) }),
   });
 
   if (!response.ok) {
