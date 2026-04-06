@@ -1,11 +1,12 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { AnalysisData, ChatSession } from '../types';
-import { Terminal, BrainCircuit, Heart, Activity, Zap, Layers, TrendingUp, Target } from 'lucide-react';
+import { Terminal, BrainCircuit, Heart, Activity, Zap, Layers, TrendingUp, Target, Shield, AlertTriangle } from 'lucide-react';
 import { useI18n } from '../contexts/I18nContext';
 import type { TriVectorField } from '../services/personaRegistry';
 import { getTriVectorPullLabel } from '../services/personaRegistry';
 import type { AnchorConfig } from '../services/anchorConfig';
+import type { TurnFeedbackResult, FeedbackState, FitTrend } from '../services/anchorFeedback';
 
 interface EmotionalDashboardProps {
   analysis: AnalysisData | null;
@@ -15,10 +16,16 @@ interface EmotionalDashboardProps {
   onClose: () => void;
   triVectorField?: TriVectorField;
   anchorConfig?: AnchorConfig;
+  /** Phase 4: feedback loop result from last turn */
+  feedbackResult?: TurnFeedbackResult | null;
+  /** Phase 4: current feedback state */
+  feedbackState?: FeedbackState | null;
+  /** Phase 4: fit trend analysis */
+  fitTrend?: FitTrend;
 }
 
 const EmotionalDashboard: React.FC<EmotionalDashboardProps> = ({
-  analysis, allHistory, isAnalyzing, triVectorField, anchorConfig
+  analysis, allHistory, isAnalyzing, triVectorField, anchorConfig, feedbackResult, feedbackState, fitTrend
 }) => {
   const { t } = useI18n();
   const [logs, setLogs] = useState<string[]>([]);
@@ -245,6 +252,122 @@ const EmotionalDashboard: React.FC<EmotionalDashboardProps> = ({
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Row 2.8: Feedback Loop (Phase 4 — Closed-Loop Anchor Correction) ── */}
+        {feedbackResult && (
+          <div className="space-y-2">
+            <span className="text-[9px] font-black text-rose-600/60 dark:text-rose-300/40 uppercase tracking-widest flex items-center gap-2">
+              <Shield size={10} /> Anchor Feedback Loop
+              {feedbackState && (
+                <span className="text-[7px] font-mono text-rose-400/60 ml-auto">
+                  turn #{feedbackState.turnIndex} · corrections: {feedbackState.correctionCount}
+                </span>
+              )}
+            </span>
+
+            {/* Fit Score Bar */}
+            <div className="bg-slate-500/5 border border-slate-500/20 rounded-lg px-2.5 py-2">
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="text-[8px] font-black text-slate-500 uppercase tracking-wider">Anchor Fit Score</div>
+                <span className={`text-[10px] font-mono font-bold ${
+                  feedbackResult.evaluation.overallFit >= 0.65 ? 'text-emerald-400' :
+                  feedbackResult.evaluation.overallFit >= 0.50 ? 'text-amber-400' : 'text-rose-400'
+                }`}>
+                  {feedbackResult.evaluation.overallFit.toFixed(3)}
+                </span>
+              </div>
+              {/* Progress bar */}
+              <div className="w-full h-1.5 bg-slate-700/30 rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${
+                    feedbackResult.evaluation.overallFit >= 0.65 ? 'bg-emerald-400' :
+                    feedbackResult.evaluation.overallFit >= 0.50 ? 'bg-amber-400' : 'bg-rose-400'
+                  }`}
+                  style={{ width: `${Math.min(100, feedbackResult.evaluation.overallFit * 100)}%` }}
+                />
+              </div>
+              {/* Threshold markers */}
+              <div className="flex justify-between mt-0.5">
+                <span className="text-[6px] text-rose-400/50">0.35</span>
+                <span className="text-[6px] text-amber-400/50">0.50</span>
+                <span className="text-[6px] text-emerald-400/50">0.65 ✓</span>
+              </div>
+            </div>
+
+            {/* Drift Guard */}
+            {feedbackResult.drift.detected && (
+              <div className={`rounded-lg px-2.5 py-1.5 border ${
+                feedbackResult.drift.severity >= 3 ? 'bg-rose-500/10 border-rose-500/30' :
+                feedbackResult.drift.severity >= 2 ? 'bg-amber-500/10 border-amber-500/30' :
+                'bg-yellow-500/5 border-yellow-500/20'
+              }`}>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <AlertTriangle size={10} className={
+                    feedbackResult.drift.severity >= 3 ? 'text-rose-400' :
+                    feedbackResult.drift.severity >= 2 ? 'text-amber-400' : 'text-yellow-400'
+                  } />
+                  <span className="text-[8px] font-black uppercase tracking-wider text-rose-400">
+                    Drift Alert · Severity {feedbackResult.drift.severity}/3
+                  </span>
+                </div>
+                <p className="text-[7px] leading-snug text-slate-400">
+                  {feedbackResult.drift.description}
+                </p>
+              </div>
+            )}
+
+            {/* Correction Status */}
+            {feedbackResult.correction.type !== 'none' && (
+              <div className={`rounded-lg px-2.5 py-1.5 border ${
+                feedbackResult.correction.type === 'l0_recovery' ? 'bg-rose-500/10 border-rose-500/30' :
+                feedbackResult.correction.type === 'strong_redirect' ? 'bg-amber-500/10 border-amber-500/30' :
+                'bg-sky-500/5 border-sky-500/20'
+              }`}>
+                <div className="text-[8px] font-black uppercase tracking-wider mb-1" style={{
+                  color: feedbackResult.correction.type === 'l0_recovery' ? '#f87171' :
+                         feedbackResult.correction.type === 'strong_redirect' ? '#fbbf24' : '#38bdf8'
+                }}>
+                  {feedbackResult.correction.type === 'l0_recovery' ? '🚨 L0 Recovery Active' :
+                   feedbackResult.correction.type === 'strong_redirect' ? '⚠️ Strong Redirect' :
+                   '💡 Soft Nudge'}
+                </div>
+                {feedbackResult.correction.emphasize.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {feedbackResult.correction.emphasize.map((dim, i) => (
+                      <span key={i} className="px-1 py-0.5 rounded bg-emerald-500/15 text-[7px] font-mono text-emerald-400">
+                        ↑ {dim}
+                      </span>
+                    ))}
+                    {feedbackResult.correction.deemphasize.map((dim, i) => (
+                      <span key={`d-${i}`} className="px-1 py-0.5 rounded bg-rose-500/15 text-[7px] font-mono text-rose-400">
+                        ↓ {dim}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Fit Trend */}
+            {fitTrend && fitTrend !== 'insufficient_data' && (
+              <div className="flex items-center gap-2 px-2.5 py-1">
+                <span className="text-[7px] font-mono text-slate-500">Trend:</span>
+                <span className={`text-[8px] font-bold ${
+                  fitTrend === 'improving' ? 'text-emerald-400' :
+                  fitTrend === 'declining' ? 'text-rose-400' : 'text-slate-400'
+                }`}>
+                  {fitTrend === 'improving' ? '📈 Improving' :
+                   fitTrend === 'declining' ? '📉 Declining' : '➡️ Stable'}
+                </span>
+                {feedbackState && feedbackState.fitHistory.length > 0 && (
+                  <span className="text-[6px] font-mono text-slate-500 ml-auto">
+                    [{feedbackState.fitHistory.map(f => f.toFixed(2)).join(' → ')}]
+                  </span>
+                )}
               </div>
             )}
           </div>

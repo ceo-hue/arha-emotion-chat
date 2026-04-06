@@ -917,7 +917,7 @@ function buildProSupplement(proData, expressionMode) {
 // ─────────────────────────────────────────────────────────────────────────────
 // SYSTEM PROMPT ASSEMBLER v2 — trigger-based conditional builder
 // ─────────────────────────────────────────────────────────────────────────────
-function buildSystemPromptV2(triggers, prevState, kappa, personaValueChain, personaPrompt, proData, situation, userMemoryBlock, personaId, goal, l3Support, decomposition) {
+function buildSystemPromptV2(triggers, prevState, kappa, personaValueChain, personaPrompt, proData, situation, userMemoryBlock, personaId, goal, l3Support, decomposition, anchorCorrectionBlock) {
   const today = new Date().toLocaleDateString('ko-KR', {
     year:'numeric', month:'long', day:'numeric', weekday:'long',
   });
@@ -956,6 +956,12 @@ function buildSystemPromptV2(triggers, prevState, kappa, personaValueChain, pers
   parts.push(computeTriVectorField(personaValueChain, triData));
   if (personaId && goal) {
     parts.push(buildAnchorPromptBlock(personaId, goal, triData, l3Support, decomposition));
+  }
+
+  // Phase 4: Closed-loop anchor correction injection
+  if (anchorCorrectionBlock && typeof anchorCorrectionBlock === 'string' && anchorCorrectionBlock.trim()) {
+    parts.push(anchorCorrectionBlock);
+    console.log(`🔄 Anchor correction injected (${anchorCorrectionBlock.length} chars)`);
   }
 
   // ④ CONDITIONAL: Full pipeline equations
@@ -1044,7 +1050,7 @@ const tools = [{
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { messages, personaPrompt, personaValueChain, userMode, proData, pureMode, userMemoryBlock, personaId, l3Support } = req.body;
+  const { messages, personaPrompt, personaValueChain, userMode, proData, pureMode, userMemoryBlock, personaId, l3Support, anchorCorrectionBlock } = req.body;
   const model = 'claude-sonnet-4-20250514';
 
   const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')?.content ?? '';
@@ -1092,6 +1098,7 @@ export default async function handler(req, res) {
         lastUserMsg,
         l3Support,
         decomposition,
+        anchorCorrectionBlock,
       );
 
   if (pureMode) {

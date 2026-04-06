@@ -704,7 +704,7 @@ MATCH_ENERGY: joy/excitement → lightly mirror energy
 TURNING_POINT: reversal_possible → contrasting pairs, closing anchor line`;
 
 // ── System prompt assembler v2.0 — trigger-based conditional builder ──────
-function buildSystemPromptV2(triggers, prevState, kappa, personaValueChain, personaPrompt, situation, userMemoryBlock, personaId, goal, l3Support, decomposition) {
+function buildSystemPromptV2(triggers, prevState, kappa, personaValueChain, personaPrompt, situation, userMemoryBlock, personaId, goal, l3Support, decomposition, anchorCorrectionBlock) {
   const today = new Date().toLocaleDateString('ko-KR', {
     year: 'numeric', month: 'long', day: 'numeric', weekday: 'long',
   });
@@ -743,6 +743,10 @@ function buildSystemPromptV2(triggers, prevState, kappa, personaValueChain, pers
   parts.push(computeTriVectorField(personaValueChain, triData));
   if (personaId && goal) {
     parts.push(buildAnchorPromptBlock(personaId, goal, triData, l3Support, decomposition));
+  }
+  // Phase 4: Closed-loop anchor correction injection
+  if (anchorCorrectionBlock && typeof anchorCorrectionBlock === 'string' && anchorCorrectionBlock.trim()) {
+    parts.push(anchorCorrectionBlock);
   }
 
   // ⑤ Full pipeline equations (conditional)
@@ -828,7 +832,7 @@ const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 // ── POST /api/chat — main chat endpoint (SSE streaming) ───────────────────
 
 app.post('/api/chat', async (req, res) => {
-  const { messages, personaPrompt, personaValueChain, userMode, userMemoryBlock, personaId, l3Support } = req.body;
+  const { messages, personaPrompt, personaValueChain, userMode, userMemoryBlock, personaId, l3Support, anchorCorrectionBlock } = req.body;
 
   const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')?.content ?? '';
 
@@ -876,6 +880,7 @@ app.post('/api/chat', async (req, res) => {
     lastUserMsg,
     l3Support,
     decomposition,
+    anchorCorrectionBlock,
   );
 
   res.setHeader('Content-Type', 'text/event-stream');
