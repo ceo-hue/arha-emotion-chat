@@ -6,6 +6,7 @@ import { analyzeForPro, resetProSession } from './src/pro';
 import { generateArhaVideo, generateArhaImage } from './services/geminiService';
 import { getPersonaValueChain, buildPersonaSystemPrompt, computeTriVector, getTriVectorPullLabel } from './services/personaRegistry';
 import { buildAnchorConfig } from './services/anchorConfig';
+import { runFeedbackLoop, createInitialFeedbackState, analyzeFitTrend, type FeedbackState, type TurnFeedbackResult } from './services/anchorFeedback';
 import { GoogleGenAI, Modality } from '@google/genai';
 import { ARHA_SYSTEM_PROMPT } from './constants';
 import {
@@ -610,6 +611,9 @@ const App: React.FC = () => {
   const [sessionExpressionHistory, setSessionExpressionHistory] = useState<string[]>([]);
   const [sessionStartKappa, setSessionStartKappa] = useState(0);
   const [sessionTurnCount, setSessionTurnCount] = useState(0);
+  // Phase 4: Closed-loop anchor feedback state
+  const [feedbackState, setFeedbackState] = useState<FeedbackState>(createInitialFeedbackState());
+  const [lastFeedbackResult, setLastFeedbackResult] = useState<TurnFeedbackResult | null>(null);
   const sessionIdRef = useRef(`session-${Date.now()}`);
   const [showUserProfilePage, setShowUserProfilePage] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -1264,6 +1268,8 @@ const App: React.FC = () => {
         personaConfig.id,
         // l3Support: Phase 2 W5 — dynamic domain anchors
         l3Support,
+        // Phase 4: anchor correction from previous turn's feedback loop
+        lastFeedbackResult?.correctionBlock || undefined,
       );
       // Attach accumulated search results to the assistant message
       if (pendingSearchResultsRef.current.length > 0) {
@@ -1275,6 +1281,23 @@ const App: React.FC = () => {
 
       // ── Increment session turn count ───────────────────────────────────
       setSessionTurnCount(prev => prev + 1);
+
+      // ── Phase 4: Closed-loop anchor feedback ─────────────────────────
+      // Run AFTER response completes, BEFORE next request.
+      // The correctionBlock will be injected into the NEXT turn's system prompt.
+      try {
+        const anchorCfg = buildAnchorConfig(personaConfig.id, activeValueChain, input.trim());
+        if (currentContent && anchorCfg) {
+          const fbResult = runFeedbackLoop(currentContent, anchorCfg, feedbackState);
+          setFeedbackState(fbResult.nextState);
+          setLastFeedbackResult(fbResult);
+          if (fbResult.correction.type !== 'none') {
+            console.log(`🔄 Anchor feedback: ${fbResult.correction.type} | fit=${fbResult.evaluation.overallFit.toFixed(2)} | drift=${fbResult.drift.severity}`);
+          }
+        }
+      } catch (e) {
+        console.warn('Anchor feedback error (non-critical):', e);
+      }
 
       // ── 감성 프로필 즉시 쓰기 (매 턴, 신뢰성 우선) ─────────────────────
       if (user?.uid) {
@@ -1777,6 +1800,9 @@ const App: React.FC = () => {
                 if (!lastUserGoal) return undefined;
                 return buildAnchorConfig(personaConfig.id, activeValueChain, lastUserGoal);
               })()}
+              feedbackResult={lastFeedbackResult}
+              feedbackState={feedbackState}
+              fitTrend={feedbackState.fitHistory.length >= 3 ? analyzeFitTrend(feedbackState.fitHistory) : undefined}
             />
           </div>
         )}
