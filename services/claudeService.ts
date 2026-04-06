@@ -113,6 +113,10 @@ export const chatWithClaudeStream = async (
   l3Support?: Array<{ id: string; domain: string; text: string; score: number; mode: string }>,
   /** Phase 4: Closed-loop anchor correction block — 이전 턴 fit 평가 기반 보정 지시 */
   anchorCorrectionBlock?: string,
+  /** Phase 5: Cross-session personalization prompt summary */
+  anchorPersonalizationPrompt?: string,
+  /** Phase 6: Self-optimization directive */
+  anchorOptimizationDirective?: string,
 ) => {
   // system 메시지(상태전이 카드)는 UI 전용 — API 페이로드에서 제외
   const payload = messages
@@ -130,7 +134,7 @@ export const chatWithClaudeStream = async (
   const response = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages: payload, personaPrompt, personaValueChain, userMode, ...(proData ? { proData } : {}), ...(pureMode ? { pureMode: true } : {}), ...(userMemoryBlock ? { userMemoryBlock } : {}), ...(personaId ? { personaId } : {}), ...(l3Support && l3Support.length ? { l3Support } : {}), ...(anchorCorrectionBlock ? { anchorCorrectionBlock } : {}) }),
+    body: JSON.stringify({ messages: payload, personaPrompt, personaValueChain, userMode, ...(proData ? { proData } : {}), ...(pureMode ? { pureMode: true } : {}), ...(userMemoryBlock ? { userMemoryBlock } : {}), ...(personaId ? { personaId } : {}), ...(l3Support && l3Support.length ? { l3Support } : {}), ...(anchorCorrectionBlock ? { anchorCorrectionBlock } : {}), ...(anchorPersonalizationPrompt ? { anchorPersonalizationPrompt } : {}), ...(anchorOptimizationDirective ? { anchorOptimizationDirective } : {}) }),
   });
 
   if (!response.ok) {

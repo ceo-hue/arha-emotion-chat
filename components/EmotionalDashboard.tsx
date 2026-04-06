@@ -7,6 +7,8 @@ import type { TriVectorField } from '../services/personaRegistry';
 import { getTriVectorPullLabel } from '../services/personaRegistry';
 import type { AnchorConfig } from '../services/anchorConfig';
 import type { TurnFeedbackResult, FeedbackState, FitTrend } from '../services/anchorFeedback';
+import type { UserAnchorProfile, AnchorPersonalization, DimensionAffinity, VectorPreference } from '../services/userAnchorProfile';
+import type { OptimizationResult } from '../services/anchorOptimizer';
 
 interface EmotionalDashboardProps {
   analysis: AnalysisData | null;
@@ -22,10 +24,16 @@ interface EmotionalDashboardProps {
   feedbackState?: FeedbackState | null;
   /** Phase 4: fit trend analysis */
   fitTrend?: FitTrend;
+  /** Phase 5: cross-session anchor profile */
+  anchorProfile?: UserAnchorProfile | null;
+  /** Phase 5: personalization derived from profile */
+  anchorPersonalization?: AnchorPersonalization | null;
+  /** Phase 6: self-optimization result */
+  optimizationResult?: OptimizationResult | null;
 }
 
 const EmotionalDashboard: React.FC<EmotionalDashboardProps> = ({
-  analysis, allHistory, isAnalyzing, triVectorField, anchorConfig, feedbackResult, feedbackState, fitTrend
+  analysis, allHistory, isAnalyzing, triVectorField, anchorConfig, feedbackResult, feedbackState, fitTrend, anchorProfile, anchorPersonalization, optimizationResult
 }) => {
   const { t } = useI18n();
   const [logs, setLogs] = useState<string[]>([]);
@@ -370,6 +378,80 @@ const EmotionalDashboard: React.FC<EmotionalDashboardProps> = ({
                 )}
               </div>
             )}
+          </div>
+        )}
+
+        {/* ── Phase 5: User Anchor Profile ── */}
+        {anchorProfile && anchorProfile.totalSessions > 0 && (
+          <div className="space-y-2">
+            <span className="text-[9px] font-black text-indigo-600/60 dark:text-indigo-300/40 uppercase tracking-widest flex items-center gap-2">
+              <Target size={10} /> Anchor Profile
+              <span className="text-[7px] font-mono text-indigo-400/50 ml-auto">
+                sessions:{anchorProfile.totalSessions} · gravity:{anchorProfile.gravityMultiplier.toFixed(2)}
+              </span>
+            </span>
+            {/* Dimension affinities — top 5 */}
+            <div className="grid grid-cols-3 gap-1">
+              {(Object.values(anchorProfile.dimensionAffinities) as DimensionAffinity[])
+                .filter(a => a.exposures >= 3)
+                .sort((a, b) => b.affinity - a.affinity)
+                .slice(0, 6)
+                .map((aff) => (
+                  <div key={aff.dimension} className="flex flex-col gap-0.5 p-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200/30 dark:border-indigo-500/10">
+                    <span className="text-[7px] font-bold text-indigo-700 dark:text-indigo-200 truncate">{aff.dimension}</span>
+                    <div className="h-1 rounded-full bg-indigo-200/30 dark:bg-indigo-800/30 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${aff.affinity >= 0.6 ? 'bg-indigo-500' : aff.affinity >= 0.4 ? 'bg-indigo-400/60' : 'bg-indigo-300/40'}`}
+                        style={{ width: `${Math.min(100, aff.affinity * 100)}%` }}
+                      />
+                    </div>
+                    <span className="text-[6px] font-mono text-indigo-500/60">{aff.affinity.toFixed(2)} · {aff.hits}/{aff.exposures}</span>
+                  </div>
+                ))
+              }
+            </div>
+            {/* Vector preferences */}
+            <div className="flex gap-1.5">
+              {(Object.values(anchorProfile.vectorPreferences) as VectorPreference[]).map((vp) => (
+                <div key={vp.vector} className="flex-1 flex flex-col items-center p-1.5 rounded-lg bg-violet-50 dark:bg-violet-900/20 border border-violet-200/30 dark:border-violet-500/10">
+                  <span className="text-[7px] font-bold text-violet-700 dark:text-violet-200">{vp.vector.replace('V_', '')}</span>
+                  <span className="text-[9px] font-mono font-bold text-violet-500">{vp.preference.toFixed(2)}</span>
+                  <span className="text-[6px] text-violet-400/60">{vp.sessionCount}s</span>
+                </div>
+              ))}
+            </div>
+            {/* Personalization status */}
+            {anchorPersonalization && (
+              <div className={`text-[7px] font-mono px-2 py-1 rounded-lg border ${anchorPersonalization.reliable ? 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-300/30 dark:border-emerald-500/10 text-emerald-600 dark:text-emerald-300' : 'bg-slate-50 dark:bg-slate-800/20 border-slate-200/30 dark:border-slate-600/10 text-slate-500 dark:text-slate-400'}`}>
+                {anchorPersonalization.reliable
+                  ? `Active · gravity:${anchorPersonalization.gravityMultiplier.toFixed(2)}${anchorPersonalization.suggestedMode ? ` · mode:${anchorPersonalization.suggestedMode}` : ''} · ${Object.keys(anchorPersonalization.dimensionWeights).length} dim adjustments`
+                  : `Learning... (${anchorProfile.totalSessions}/3 sessions for activation)`}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Phase 6: Self-Optimization Status ── */}
+        {optimizationResult?.applied && (
+          <div className="space-y-1.5">
+            <span className="text-[9px] font-black text-amber-600/60 dark:text-amber-300/40 uppercase tracking-widest flex items-center gap-2">
+              <Zap size={10} /> Self-Optimization [Lv5]
+            </span>
+            <div className="space-y-1">
+              {optimizationResult.log.map((entry, i) => (
+                <div key={i} className="flex items-center gap-1.5 text-[7px] font-mono px-2 py-0.5 rounded bg-amber-50 dark:bg-amber-900/10 border border-amber-200/20 dark:border-amber-500/10">
+                  <span className="text-amber-700 dark:text-amber-300 font-bold">{entry.target}</span>
+                  <span className="text-amber-500/60">{entry.from}</span>
+                  <span className="text-amber-400">→</span>
+                  <span className="text-amber-600 dark:text-amber-200">{entry.to}</span>
+                  <span className="text-amber-400/50 ml-auto truncate max-w-[100px]">{entry.reason}</span>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-2 text-[7px] font-mono text-amber-500/60">
+              <span>thresholds: {optimizationResult.thresholds.fitPass}/{optimizationResult.thresholds.fitSoft}/{optimizationResult.thresholds.fitHard}</span>
+              <span>gravity: {optimizationResult.gravity.toFixed(2)}</span>
+            </div>
           </div>
         )}
 

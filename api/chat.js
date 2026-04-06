@@ -917,7 +917,7 @@ function buildProSupplement(proData, expressionMode) {
 // ─────────────────────────────────────────────────────────────────────────────
 // SYSTEM PROMPT ASSEMBLER v2 — trigger-based conditional builder
 // ─────────────────────────────────────────────────────────────────────────────
-function buildSystemPromptV2(triggers, prevState, kappa, personaValueChain, personaPrompt, proData, situation, userMemoryBlock, personaId, goal, l3Support, decomposition, anchorCorrectionBlock) {
+function buildSystemPromptV2(triggers, prevState, kappa, personaValueChain, personaPrompt, proData, situation, userMemoryBlock, personaId, goal, l3Support, decomposition, anchorCorrectionBlock, anchorPersonalizationPrompt, anchorOptimizationDirective) {
   const today = new Date().toLocaleDateString('ko-KR', {
     year:'numeric', month:'long', day:'numeric', weekday:'long',
   });
@@ -962,6 +962,18 @@ function buildSystemPromptV2(triggers, prevState, kappa, personaValueChain, pers
   if (anchorCorrectionBlock && typeof anchorCorrectionBlock === 'string' && anchorCorrectionBlock.trim()) {
     parts.push(anchorCorrectionBlock);
     console.log(`🔄 Anchor correction injected (${anchorCorrectionBlock.length} chars)`);
+  }
+
+  // Phase 5: Cross-session personalization prompt
+  if (anchorPersonalizationPrompt && typeof anchorPersonalizationPrompt === 'string' && anchorPersonalizationPrompt.trim()) {
+    parts.push(anchorPersonalizationPrompt);
+    console.log(`🎯 Anchor personalization injected (${anchorPersonalizationPrompt.length} chars)`);
+  }
+
+  // Phase 6: Self-optimization directive injection
+  if (anchorOptimizationDirective && typeof anchorOptimizationDirective === 'string' && anchorOptimizationDirective.trim()) {
+    parts.push(anchorOptimizationDirective);
+    console.log(`⚡ Self-optimization directive injected (${anchorOptimizationDirective.length} chars)`);
   }
 
   // ④ CONDITIONAL: Full pipeline equations
@@ -1050,7 +1062,7 @@ const tools = [{
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { messages, personaPrompt, personaValueChain, userMode, proData, pureMode, userMemoryBlock, personaId, l3Support, anchorCorrectionBlock } = req.body;
+  const { messages, personaPrompt, personaValueChain, userMode, proData, pureMode, userMemoryBlock, personaId, l3Support, anchorCorrectionBlock, anchorPersonalizationPrompt, anchorOptimizationDirective } = req.body;
   const model = 'claude-sonnet-4-20250514';
 
   const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')?.content ?? '';
@@ -1099,6 +1111,8 @@ export default async function handler(req, res) {
         l3Support,
         decomposition,
         anchorCorrectionBlock,
+        anchorPersonalizationPrompt,
+        anchorOptimizationDirective,
       );
 
   if (pureMode) {

@@ -6,7 +6,9 @@ import { analyzeForPro, resetProSession } from './src/pro';
 import { generateArhaVideo, generateArhaImage } from './services/geminiService';
 import { getPersonaValueChain, buildPersonaSystemPrompt, computeTriVector, getTriVectorPullLabel } from './services/personaRegistry';
 import { buildAnchorConfig } from './services/anchorConfig';
-import { runFeedbackLoop, createInitialFeedbackState, analyzeFitTrend, type FeedbackState, type TurnFeedbackResult } from './services/anchorFeedback';
+import { runFeedbackLoop, createInitialFeedbackState, analyzeFitTrend, type FeedbackState, type TurnFeedbackResult, type FitEvaluation } from './services/anchorFeedback';
+import { loadAnchorProfile, saveAnchorProfile, learnFromSession, getPersonalization, createInitialAnchorProfile, type UserAnchorProfile, type AnchorPersonalization } from './services/userAnchorProfile';
+import { optimizeAnchorConfig, applyOptimization, type OptimizationResult } from './services/anchorOptimizer';
 import { GoogleGenAI, Modality } from '@google/genai';
 import { ARHA_SYSTEM_PROMPT } from './constants';
 import {
@@ -614,6 +616,11 @@ const App: React.FC = () => {
   // Phase 4: Closed-loop anchor feedback state
   const [feedbackState, setFeedbackState] = useState<FeedbackState>(createInitialFeedbackState());
   const [lastFeedbackResult, setLastFeedbackResult] = useState<TurnFeedbackResult | null>(null);
+  // Phase 5: Cross-session anchor personalization
+  const [anchorProfile, setAnchorProfile] = useState<UserAnchorProfile>(createInitialAnchorProfile());
+  const [anchorPersonalization, setAnchorPersonalization] = useState<AnchorPersonalization | null>(null);
+  const [lastOptimization, setLastOptimization] = useState<OptimizationResult | null>(null);
+  const sessionFitEvalsRef = useRef<FitEvaluation[]>([]);
   const sessionIdRef = useRef(`session-${Date.now()}`);
   const [showUserProfilePage, setShowUserProfilePage] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -784,6 +791,17 @@ const App: React.FC = () => {
           setTimeout(() => setShowOnboarding(true), 1200);
         }
       } catch (_) { /* 감성 프로필 로드 실패 → 채팅은 정상 동작 */ }
+
+      // Phase 5: Load anchor profile + compute personalization
+      try {
+        const ap = await loadAnchorProfile(user.uid);
+        setAnchorProfile(ap);
+        const personalization = getPersonalization(ap, personaConfig?.id ?? 'default');
+        setAnchorPersonalization(personalization);
+        if (personalization.reliable) {
+          console.log(`🎯 Anchor profile loaded: ${ap.totalSessions} sessions, gravity=${personalization.gravityMultiplier.toFixed(2)}`);
+        }
+      } catch (_) { /* anchorProfile 로드 실패 → 기본값 사용 */ }
 
       // Reset session tracking for new session
       sessionIdRef.current = `session-${Date.now()}`;
@@ -1032,8 +1050,29 @@ const App: React.FC = () => {
         surgeLevel:        currentAnalysis?.surge_risk,
         persona_used:      personaConfig?.id ?? 'default',
       }, emotionLifetime, valueChainDB).catch(() => {});
+
+      // Phase 5: learn from session + save anchor profile
+      if (sessionFitEvalsRef.current.length > 0) {
+        try {
+          const lastUserGoal = [...messages].reverse().find(m => m.role === 'user')?.content ?? '';
+          const anchorCfg = buildAnchorConfig(personaConfig.id, activeValueChain, lastUserGoal);
+          const kappaEnd = Math.min(1, sessionTurnCount / 20);
+          const learned = learnFromSession(anchorProfile, {
+            personaId: personaConfig.id,
+            anchorConfig: anchorCfg,
+            feedbackState,
+            fitEvaluations: sessionFitEvalsRef.current,
+            kappaEnd,
+          });
+          setAnchorProfile(learned);
+          saveAnchorProfile(user.uid, learned).catch(() => {});
+          console.log(`🎓 Anchor profile updated: sessions=${learned.totalSessions}, gravity=${learned.gravityMultiplier.toFixed(2)}`);
+        } catch (e) {
+          console.warn('Anchor profile learning error (non-critical):', e);
+        }
+      }
     };
-  }, [user, sessionTurnCount, sessionValueHits, sessionExpressionHistory, currentAnalysis, personaConfig, emotionLifetime, valueChainDB]);
+  }, [user, sessionTurnCount, sessionValueHits, sessionExpressionHistory, currentAnalysis, personaConfig, emotionLifetime, valueChainDB, anchorProfile, feedbackState, messages, activeValueChain]);
 
   useEffect(() => {
     const onUnload = () => {
@@ -1270,6 +1309,10 @@ const App: React.FC = () => {
         l3Support,
         // Phase 4: anchor correction from previous turn's feedback loop
         lastFeedbackResult?.correctionBlock || undefined,
+        // Phase 5: cross-session personalization prompt
+        anchorPersonalization?.reliable ? anchorPersonalization.promptSummary : undefined,
+        // Phase 6: self-optimization directive
+        lastOptimization?.applied ? lastOptimization.optimizationDirective : undefined,
       );
       // Attach accumulated search results to the assistant message
       if (pendingSearchResultsRef.current.length > 0) {
@@ -1282,15 +1325,25 @@ const App: React.FC = () => {
       // ── Increment session turn count ───────────────────────────────────
       setSessionTurnCount(prev => prev + 1);
 
-      // ── Phase 4: Closed-loop anchor feedback ─────────────────────────
+      // ── Phase 4+6: Closed-loop anchor feedback + self-optimization ───
       // Run AFTER response completes, BEFORE next request.
-      // The correctionBlock will be injected into the NEXT turn's system prompt.
+      // Phase 6 optimization adjusts weights/thresholds before feedback runs.
       try {
-        const anchorCfg = buildAnchorConfig(personaConfig.id, activeValueChain, input.trim());
+        let anchorCfg = buildAnchorConfig(personaConfig.id, activeValueChain, input.trim());
         if (currentContent && anchorCfg) {
-          const fbResult = runFeedbackLoop(currentContent, anchorCfg, feedbackState);
+          // Phase 6: self-optimize anchor config before feedback
+          const optResult = optimizeAnchorConfig(anchorCfg, anchorPersonalization, anchorProfile);
+          if (optResult.applied) {
+            anchorCfg = applyOptimization(anchorCfg, optResult);
+            setLastOptimization(optResult);
+            console.log(`⚡ Self-optimization: ${optResult.log.length} adjustments, gravity=${optResult.gravity.toFixed(2)}, thresholds=[${optResult.thresholds.fitPass}/${optResult.thresholds.fitSoft}/${optResult.thresholds.fitHard}]`);
+          }
+
+          const fbResult = runFeedbackLoop(currentContent, anchorCfg, feedbackState, optResult.applied ? optResult.thresholds : undefined);
           setFeedbackState(fbResult.nextState);
           setLastFeedbackResult(fbResult);
+          // Phase 5: accumulate fit evaluations for session-end learning
+          sessionFitEvalsRef.current.push(fbResult.evaluation);
           if (fbResult.correction.type !== 'none') {
             console.log(`🔄 Anchor feedback: ${fbResult.correction.type} | fit=${fbResult.evaluation.overallFit.toFixed(2)} | drift=${fbResult.drift.severity}`);
           }
@@ -1803,6 +1856,9 @@ const App: React.FC = () => {
               feedbackResult={lastFeedbackResult}
               feedbackState={feedbackState}
               fitTrend={feedbackState.fitHistory.length >= 3 ? analyzeFitTrend(feedbackState.fitHistory) : undefined}
+              anchorProfile={anchorProfile}
+              anchorPersonalization={anchorPersonalization}
+              optimizationResult={lastOptimization}
             />
           </div>
         )}

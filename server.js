@@ -704,7 +704,7 @@ MATCH_ENERGY: joy/excitement → lightly mirror energy
 TURNING_POINT: reversal_possible → contrasting pairs, closing anchor line`;
 
 // ── System prompt assembler v2.0 — trigger-based conditional builder ──────
-function buildSystemPromptV2(triggers, prevState, kappa, personaValueChain, personaPrompt, situation, userMemoryBlock, personaId, goal, l3Support, decomposition, anchorCorrectionBlock) {
+function buildSystemPromptV2(triggers, prevState, kappa, personaValueChain, personaPrompt, situation, userMemoryBlock, personaId, goal, l3Support, decomposition, anchorCorrectionBlock, anchorPersonalizationPrompt, anchorOptimizationDirective) {
   const today = new Date().toLocaleDateString('ko-KR', {
     year: 'numeric', month: 'long', day: 'numeric', weekday: 'long',
   });
@@ -747,6 +747,16 @@ function buildSystemPromptV2(triggers, prevState, kappa, personaValueChain, pers
   // Phase 4: Closed-loop anchor correction injection
   if (anchorCorrectionBlock && typeof anchorCorrectionBlock === 'string' && anchorCorrectionBlock.trim()) {
     parts.push(anchorCorrectionBlock);
+  }
+
+  // Phase 5: Cross-session personalization prompt
+  if (anchorPersonalizationPrompt && typeof anchorPersonalizationPrompt === 'string' && anchorPersonalizationPrompt.trim()) {
+    parts.push(anchorPersonalizationPrompt);
+  }
+
+  // Phase 6: Self-optimization directive
+  if (anchorOptimizationDirective && typeof anchorOptimizationDirective === 'string' && anchorOptimizationDirective.trim()) {
+    parts.push(anchorOptimizationDirective);
   }
 
   // ⑤ Full pipeline equations (conditional)
@@ -832,7 +842,7 @@ const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 // ── POST /api/chat — main chat endpoint (SSE streaming) ───────────────────
 
 app.post('/api/chat', async (req, res) => {
-  const { messages, personaPrompt, personaValueChain, userMode, userMemoryBlock, personaId, l3Support, anchorCorrectionBlock } = req.body;
+  const { messages, personaPrompt, personaValueChain, userMode, userMemoryBlock, personaId, l3Support, anchorCorrectionBlock, anchorPersonalizationPrompt, anchorOptimizationDirective } = req.body;
 
   const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')?.content ?? '';
 
@@ -881,6 +891,8 @@ app.post('/api/chat', async (req, res) => {
     l3Support,
     decomposition,
     anchorCorrectionBlock,
+    anchorPersonalizationPrompt,
+    anchorOptimizationDirective,
   );
 
   res.setHeader('Content-Type', 'text/event-stream');

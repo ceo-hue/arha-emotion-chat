@@ -185,7 +185,11 @@ export function detectDrift(
   evaluation: FitEvaluation,
   config: AnchorConfig,
   fitHistory: number[],
+  adaptiveThresholds?: AdaptiveThresholds,
 ): DriftAlert {
+  const thresholdSoft = adaptiveThresholds?.fitSoft ?? FIT_THRESHOLD_SOFT;
+  const thresholdPass = adaptiveThresholds?.fitPass ?? FIT_THRESHOLD_PASS;
+
   // Severity 3: L0 breach
   if (!evaluation.l0Preserved) {
     return {
@@ -198,7 +202,7 @@ export function detectDrift(
 
   // Severity 2: sustained low fit (3+ turns below threshold)
   const recentFits = [...fitHistory.slice(-2), evaluation.overallFit];
-  const sustainedLow = recentFits.length >= 3 && recentFits.every((f) => f < FIT_THRESHOLD_SOFT);
+  const sustainedLow = recentFits.length >= 3 && recentFits.every((f) => f < thresholdSoft);
   if (sustainedLow) {
     return {
       detected: true,
@@ -209,7 +213,7 @@ export function detectDrift(
   }
 
   // Severity 1: single-turn significant miss
-  if (evaluation.driftMagnitude > 0.6 && evaluation.overallFit < FIT_THRESHOLD_PASS) {
+  if (evaluation.driftMagnitude > 0.6 && evaluation.overallFit < thresholdPass) {
     return {
       detected: true,
       severity: 1,
@@ -230,9 +234,13 @@ export function generateCorrectionSignal(
   drift: DriftAlert,
   config: AnchorConfig,
   feedbackState: FeedbackState,
+  adaptiveThresholds?: AdaptiveThresholds,
 ): CorrectionSignal {
+  const thresholdPass = adaptiveThresholds?.fitPass ?? FIT_THRESHOLD_PASS;
+  const thresholdHard = adaptiveThresholds?.fitHard ?? FIT_THRESHOLD_HARD;
+
   // No correction needed
-  if (evaluation.overallFit >= FIT_THRESHOLD_PASS && !drift.detected) {
+  if (evaluation.overallFit >= thresholdPass && !drift.detected) {
     return {
       type: 'none',
       correctionText: '',
@@ -276,7 +284,7 @@ export function generateCorrectionSignal(
   }
 
   // Strong redirect: very low fit or sustained drift
-  if (evaluation.overallFit < FIT_THRESHOLD_HARD || drift.severity >= 2) {
+  if (evaluation.overallFit < thresholdHard || drift.severity >= 2) {
     const missedList = missed.length > 0
       ? `Missed dimensions that MUST appear: [${missed.join(', ')}].`
       : '';
@@ -402,14 +410,22 @@ export interface TurnFeedbackResult {
  *   // result.correctionBlock → inject into next system prompt
  *   // result.nextState → store for next turn
  */
+/** Optional adaptive thresholds from Phase 6 optimizer */
+export interface AdaptiveThresholds {
+  fitPass: number;
+  fitSoft: number;
+  fitHard: number;
+}
+
 export function runFeedbackLoop(
   responseText: string,
   config: AnchorConfig,
   state: FeedbackState,
+  adaptiveThresholds?: AdaptiveThresholds,
 ): TurnFeedbackResult {
   const evaluation = evaluateFit(responseText, config);
-  const drift = detectDrift(evaluation, config, state.fitHistory);
-  const correction = generateCorrectionSignal(evaluation, drift, config, state);
+  const drift = detectDrift(evaluation, config, state.fitHistory, adaptiveThresholds);
+  const correction = generateCorrectionSignal(evaluation, drift, config, state, adaptiveThresholds);
   const correctionBlock = formatCorrectionBlock(correction, {
     ...state.weightAdjustments,
     ...correction.gravityAdjustments,
