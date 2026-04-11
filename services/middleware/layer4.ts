@@ -274,6 +274,11 @@ export function compileModalityPrompts(
   const narrative = eq_pkg.meta_block.narrative_summary;
   const expression_mode = input.context_anchor?.expression_mode;
 
+  // ── 골든벡터 personality 키워드 주입 ──
+  const gv = GOLDEN_VECTORS[eq_pkg.applied_gv as keyof typeof GOLDEN_VECTORS]
+    ?? GOLDEN_VECTORS['GV_System_Default'];
+  const gv_style = gv.personality_vectors.join(', ');
+
   // 시각 스펙
   const vs = buildVisualSpec(eq_pkg, vector_field, expression_mode);
 
@@ -293,6 +298,7 @@ export function compileModalityPrompts(
     vs.color_palette,
     vs.framing,
     `atmospheric mood: ${vs.mood}`,
+    gv_style,
     'cinematic grain, professional color grade',
   ].join(', ');
 
@@ -303,6 +309,7 @@ export function compileModalityPrompts(
     vs.color_palette,
     vs.framing,
     `mood: ${vs.mood}`,
+    gv_style,
     bv.I > 0.8 ? 'sharp detail, clinical precision' : 'film grain, bokeh',
     'professional photography',
   ].join(', ');
@@ -314,6 +321,7 @@ export function compileModalityPrompts(
     ms.bpm,
     ms.texture,
     ms.structure,
+    gv_style,
     `emotional core: ${cores}`,
   ].join(', ');
 
