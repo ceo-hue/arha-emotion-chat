@@ -14,6 +14,107 @@ export const config = { maxDuration: 60 };
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 // ─────────────────────────────────────────
+// 골든벡터 (GV) 정의 — constants.ts 동기화
+// ─────────────────────────────────────────
+
+const GOLDEN_VECTORS = {
+  GV_ARHA_Conversation: {
+    base_vector:        { I: 0.65, D: 0.60, E: 0.35, T: 0.50, S: 0.75, C: 0.80, R: 0.60 },
+    blend_ratio:        0.85,
+    axis_bias:          { emotion: 0.90, relation: 0.80, rhythm: 0.70 },
+    personality_vectors: ['warm', 'empathetic', 'resonant', 'sincere'],
+    quality_floor:      0.65,
+  },
+  GV_Cinematic_Noir_v2: {
+    base_vector:        { I: 0.78, D: 0.72, E: 0.40, T: 0.65, S: 0.40, C: 0.75, R: 0.45 },
+    blend_ratio:        0.90,
+    axis_bias:          { visual: 0.95, video: 0.85, physics: 0.60 },
+    personality_vectors: ['cinematic', 'atmospheric', 'moody', 'precise'],
+    quality_floor:      0.70,
+  },
+  GV_Cinematic_Noir_v1: {
+    base_vector:        { I: 0.72, D: 0.68, E: 0.42, T: 0.60, S: 0.42, C: 0.70, R: 0.48 },
+    blend_ratio:        0.80,
+    axis_bias:          { visual: 0.88, video: 0.78 },
+    personality_vectors: ['cinematic', 'moody'],
+    quality_floor:      0.65,
+  },
+  GV_Code_Generation: {
+    base_vector:        { I: 0.92, D: 0.85, E: 0.15, T: 0.40, S: 0.30, C: 0.95, R: 0.25 },
+    blend_ratio:        0.95,
+    axis_bias:          { state: 0.95, rhythm: 0.60 },
+    personality_vectors: ['precise', 'structured', 'minimal', 'efficient'],
+    quality_floor:      0.75,
+  },
+  GV_Design_Spring: {
+    base_vector:        { I: 0.75, D: 0.65, E: 0.45, T: 0.55, S: 0.60, C: 0.78, R: 0.50 },
+    blend_ratio:        0.85,
+    axis_bias:          { visual: 0.90, relation: 0.65 },
+    personality_vectors: ['aesthetic', 'balanced', 'creative', 'harmonic'],
+    quality_floor:      0.68,
+  },
+  GV_Research: {
+    base_vector:        { I: 0.88, D: 0.80, E: 0.25, T: 0.50, S: 0.35, C: 0.90, R: 0.40 },
+    blend_ratio:        0.90,
+    axis_bias:          { state: 0.88, relation: 0.55 },
+    personality_vectors: ['analytical', 'thorough', 'objective', 'structured'],
+    quality_floor:      0.72,
+  },
+  GV_Technical_Design: {
+    base_vector:        { I: 0.85, D: 0.78, E: 0.22, T: 0.45, S: 0.55, C: 0.88, R: 0.38 },
+    blend_ratio:        0.88,
+    axis_bias:          { state: 0.90, visual: 0.75 },
+    personality_vectors: ['precise', 'elegant', 'functional'],
+    quality_floor:      0.70,
+  },
+  GV_System_Default: {
+    base_vector:        { I: 0.70, D: 0.65, E: 0.35, T: 0.50, S: 0.50, C: 0.70, R: 0.50 },
+    blend_ratio:        0.70,
+    axis_bias:          {},
+    personality_vectors: ['balanced'],
+    quality_floor:      0.60,
+  },
+};
+
+// 모달리티 → GV 우선순위
+const MODALITY_GV_PRIORITY = {
+  video:   ['GV_Cinematic_Noir_v2', 'GV_Cinematic_Noir_v1', 'GV_System_Default'],
+  image:   ['GV_Cinematic_Noir_v2', 'GV_Design_Spring',     'GV_System_Default'],
+  music:   ['GV_ARHA_Conversation', 'GV_Cinematic_Noir_v2', 'GV_System_Default'],
+  code:    ['GV_Code_Generation',   'GV_Technical_Design',  'GV_System_Default'],
+  design:  ['GV_Design_Spring',     'GV_Technical_Design',  'GV_System_Default'],
+  plan:    ['GV_Research',          'GV_ARHA_Conversation', 'GV_System_Default'],
+};
+
+/** Claude가 고른 GV + 모달리티 우선순위로 최종 GV 결정 */
+function resolveGV(claude_gv_id, target_modalities) {
+  // Claude가 유효한 GV를 골랐으면 그것 우선
+  if (claude_gv_id && GOLDEN_VECTORS[claude_gv_id]) return claude_gv_id;
+  // 없으면 모달리티 기반 우선순위
+  const primary = target_modalities?.[0];
+  const priority = MODALITY_GV_PRIORITY[primary] || ['GV_System_Default'];
+  return priority[0];
+}
+
+/** GV base_vector를 equation blended_vector에 블렌딩 */
+function applyGVBlend(blended_vector, gv_id) {
+  const gv = GOLDEN_VECTORS[gv_id] || GOLDEN_VECTORS.GV_System_Default;
+  const bv = gv.base_vector;
+  const br = gv.blend_ratio;       // GV 블렌드 비율
+  const cr = 1 - (br * 0.25);      // Claude 결과 비중 (GV를 최대 25% 반영)
+
+  return {
+    I: blended_vector.I * cr + bv.I * (1 - cr),
+    D: blended_vector.D * cr + bv.D * (1 - cr),
+    E: blended_vector.E * cr + bv.E * (1 - cr),
+    T: blended_vector.T * cr + bv.T * (1 - cr),
+    S: blended_vector.S * cr + bv.S * (1 - cr),
+    C: blended_vector.C * cr + bv.C * (1 - cr),
+    R: blended_vector.R * cr + bv.R * (1 - cr),
+  };
+}
+
+// ─────────────────────────────────────────
 // Layer 1: 7D 의미 분해 (Claude)
 // ─────────────────────────────────────────
 
@@ -223,14 +324,24 @@ ARHA 감성 컨텍스트:
     ? `${fallback_units[0]} ⊕ ${fallback_units[1]}`
     : (fallback_units[0] || 'Ψ(0.70,ρ) ⊕ Λ(∂ε)');
 
+  // ── 골든벡터 블렌딩 ──
+  // Claude가 고른 GV (or 모달리티 기반 결정) → blended_vector에 실제 반영
+  const resolved_gv_id = resolveGV(parsed.applied_gv, input.target_modalities);
+  const raw_blended    = parsed.blended_vector || bv;
+  const gv_blended     = applyGVBlend(raw_blended, resolved_gv_id);
+  const gv             = GOLDEN_VECTORS[resolved_gv_id];
+
   return {
     Eq_final:       parsed.Eq_final || fallback_eq,
     Eq_components:  parsed.Eq_components || [],
-    blended_vector: parsed.blended_vector || bv,
+    blended_vector: gv_blended,          // GV 반영된 최종 벡터
     discipline:     parsed.discipline || 'calculus',
-    applied_gv:     parsed.applied_gv || 'GV_ARHA_Conversation',
-    blend_log:      parsed.blend_log || [],
-    meta_block:     parsed.meta_block || {
+    applied_gv:     resolved_gv_id,      // 실제 적용된 GV
+    blend_log:      [
+      ...(parsed.blend_log || []),
+      `GV_applied: ${resolved_gv_id} (blend_ratio=${gv.blend_ratio}, personality=[${gv.personality_vectors.join(',')}])`,
+    ],
+    meta_block: parsed.meta_block || {
       narrative_summary: input.normalized_text,
       confidence_score: 0.65,
       discipline_confidence: 0.65,
