@@ -6,6 +6,7 @@
 import type {
   SemanticUnitArray, ConnectedVectorField,
   MorphemeUnit, SubVectorField, BridgeOperator, Axis,
+  InterferenceAnchor, Vector7D,
 } from './types';
 import {
   SYMBOL_LIBRARY, BRIDGE_OPERATORS, KEYWORD_TO_ANCHOR,
@@ -154,6 +155,115 @@ function computeEquilibrium(morphemes: MorphemeUnit[], sub_vectors: SubVectorFie
 }
 
 // ─────────────────────────────────────────
+// Ξ_InterferenceDetect — 교집합 국소 앵커 생성
+// ─────────────────────────────────────────
+
+/** 두 서브벡터의 I/D/E 코사인 유사도 계산 */
+function cosineSimilarity(
+  a: { I: number; D: number; E: number },
+  b: { I: number; D: number; E: number },
+): number {
+  const dot   = a.I * b.I + a.D * b.D + a.E * b.E;
+  const normA = Math.sqrt(a.I ** 2 + a.D ** 2 + a.E ** 2);
+  const normB = Math.sqrt(b.I ** 2 + b.D ** 2 + b.E ** 2);
+  if (normA === 0 || normB === 0) return 0;
+  return dot / (normA * normB);
+}
+
+/** 두 7D 벡터의 교집합 중점 계산 */
+function midpoint7D(a: SubVectorField, b: SubVectorField): Vector7D {
+  const ta = a.tri_summary;
+  const tb = b.tri_summary;
+  const wa = a.magnitude;
+  const wb = b.magnitude;
+  const wt = wa + wb || 1;
+  // magnitude 가중 평균
+  return {
+    I: (ta.I * wa + tb.I * wb) / wt,
+    D: (ta.D * wa + tb.D * wb) / wt,
+    E: (ta.E * wa + tb.E * wb) / wt,
+    T: 0.50,   // 시간성: 중립
+    S: Math.min(wa, wb) / Math.max(wa, wb, 0.01), // 유사도 반영
+    C: (ta.I * wa + tb.I * wb) / wt * 0.85,
+    R: Math.abs(ta.I - tb.I) * 0.5,  // 두 축의 I 차이 → 상대성
+  };
+}
+
+/** 교집합 브릿지 연산자 결정 */
+function selectInterferenceOperator(
+  axis_a: Axis,
+  axis_b: Axis,
+  cosine: number,
+  vec_a: SubVectorField,
+  vec_b: SubVectorField,
+): InterferenceAnchor['forced_operator'] {
+  const has_temporal = axis_a === 'state' || axis_b === 'state'
+    || axis_a === 'rhythm' || axis_b === 'rhythm';
+  const has_relation = axis_a === 'relation' || axis_b === 'relation';
+
+  if (has_temporal) return '∫';         // 시간 축 포함 → 누적 연산
+  if (has_relation) return '∇';         // 관계 축 포함 → 방향 흐름
+  if (cosine > 0.85) return '⊗';        // 매우 유사 → 비선형 간섭
+  if (cosine > 0.65) return '⊗';        // 중간 유사 → 비선형 간섭
+  return '⊕';                           // 낮은 유사도 → 독립 공존
+}
+
+const INTERFERENCE_THRESHOLD = 0.60; // 이 이상 유사도면 교집합 앵커 생성
+const INTERFERENCE_FACTOR    = 1.35; // 중력 증폭 계수
+
+function detectInterferenceAnchors(sub_vectors: SubVectorField[]): InterferenceAnchor[] {
+  const anchors: InterferenceAnchor[] = [];
+  const pairs_seen = new Set<string>();
+
+  for (let i = 0; i < sub_vectors.length; i++) {
+    for (let j = i + 1; j < sub_vectors.length; j++) {
+      const va = sub_vectors[i];
+      const vb = sub_vectors[j];
+
+      // 중복 쌍 스킵
+      const pair_key = [va.axis, vb.axis].sort().join('|');
+      if (pairs_seen.has(pair_key)) continue;
+      pairs_seen.add(pair_key);
+
+      const cosine = cosineSimilarity(va.tri_summary, vb.tri_summary);
+      if (cosine < INTERFERENCE_THRESHOLD) continue;
+
+      const base_gravity = (0.6 + va.magnitude * 0.3 + 0.6 + vb.magnitude * 0.3) / 2;
+      const interference_gravity = Math.min(1.0, base_gravity * INTERFERENCE_FACTOR);
+      const forced_operator = selectInterferenceOperator(va.axis, vb.axis, cosine, va, vb);
+      const position = midpoint7D(va, vb);
+
+      const AXIS_NARRATIVE: Partial<Record<Axis, string>> = {
+        emotion: '감성',
+        visual:  '시각',
+        rhythm:  '리듬',
+        state:   '상태',
+        relation: '관계',
+        video:   '영상',
+        physics: '물리',
+        music:   '음악',
+      };
+      const name_a = AXIS_NARRATIVE[va.axis] || va.axis;
+      const name_b = AXIS_NARRATIVE[vb.axis] || vb.axis;
+
+      anchors.push({
+        id:                  `ia_${va.axis}_${vb.axis}`,
+        axis_a:              va.axis,
+        axis_b:              vb.axis,
+        position,
+        cosine_similarity:   cosine,
+        interference_gravity,
+        forced_operator,
+        narrative:           `${name_a}과 ${name_b}이 ${(cosine * 100).toFixed(0)}% 교집합 — 국소 앵커 형성`,
+      });
+    }
+  }
+
+  // 중력 내림차순 정렬
+  return anchors.sort((a, b) => b.interference_gravity - a.interference_gravity);
+}
+
+// ─────────────────────────────────────────
 // 공개 API
 // ─────────────────────────────────────────
 
@@ -205,11 +315,15 @@ export function runLayer2(semantic_array: SemanticUnitArray): ConnectedVectorFie
   // 평형 점수
   const equilibrium_state = computeEquilibrium(morphemes, sub_vector_field);
 
+  // 교집합 국소 앵커 탐지
+  const interference_anchors = detectInterferenceAnchors(sub_vector_field);
+
   return {
     morphemes,
     expression,
     sub_vector_field,
     dominant_vector,
     equilibrium_state,
+    interference_anchors,
   };
 }

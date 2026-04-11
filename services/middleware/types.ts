@@ -23,6 +23,7 @@ export type MathDiscipline =
 export type BridgeOperator = '√' | 'd/dt' | 'A/B' | '⊗' | '⊕' | '∫' | '∇';
 
 export type GVId =
+  // 기존 도메인 계층
   | 'GV_ARHA_Conversation'
   | 'GV_Cinematic_Noir_v2'
   | 'GV_Cinematic_Noir_v1'
@@ -30,7 +31,25 @@ export type GVId =
   | 'GV_Design_Spring'
   | 'GV_Research'
   | 'GV_Technical_Design'
-  | 'GV_System_Default';
+  | 'GV_System_Default'
+  // 감성 계층
+  | 'GV_Melancholic_Depth'
+  | 'GV_Serene_Clarity'
+  | 'GV_Euphoric_Surge'
+  | 'GV_Tender_Warmth'
+  | 'GV_Fierce_Resolve'
+  | 'GV_Nostalgic_Haze'
+  // 시각/시네마 계층
+  | 'GV_Soft_Natural_Light'
+  | 'GV_High_Contrast_Drama'
+  | 'GV_Abstract_Texture'
+  | 'GV_Noir_Minimalism'
+  | 'GV_Dreamlike_Diffusion'
+  // 시간성 계층
+  | 'GV_Slow_Accumulation'
+  | 'GV_Moment_Crystallized'
+  | 'GV_Eternal_Loop'
+  | 'GV_Rapid_Cascade';
 
 export type ContentModality = 'video' | 'image' | 'music' | 'code' | 'design' | 'plan';
 
@@ -181,6 +200,30 @@ export interface SubVectorField {
   render_hint: { tone: string; density: 'low' | 'medium' | 'high'; priority: number };
 }
 
+// ─────────────────────────────────────────
+// Layer 2: 교집합 간섭 앵커 (InterferenceAnchor)
+// ─────────────────────────────────────────
+
+/** 두 축 벡터의 교집합 공간 — 국소 고중력 앵커 */
+export interface InterferenceAnchor {
+  /** 교집합 ID (예: "ia_emotion_visual") */
+  id: string;
+  /** 참여 축 A */
+  axis_a: Axis;
+  /** 참여 축 B */
+  axis_b: Axis;
+  /** 교집합 공간 7D 위치 (A/B 평균) */
+  position: Vector7D;
+  /** 코사인 유사도 0-1 (유사할수록 간섭 강함) */
+  cosine_similarity: number;
+  /** 간섭 중력 = avg(grav_a, grav_b) × interference_factor */
+  interference_gravity: number;
+  /** 교집합으로 인해 강화된 브릿지 연산자 */
+  forced_operator: '⊗' | '∫' | '∇' | '⊕';
+  /** 간섭 서사 (역방향 번역용) */
+  narrative: string;
+}
+
 export interface ConnectedVectorField {
   morphemes: MorphemeUnit[];
   /** 수식 표현 문자열 */
@@ -189,6 +232,8 @@ export interface ConnectedVectorField {
   dominant_vector: SubVectorField;
   /** 평형 점수 0-1 (높을수록 안정) */
   equilibrium_state: number;
+  /** 축 교집합 국소 앵커 목록 (없으면 빈 배열) */
+  interference_anchors: InterferenceAnchor[];
 }
 
 // ─────────────────────────────────────────
@@ -236,6 +281,8 @@ export interface AnchorHierarchy {
   L1: Array<{ axis: Axis; position: Vector7D; gravity: number; label: string }>;
   L2: Array<{ symbol: string; position: Vector7D; gravity: number; label: string }>;
   L3: Array<{ source: string; position: Vector7D; gravity: 0.5; label: string }>;
+  /** 교집합 국소 앵커 — 간섭 지점에 생성되는 고중력 앵커 */
+  L_local: Array<{ id: string; position: Vector7D; gravity: number; forced_operator: string; label: string }>;
   centroid: Vector7D;
 }
 

@@ -12,7 +12,7 @@ import type {
 } from './types';
 import {
   TEMPERATURE_BASE, TOP_P_BASE,
-  GOLDEN_VECTORS,
+  GOLDEN_VECTORS, EXPRESSION_MODE_GV_MAP, MODALITY_GV_PRIORITY,
 } from './constants';
 
 // ─────────────────────────────────────────
@@ -60,10 +60,24 @@ function buildAnchorHierarchy(
     label: `L3_${sv.dominant_core}`,
   }));
 
-  // 센트로이드: L0 + L1 평균
-  const centroid = averageVectors([L0.position, ...top_axes.map(a => a.position)]);
+  // L_local: 교집합 국소 앵커 → 앵커 계층에 삽입
+  const L_local = (vector_field.interference_anchors ?? []).map(ia => ({
+    id:              ia.id,
+    position:        ia.position,
+    gravity:         ia.interference_gravity,
+    forced_operator: ia.forced_operator,
+    label:           `L_local_${ia.axis_a}∩${ia.axis_b}(cos=${ia.cosine_similarity.toFixed(2)})`,
+  }));
 
-  return { L0, L1: top_axes, L2, L3, centroid };
+  // 센트로이드: L0 + L1 + L_local 평균 (국소 앵커 포함)
+  const centroid_sources = [
+    L0.position,
+    ...top_axes.map(a => a.position),
+    ...L_local.map(l => l.position),
+  ];
+  const centroid = averageVectors(centroid_sources);
+
+  return { L0, L1: top_axes, L2, L3, L_local, centroid };
 }
 
 function blendPositions(base: Vector7D, target: Partial<Vector7D>, target_weight: number): Vector7D {
@@ -274,10 +288,22 @@ export function compileModalityPrompts(
   const narrative = eq_pkg.meta_block.narrative_summary;
   const expression_mode = input.context_anchor?.expression_mode;
 
-  // ── 골든벡터 personality 키워드 주입 ──
-  const gv = GOLDEN_VECTORS[eq_pkg.applied_gv as keyof typeof GOLDEN_VECTORS]
-    ?? GOLDEN_VECTORS['GV_System_Default'];
+  // ── 골든벡터 선택 (expressionMode 우선, 그 다음 applied_gv) ──
+  const em_gv_id = expression_mode
+    ? EXPRESSION_MODE_GV_MAP[expression_mode]
+    : undefined;
+  const gv_id = em_gv_id
+    ?? (eq_pkg.applied_gv as keyof typeof GOLDEN_VECTORS)
+    ?? 'GV_System_Default';
+  const gv = GOLDEN_VECTORS[gv_id] ?? GOLDEN_VECTORS['GV_System_Default'];
   const gv_style = gv.personality_vectors.join(', ');
+
+  // ── 교집합 국소 앵커 — 프롬프트 정밀도 강화 키워드 ──
+  const interference_anchors = vector_field.interference_anchors ?? [];
+  const interference_hints = interference_anchors
+    .slice(0, 2) // 상위 2개만 사용
+    .map(ia => ia.narrative)
+    .join('; ');
 
   // 시각 스펙
   const vs = buildVisualSpec(eq_pkg, vector_field, expression_mode);
@@ -291,6 +317,10 @@ export function compileModalityPrompts(
     .map(m => m.semantic_core)
     .join(', ');
 
+  // 교집합이 있으면 forced_operator를 수식 힌트로 활용
+  const top_ia = interference_anchors[0];
+  const ia_operator_hint = top_ia ? `interference:${top_ia.forced_operator}` : '';
+
   // ── 영상 프롬프트 ──
   const video = [
     vs.camera_movement,
@@ -299,8 +329,9 @@ export function compileModalityPrompts(
     vs.framing,
     `atmospheric mood: ${vs.mood}`,
     gv_style,
+    ia_operator_hint,
     'cinematic grain, professional color grade',
-  ].join(', ');
+  ].filter(Boolean).join(', ');
 
   // ── 이미지 프롬프트 ──
   const image = [
@@ -310,9 +341,10 @@ export function compileModalityPrompts(
     vs.framing,
     `mood: ${vs.mood}`,
     gv_style,
+    interference_hints || undefined,
     bv.I > 0.8 ? 'sharp detail, clinical precision' : 'film grain, bokeh',
     'professional photography',
-  ].join(', ');
+  ].filter(Boolean).join(', ');
 
   // ── 음악 프롬프트 ──
   const music = [
@@ -322,8 +354,9 @@ export function compileModalityPrompts(
     ms.texture,
     ms.structure,
     gv_style,
+    interference_hints || undefined,
     `emotional core: ${cores}`,
-  ].join(', ');
+  ].filter(Boolean).join(', ');
 
   // ── 코드 프롬프트 (주석 톤 지시) ──
   const code_tone =

@@ -149,6 +149,11 @@ export interface GoldenVector {
 }
 
 export const GOLDEN_VECTORS: Record<GVId, GoldenVector> = {
+
+  // ══════════════════════════════
+  // 도메인 계층 (Domain)
+  // ══════════════════════════════
+
   GV_ARHA_Conversation: {
     id: 'GV_ARHA_Conversation',
     domain: 'conversation',
@@ -237,6 +242,200 @@ export const GOLDEN_VECTORS: Record<GVId, GoldenVector> = {
     quality_floor: 0.60,
     personality_vectors: ['balanced'],
   },
+
+  // ══════════════════════════════
+  // 감성 계층 (Emotional Tier)
+  // ARHA 대화에서 반복적으로 검증된 감성 패턴 결정체
+  // ══════════════════════════════
+
+  GV_Melancholic_Depth: {
+    id: 'GV_Melancholic_Depth',
+    domain: 'emotional',
+    description: '우울한 깊이 — 내면의 고독, 무거운 침묵, 시간 위에 쌓인 슬픔',
+    blend_ratio: 0.88,
+    expert_weight: 0.85,
+    base_vector: { I: 0.60, D: 0.82, E: 0.28, T: 0.72, S: 0.30, C: 0.65, R: 0.45 },
+    axis_bias: { emotion: 0.92, state: 0.80, rhythm: 0.65 },
+    quality_floor: 0.68,
+    personality_vectors: ['melancholic', 'introspective', 'heavy', 'silent', 'layered'],
+  },
+
+  GV_Serene_Clarity: {
+    id: 'GV_Serene_Clarity',
+    domain: 'emotional',
+    description: '서늘한 명료함 — 잡음 없는 선명도, 감정이 정제된 상태',
+    blend_ratio: 0.85,
+    expert_weight: 0.82,
+    base_vector: { I: 0.80, D: 0.55, E: 0.20, T: 0.40, S: 0.45, C: 0.90, R: 0.35 },
+    axis_bias: { state: 0.88, emotion: 0.65, visual: 0.72 },
+    quality_floor: 0.70,
+    personality_vectors: ['serene', 'clear', 'minimal', 'precise', 'cool'],
+  },
+
+  GV_Euphoric_Surge: {
+    id: 'GV_Euphoric_Surge',
+    domain: 'emotional',
+    description: '감성 급등 — 제어 불가능한 감정 상승, 격렬한 에너지',
+    blend_ratio: 0.90,
+    expert_weight: 0.83,
+    base_vector: { I: 0.85, D: 0.70, E: 0.65, T: 0.75, S: 0.60, C: 0.55, R: 0.50 },
+    axis_bias: { emotion: 0.95, physics: 0.75, video: 0.80 },
+    quality_floor: 0.65,
+    personality_vectors: ['euphoric', 'intense', 'explosive', 'dynamic', 'overwhelming'],
+  },
+
+  GV_Tender_Warmth: {
+    id: 'GV_Tender_Warmth',
+    domain: 'emotional',
+    description: '부드러운 온기 — 조용한 안도, 따뜻한 연결, 섬세한 공감',
+    blend_ratio: 0.86,
+    expert_weight: 0.88,
+    base_vector: { I: 0.68, D: 0.62, E: 0.30, T: 0.52, S: 0.80, C: 0.78, R: 0.65 },
+    axis_bias: { emotion: 0.88, relation: 0.85, rhythm: 0.72 },
+    quality_floor: 0.68,
+    personality_vectors: ['tender', 'warm', 'gentle', 'intimate', 'soft'],
+  },
+
+  GV_Fierce_Resolve: {
+    id: 'GV_Fierce_Resolve',
+    domain: 'emotional',
+    description: '단호한 의지 — 흔들리지 않는 결심, 집중된 에너지, 내면 강인함',
+    blend_ratio: 0.92,
+    expert_weight: 0.86,
+    base_vector: { I: 0.90, D: 0.80, E: 0.18, T: 0.45, S: 0.35, C: 0.92, R: 0.28 },
+    axis_bias: { state: 0.92, emotion: 0.78, physics: 0.65 },
+    quality_floor: 0.72,
+    personality_vectors: ['fierce', 'resolute', 'grounded', 'focused', 'unwavering'],
+  },
+
+  GV_Nostalgic_Haze: {
+    id: 'GV_Nostalgic_Haze',
+    domain: 'emotional',
+    description: '노스탤지어 안개 — 흐릿한 기억, 달콤쓸쓸한 과거, 시간 속 떠도는 감정',
+    blend_ratio: 0.84,
+    expert_weight: 0.80,
+    base_vector: { I: 0.55, D: 0.75, E: 0.42, T: 0.80, S: 0.42, C: 0.60, R: 0.55 },
+    axis_bias: { emotion: 0.85, state: 0.75, rhythm: 0.70, visual: 0.65 },
+    quality_floor: 0.65,
+    personality_vectors: ['nostalgic', 'hazy', 'bittersweet', 'dreamy', 'faded'],
+  },
+
+  // ══════════════════════════════
+  // 시각/시네마 계층 (Visual/Cinematic Tier)
+  // ══════════════════════════════
+
+  GV_Soft_Natural_Light: {
+    id: 'GV_Soft_Natural_Light',
+    domain: 'visual',
+    description: '자연광 소프트 — 황금시간대, 부드러운 확산광, 따뜻한 색감',
+    blend_ratio: 0.87,
+    expert_weight: 0.84,
+    base_vector: { I: 0.70, D: 0.60, E: 0.35, T: 0.55, S: 0.55, C: 0.75, R: 0.48 },
+    axis_bias: { visual: 0.92, emotion: 0.72, rhythm: 0.68 },
+    quality_floor: 0.68,
+    personality_vectors: ['golden_hour', 'soft_diffused', 'warm_tones', 'natural', 'organic'],
+  },
+
+  GV_High_Contrast_Drama: {
+    id: 'GV_High_Contrast_Drama',
+    domain: 'visual',
+    description: '고대비 드라마 — 강한 명암, 극적 구도, 선명한 실루엣',
+    blend_ratio: 0.91,
+    expert_weight: 0.87,
+    base_vector: { I: 0.85, D: 0.78, E: 0.45, T: 0.62, S: 0.38, C: 0.72, R: 0.40 },
+    axis_bias: { visual: 0.95, video: 0.82, physics: 0.65 },
+    quality_floor: 0.70,
+    personality_vectors: ['high_contrast', 'dramatic', 'chiaroscuro', 'bold', 'sharp'],
+  },
+
+  GV_Abstract_Texture: {
+    id: 'GV_Abstract_Texture',
+    domain: 'visual',
+    description: '추상 질감 — 물질감, 미세 패턴, 촉각적 시각화',
+    blend_ratio: 0.84,
+    expert_weight: 0.78,
+    base_vector: { I: 0.65, D: 0.85, E: 0.50, T: 0.40, S: 0.30, C: 0.65, R: 0.45 },
+    axis_bias: { visual: 0.90, physics: 0.70, music: 0.55 },
+    quality_floor: 0.65,
+    personality_vectors: ['textured', 'abstract', 'tactile', 'layered', 'complex'],
+  },
+
+  GV_Noir_Minimalism: {
+    id: 'GV_Noir_Minimalism',
+    domain: 'visual',
+    description: '느와르 미니멀 — 여백의 어둠, 최소화된 요소, 침묵하는 구도',
+    blend_ratio: 0.89,
+    expert_weight: 0.86,
+    base_vector: { I: 0.75, D: 0.50, E: 0.32, T: 0.55, S: 0.25, C: 0.82, R: 0.38 },
+    axis_bias: { visual: 0.93, state: 0.75, emotion: 0.65 },
+    quality_floor: 0.70,
+    personality_vectors: ['noir', 'minimal', 'sparse', 'shadowed', 'silent'],
+  },
+
+  GV_Dreamlike_Diffusion: {
+    id: 'GV_Dreamlike_Diffusion',
+    domain: 'visual',
+    description: '몽환적 확산 — 경계의 흐림, 꿈속 같은 광채, 현실과 비현실의 경계',
+    blend_ratio: 0.83,
+    expert_weight: 0.79,
+    base_vector: { I: 0.52, D: 0.68, E: 0.55, T: 0.62, S: 0.48, C: 0.58, R: 0.52 },
+    axis_bias: { visual: 0.88, emotion: 0.75, state: 0.65 },
+    quality_floor: 0.63,
+    personality_vectors: ['dreamlike', 'diffused', 'ethereal', 'blurred', 'liminal'],
+  },
+
+  // ══════════════════════════════
+  // 시간성 계층 (Temporal Tier)
+  // ∫ / d/dt / 순환 연산자가 지배하는 시간 흐름 패턴
+  // ══════════════════════════════
+
+  GV_Slow_Accumulation: {
+    id: 'GV_Slow_Accumulation',
+    domain: 'temporal',
+    description: '점진적 누적 — 시간과 함께 쌓이는 감정, 천천히 채워지는 공간 (∫ 지배)',
+    blend_ratio: 0.86,
+    expert_weight: 0.83,
+    base_vector: { I: 0.62, D: 0.78, E: 0.30, T: 0.88, S: 0.48, C: 0.72, R: 0.50 },
+    axis_bias: { emotion: 0.80, state: 0.78, rhythm: 0.85 },
+    quality_floor: 0.67,
+    personality_vectors: ['accumulative', 'patient', 'layering', 'gradual', 'deep'],
+  },
+
+  GV_Moment_Crystallized: {
+    id: 'GV_Moment_Crystallized',
+    domain: 'temporal',
+    description: '순간 결정화 — 정지된 찰나, 영원이 된 한 순간 (d/dt 지배)',
+    blend_ratio: 0.88,
+    expert_weight: 0.85,
+    base_vector: { I: 0.88, D: 0.72, E: 0.22, T: 0.25, S: 0.40, C: 0.88, R: 0.35 },
+    axis_bias: { visual: 0.88, emotion: 0.80, state: 0.85 },
+    quality_floor: 0.70,
+    personality_vectors: ['crystallized', 'frozen', 'precise', 'sharp', 'eternal_instant'],
+  },
+
+  GV_Eternal_Loop: {
+    id: 'GV_Eternal_Loop',
+    domain: 'temporal',
+    description: '영원한 순환 — 반복 속에 깃든 의미, 되풀이되는 패턴의 위안',
+    blend_ratio: 0.84,
+    expert_weight: 0.80,
+    base_vector: { I: 0.65, D: 0.70, E: 0.38, T: 0.78, S: 0.55, C: 0.75, R: 0.60 },
+    axis_bias: { rhythm: 0.90, state: 0.75, music: 0.78 },
+    quality_floor: 0.65,
+    personality_vectors: ['cyclical', 'hypnotic', 'meditative', 'repetitive', 'grounding'],
+  },
+
+  GV_Rapid_Cascade: {
+    id: 'GV_Rapid_Cascade',
+    domain: 'temporal',
+    description: '급격한 연속 — 빠른 전개, 연속적 충격, 숨 가쁜 흐름',
+    blend_ratio: 0.90,
+    expert_weight: 0.82,
+    base_vector: { I: 0.82, D: 0.65, E: 0.60, T: 0.85, S: 0.45, C: 0.55, R: 0.48 },
+    axis_bias: { video: 0.90, physics: 0.80, rhythm: 0.85 },
+    quality_floor: 0.65,
+    personality_vectors: ['rapid', 'cascading', 'breathless', 'kinetic', 'urgent'],
+  },
 };
 
 // ─────────────────────────────────────────
@@ -293,13 +492,29 @@ export const CROSS_AXIS_RULES = [
 // ─────────────────────────────────────────
 
 export const MODALITY_GV_PRIORITY: Record<string, GVId[]> = {
-  video:      ['GV_Cinematic_Noir_v2', 'GV_Cinematic_Noir_v1', 'GV_System_Default'],
-  image:      ['GV_Cinematic_Noir_v2', 'GV_Design_Spring',     'GV_System_Default'],
-  music:      ['GV_ARHA_Conversation', 'GV_Cinematic_Noir_v2', 'GV_System_Default'],
-  code:       ['GV_Code_Generation',   'GV_Technical_Design',  'GV_System_Default'],
-  design:     ['GV_Design_Spring',     'GV_Technical_Design',  'GV_System_Default'],
-  plan:       ['GV_Research',          'GV_ARHA_Conversation', 'GV_System_Default'],
-  default:    ['GV_ARHA_Conversation', 'GV_System_Default'],
+  video:   ['GV_Cinematic_Noir_v2', 'GV_High_Contrast_Drama', 'GV_Rapid_Cascade',      'GV_System_Default'],
+  image:   ['GV_Cinematic_Noir_v2', 'GV_Soft_Natural_Light',  'GV_Noir_Minimalism',    'GV_System_Default'],
+  music:   ['GV_ARHA_Conversation', 'GV_Eternal_Loop',        'GV_Slow_Accumulation',  'GV_System_Default'],
+  code:    ['GV_Code_Generation',   'GV_Technical_Design',    'GV_Serene_Clarity',     'GV_System_Default'],
+  design:  ['GV_Design_Spring',     'GV_Abstract_Texture',    'GV_Dreamlike_Diffusion','GV_System_Default'],
+  plan:    ['GV_Research',          'GV_ARHA_Conversation',   'GV_Fierce_Resolve',     'GV_System_Default'],
+  default: ['GV_ARHA_Conversation', 'GV_System_Default'],
+};
+
+/** expressionMode → 감성 계층 GV 자동 매핑 */
+export const EXPRESSION_MODE_GV_MAP: Record<string, GVId> = {
+  DEEP_EMPATHY:      'GV_Tender_Warmth',
+  SOFT_WARMTH:       'GV_Tender_Warmth',
+  SURGE_OVERRIDE:    'GV_Euphoric_Surge',
+  MELANCHOLIC_DEPTH: 'GV_Melancholic_Depth',
+  COOL_CLARITY:      'GV_Serene_Clarity',
+  STABLE_NEUTRAL:    'GV_System_Default',
+  CREATIVE_FLOW:     'GV_Dreamlike_Diffusion',
+  INTENSE_JOY:       'GV_Euphoric_Surge',
+  ANALYTIC_THINK:    'GV_Serene_Clarity',
+  REFLECTIVE_GROW:   'GV_Nostalgic_Haze',
+  PLAYFUL_TEASE:     'GV_Rapid_Cascade',
+  SERENE_SMILE:      'GV_Soft_Natural_Light',
 };
 
 // ─────────────────────────────────────────
