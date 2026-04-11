@@ -27,3 +27,6 @@ nul
 *.sw?
 
 .vercel
+
+# Git worktrees
+.worktrees/
