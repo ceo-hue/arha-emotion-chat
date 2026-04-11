@@ -33,6 +33,7 @@ import SidebarUserCard from './components/SidebarUserCard';
 import HiSolProWorkspace from './src/components/HiSolProWorkspace';
 import ImageStudio from './components/ImageStudio';
 import VideoStudio from './components/VideoStudio';
+import ContentStudio from './components/ContentStudio';
 import { ensureProfile, getUserProfile } from './services/userProfileService';
 import {
   getEmotionLifetime, getValueChain, getRecentSessions,
@@ -598,6 +599,7 @@ const App: React.FC = () => {
   const [showMenu, setShowMenu] = useState(false);
   const [showImageStudio, setShowImageStudio] = useState(false);
   const [showVideoStudio, setShowVideoStudio] = useState(false);
+  const [showContentStudio, setShowContentStudio] = useState(false);
   const [bgPrompt, setBgPrompt] = useState('');
   const [isBgGenerating, setIsBgGenerating] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -1696,6 +1698,15 @@ const App: React.FC = () => {
         />
       )}
 
+      {/* Content Studio — 함수언어 미들웨어 통합 콘텐츠 생성 */}
+      {showContentStudio && (
+        <ContentStudio
+          onClose={() => setShowContentStudio(false)}
+          currentAnalysis={currentAnalysis}
+          kappa={sessionStartKappa}
+        />
+      )}
+
       {/* Dim overlay when sidebar is open in overlay mode */}
       {isOverlayMode && (showHistory || showDashboard) && (
         <div
@@ -2513,6 +2524,14 @@ const App: React.FC = () => {
                   <Video size={14} className="text-orange-400 shrink-0 group-hover:scale-110 transition-transform" />
                   <span>{t.menuGenerateVideo}</span>
                   <span className="ml-auto text-[8px] font-black text-orange-400/50 uppercase tracking-widest">Studio</span>
+                </button>
+                <button
+                  onClick={() => { setShowMenu(false); setShowContentStudio(true); }}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[11px] font-bold transition-all text-slate-600 dark:text-white/70 hover:bg-purple-500/10 dark:hover:bg-purple-500/10 group"
+                >
+                  <Cpu size={14} className="text-purple-400 shrink-0 group-hover:scale-110 transition-transform" />
+                  <span>Content Studio</span>
+                  <span className="ml-auto text-[8px] font-black text-purple-400/50 uppercase tracking-widest">미들웨어</span>
                 </button>
                 <p className="text-[9px] font-black uppercase tracking-widest text-slate-300 dark:text-white/20 px-1 mt-1 mb-1">{t.menuComingSoon}</p>
                 <button disabled className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[11px] font-bold text-slate-400 dark:text-white/30 opacity-50 cursor-not-allowed">
