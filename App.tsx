@@ -34,6 +34,9 @@ import HiSolProWorkspace from './src/components/HiSolProWorkspace';
 import ImageStudio from './components/ImageStudio';
 import VideoStudio from './components/VideoStudio';
 import ContentStudio from './components/ContentStudio';
+import EmotionHUD from './components/EmotionHUD';
+import ModalityStrip from './components/ModalityStrip';
+import type { ContentModality } from './services/middleware/types';
 import { ensureProfile, getUserProfile } from './services/userProfileService';
 import {
   getEmotionLifetime, getValueChain, getRecentSessions,
@@ -600,6 +603,11 @@ const App: React.FC = () => {
   const [showImageStudio, setShowImageStudio] = useState(false);
   const [showVideoStudio, setShowVideoStudio] = useState(false);
   const [showContentStudio, setShowContentStudio] = useState(false);
+  const [contentStudioModality, setContentStudioModality] = useState<ContentModality>('image');
+  // 미들웨어 마지막 파이프라인 결과 — EmotionHUD에 표시
+  const [lastEquation,  setLastEquation]  = useState<string | undefined>(undefined);
+  const [lastNarrative, setLastNarrative] = useState<string | undefined>(undefined);
+  const [lastTemp,      setLastTemp]      = useState<number | undefined>(undefined);
   const [bgPrompt, setBgPrompt] = useState('');
   const [isBgGenerating, setIsBgGenerating] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -1698,12 +1706,14 @@ const App: React.FC = () => {
         />
       )}
 
-      {/* Content Studio — 함수언어 미들웨어 통합 콘텐츠 생성 */}
+      {/* Content Studio — 통합 콘텐츠 생성 (Image·Video·Music·Code·Design·Plan) */}
       {showContentStudio && (
         <ContentStudio
           onClose={() => setShowContentStudio(false)}
+          initialModality={contentStudioModality}
           currentAnalysis={currentAnalysis}
           kappa={sessionStartKappa}
+          tier={userProfile?.tier ?? 'guest'}
         />
       )}
 
@@ -2203,18 +2213,18 @@ const App: React.FC = () => {
         style={cardStyle}
         className={`${isMobile ? '' : 'relative z-10'} w-full max-w-3xl ${isMobile ? '' : 'md:mx-4 lg:mx-auto md:h-[98dvh]'} glass-panel md:rounded-[2.5rem] overflow-hidden flex flex-col transition-shadow duration-500`}
       >
-        {/* Header */}
-        <header className="h-12 md:h-16 px-4 md:px-6 flex items-center shrink-0 relative">
+        {/* Header — 슬림화 */}
+        <header className="h-10 md:h-12 px-4 md:px-6 flex items-center shrink-0 relative">
           <button
             onClick={() => setShowHistory(!showHistory)}
-            className={`w-9 h-9 md:w-10 md:h-10 rounded-xl flex items-center justify-center transition-all active:scale-95 ${showHistory ? btnActive : btnIdle}`}
+            className={`w-8 h-8 md:w-9 md:h-9 rounded-xl flex items-center justify-center transition-all active:scale-95 ${showHistory ? btnActive : btnIdle}`}
           >
-            <History size={16} />
+            <History size={15} />
           </button>
 
           {/* Centered title */}
           <div className="absolute left-1/2 -translate-x-1/2 text-center pointer-events-none">
-            <h1 className="text-lg md:text-xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-none">ARHA</h1>
+            <h1 className="text-base md:text-lg font-extrabold text-slate-900 dark:text-white tracking-tight leading-none">ARHA</h1>
           </div>
 
           {/* Right-side header controls */}
@@ -2334,6 +2344,15 @@ const App: React.FC = () => {
           </div>
         </header>
 
+        {/* EmotionHUD — 함수언어 미들웨어 감성 상태 바 */}
+        <EmotionHUD
+          analysis={currentAnalysis}
+          lastEquation={lastEquation}
+          lastNarrative={lastNarrative}
+          temperature={lastTemp}
+          onOpenDashboard={() => setShowDashboard(d => !d)}
+        />
+
         {/* Message area */}
         <div ref={scrollRef} className="flex-1 overflow-y-auto py-3 md:py-6 px-4 md:px-6 space-y-4 md:space-y-5 scroll-hide min-h-0">
           {messages.map((msg) => {
@@ -2430,8 +2449,18 @@ const App: React.FC = () => {
           })}
         </div>
 
+        {/* ModalityStrip — 모달리티 퀵 선택 */}
+        <ModalityStrip
+          analysis={currentAnalysis}
+          onSelect={(modality) => {
+            setContentStudioModality(modality)
+            setShowContentStudio(true)
+          }}
+          disabled={false}
+        />
+
         {/* Footer / input area */}
-        <footer className="px-3 md:px-6 py-2 md:py-4 shrink-0 safe-bottom">
+        <footer className="px-3 md:px-6 py-2 md:py-3 shrink-0 safe-bottom">
           {/* Usage banner — shown above input for guest/free tier */}
           <UsageBanner tier={userProfile?.tier ?? 'guest'} count={dailyUsage.count} />
           <div className="flex items-center gap-2 md:gap-3 relative" ref={menuRef}>
@@ -2507,32 +2536,13 @@ const App: React.FC = () => {
 
                 <div className="border-t border-black/10 dark:border-white/10 my-2" />
 
-                {/* Media generation */}
-                <p className="text-[9px] font-black uppercase tracking-widest text-slate-300 dark:text-white/20 px-1 mb-1">{t.menuCreateTitle}</p>
-                <button
-                  onClick={() => { setShowMenu(false); setShowImageStudio(true); }}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[11px] font-bold transition-all text-slate-600 dark:text-white/70 hover:bg-fuchsia-500/10 dark:hover:bg-fuchsia-500/10 group"
-                >
-                  <Sparkles size={14} className="text-fuchsia-400 shrink-0 group-hover:scale-110 transition-transform" />
-                  <span>{t.menuGenerateImage}</span>
-                  <span className="ml-auto text-[8px] font-black text-fuchsia-400/50 uppercase tracking-widest">Studio</span>
-                </button>
-                <button
-                  onClick={() => { setShowMenu(false); setShowVideoStudio(true); }}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[11px] font-bold transition-all text-slate-600 dark:text-white/70 hover:bg-orange-500/10 dark:hover:bg-orange-500/10 group"
-                >
-                  <Video size={14} className="text-orange-400 shrink-0 group-hover:scale-110 transition-transform" />
-                  <span>{t.menuGenerateVideo}</span>
-                  <span className="ml-auto text-[8px] font-black text-orange-400/50 uppercase tracking-widest">Studio</span>
-                </button>
-                <button
-                  onClick={() => { setShowMenu(false); setShowContentStudio(true); }}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[11px] font-bold transition-all text-slate-600 dark:text-white/70 hover:bg-purple-500/10 dark:hover:bg-purple-500/10 group"
-                >
-                  <Cpu size={14} className="text-purple-400 shrink-0 group-hover:scale-110 transition-transform" />
-                  <span>Content Studio</span>
-                  <span className="ml-auto text-[8px] font-black text-purple-400/50 uppercase tracking-widest">미들웨어</span>
-                </button>
+                {/* 콘텐츠 생성 — ModalityStrip으로 이전됨 */}
+                <p className="text-[9px] font-black uppercase tracking-widest text-slate-300 dark:text-white/20 px-1 mb-1">콘텐츠 생성</p>
+                <div className="px-3 py-2 rounded-xl bg-black/5 dark:bg-white/5">
+                  <p className="text-[9px] text-slate-400 dark:text-white/30 leading-relaxed">
+                    입력창 위 모달리티 탭에서<br/>영상·이미지·음악·코드를 생성하세요
+                  </p>
+                </div>
                 <p className="text-[9px] font-black uppercase tracking-widest text-slate-300 dark:text-white/20 px-1 mt-1 mb-1">{t.menuComingSoon}</p>
                 <button disabled className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[11px] font-bold text-slate-400 dark:text-white/30 opacity-50 cursor-not-allowed">
                   <Mic size={14} className="text-emerald-400/60" /> Live Sync
