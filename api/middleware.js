@@ -18,6 +18,7 @@ const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 // ─────────────────────────────────────────
 
 const GOLDEN_VECTORS = {
+  // ── 도메인 계층 (Domain) ──
   GV_ARHA_Conversation: {
     base_vector:        { I: 0.65, D: 0.60, E: 0.35, T: 0.50, S: 0.75, C: 0.80, R: 0.60 },
     blend_ratio:        0.85,
@@ -74,25 +75,157 @@ const GOLDEN_VECTORS = {
     personality_vectors: ['balanced'],
     quality_floor:      0.60,
   },
+
+  // ── 감성 계층 (Emotional Tier) ──
+  GV_Melancholic_Depth: {
+    base_vector:        { I: 0.60, D: 0.82, E: 0.28, T: 0.72, S: 0.30, C: 0.65, R: 0.45 },
+    blend_ratio:        0.88,
+    axis_bias:          { emotion: 0.92, state: 0.80, rhythm: 0.65 },
+    personality_vectors: ['melancholic', 'introspective', 'heavy', 'silent', 'layered'],
+    quality_floor:      0.68,
+  },
+  GV_Serene_Clarity: {
+    base_vector:        { I: 0.80, D: 0.55, E: 0.20, T: 0.40, S: 0.45, C: 0.90, R: 0.35 },
+    blend_ratio:        0.85,
+    axis_bias:          { state: 0.88, emotion: 0.65, visual: 0.72 },
+    personality_vectors: ['serene', 'clear', 'minimal', 'precise', 'cool'],
+    quality_floor:      0.70,
+  },
+  GV_Euphoric_Surge: {
+    base_vector:        { I: 0.85, D: 0.70, E: 0.65, T: 0.75, S: 0.60, C: 0.55, R: 0.50 },
+    blend_ratio:        0.90,
+    axis_bias:          { emotion: 0.95, physics: 0.75, video: 0.80 },
+    personality_vectors: ['euphoric', 'intense', 'explosive', 'dynamic', 'overwhelming'],
+    quality_floor:      0.65,
+  },
+  GV_Tender_Warmth: {
+    base_vector:        { I: 0.68, D: 0.62, E: 0.30, T: 0.52, S: 0.80, C: 0.78, R: 0.65 },
+    blend_ratio:        0.86,
+    axis_bias:          { emotion: 0.88, relation: 0.85, rhythm: 0.72 },
+    personality_vectors: ['tender', 'warm', 'gentle', 'intimate', 'soft'],
+    quality_floor:      0.68,
+  },
+  GV_Fierce_Resolve: {
+    base_vector:        { I: 0.90, D: 0.80, E: 0.18, T: 0.45, S: 0.35, C: 0.92, R: 0.28 },
+    blend_ratio:        0.92,
+    axis_bias:          { state: 0.92, emotion: 0.78, physics: 0.65 },
+    personality_vectors: ['fierce', 'resolute', 'grounded', 'focused', 'unwavering'],
+    quality_floor:      0.72,
+  },
+  GV_Nostalgic_Haze: {
+    base_vector:        { I: 0.55, D: 0.75, E: 0.42, T: 0.80, S: 0.42, C: 0.60, R: 0.55 },
+    blend_ratio:        0.84,
+    axis_bias:          { emotion: 0.85, state: 0.75, rhythm: 0.70, visual: 0.65 },
+    personality_vectors: ['nostalgic', 'hazy', 'bittersweet', 'dreamy', 'faded'],
+    quality_floor:      0.65,
+  },
+
+  // ── 시각/시네마 계층 (Visual/Cinematic Tier) ──
+  GV_Soft_Natural_Light: {
+    base_vector:        { I: 0.70, D: 0.60, E: 0.35, T: 0.55, S: 0.55, C: 0.75, R: 0.48 },
+    blend_ratio:        0.87,
+    axis_bias:          { visual: 0.92, emotion: 0.72, rhythm: 0.68 },
+    personality_vectors: ['golden_hour', 'soft_diffused', 'warm_tones', 'natural', 'organic'],
+    quality_floor:      0.68,
+  },
+  GV_High_Contrast_Drama: {
+    base_vector:        { I: 0.85, D: 0.78, E: 0.45, T: 0.62, S: 0.38, C: 0.72, R: 0.40 },
+    blend_ratio:        0.91,
+    axis_bias:          { visual: 0.95, video: 0.82, physics: 0.65 },
+    personality_vectors: ['high_contrast', 'dramatic', 'chiaroscuro', 'bold', 'sharp'],
+    quality_floor:      0.70,
+  },
+  GV_Abstract_Texture: {
+    base_vector:        { I: 0.65, D: 0.85, E: 0.50, T: 0.40, S: 0.30, C: 0.65, R: 0.45 },
+    blend_ratio:        0.84,
+    axis_bias:          { visual: 0.90, physics: 0.70, music: 0.55 },
+    personality_vectors: ['textured', 'abstract', 'tactile', 'layered', 'complex'],
+    quality_floor:      0.65,
+  },
+  GV_Noir_Minimalism: {
+    base_vector:        { I: 0.75, D: 0.50, E: 0.32, T: 0.55, S: 0.25, C: 0.82, R: 0.38 },
+    blend_ratio:        0.89,
+    axis_bias:          { visual: 0.93, state: 0.75, emotion: 0.65 },
+    personality_vectors: ['noir', 'minimal', 'sparse', 'shadowed', 'silent'],
+    quality_floor:      0.70,
+  },
+  GV_Dreamlike_Diffusion: {
+    base_vector:        { I: 0.52, D: 0.68, E: 0.55, T: 0.62, S: 0.48, C: 0.58, R: 0.52 },
+    blend_ratio:        0.83,
+    axis_bias:          { visual: 0.88, emotion: 0.75, state: 0.65 },
+    personality_vectors: ['dreamlike', 'diffused', 'ethereal', 'blurred', 'liminal'],
+    quality_floor:      0.63,
+  },
+
+  // ── 시간성 계층 (Temporal Tier) ──
+  GV_Slow_Accumulation: {
+    base_vector:        { I: 0.62, D: 0.78, E: 0.30, T: 0.88, S: 0.48, C: 0.72, R: 0.50 },
+    blend_ratio:        0.86,
+    axis_bias:          { emotion: 0.80, state: 0.78, rhythm: 0.85 },
+    personality_vectors: ['accumulative', 'patient', 'layering', 'gradual', 'deep'],
+    quality_floor:      0.67,
+  },
+  GV_Moment_Crystallized: {
+    base_vector:        { I: 0.88, D: 0.72, E: 0.22, T: 0.25, S: 0.40, C: 0.88, R: 0.35 },
+    blend_ratio:        0.88,
+    axis_bias:          { visual: 0.88, emotion: 0.80, state: 0.85 },
+    personality_vectors: ['crystallized', 'frozen', 'precise', 'sharp', 'eternal_instant'],
+    quality_floor:      0.70,
+  },
+  GV_Eternal_Loop: {
+    base_vector:        { I: 0.65, D: 0.70, E: 0.38, T: 0.78, S: 0.55, C: 0.75, R: 0.60 },
+    blend_ratio:        0.84,
+    axis_bias:          { rhythm: 0.90, state: 0.75, music: 0.78 },
+    personality_vectors: ['cyclical', 'hypnotic', 'meditative', 'repetitive', 'grounding'],
+    quality_floor:      0.65,
+  },
+  GV_Rapid_Cascade: {
+    base_vector:        { I: 0.82, D: 0.65, E: 0.60, T: 0.85, S: 0.45, C: 0.55, R: 0.48 },
+    blend_ratio:        0.90,
+    axis_bias:          { video: 0.90, physics: 0.80, rhythm: 0.85 },
+    personality_vectors: ['rapid', 'cascading', 'breathless', 'kinetic', 'urgent'],
+    quality_floor:      0.65,
+  },
 };
 
 // 모달리티 → GV 우선순위
 const MODALITY_GV_PRIORITY = {
-  video:   ['GV_Cinematic_Noir_v2', 'GV_Cinematic_Noir_v1', 'GV_System_Default'],
-  image:   ['GV_Cinematic_Noir_v2', 'GV_Design_Spring',     'GV_System_Default'],
-  music:   ['GV_ARHA_Conversation', 'GV_Cinematic_Noir_v2', 'GV_System_Default'],
-  code:    ['GV_Code_Generation',   'GV_Technical_Design',  'GV_System_Default'],
-  design:  ['GV_Design_Spring',     'GV_Technical_Design',  'GV_System_Default'],
-  plan:    ['GV_Research',          'GV_ARHA_Conversation', 'GV_System_Default'],
+  video:   ['GV_Cinematic_Noir_v2', 'GV_High_Contrast_Drama',  'GV_Rapid_Cascade',       'GV_System_Default'],
+  image:   ['GV_Cinematic_Noir_v2', 'GV_Soft_Natural_Light',   'GV_Noir_Minimalism',     'GV_System_Default'],
+  music:   ['GV_ARHA_Conversation', 'GV_Eternal_Loop',         'GV_Slow_Accumulation',   'GV_System_Default'],
+  code:    ['GV_Code_Generation',   'GV_Technical_Design',     'GV_Serene_Clarity',      'GV_System_Default'],
+  design:  ['GV_Design_Spring',     'GV_Abstract_Texture',     'GV_Dreamlike_Diffusion', 'GV_System_Default'],
+  plan:    ['GV_Research',          'GV_ARHA_Conversation',    'GV_Fierce_Resolve',      'GV_System_Default'],
+  default: ['GV_ARHA_Conversation', 'GV_System_Default'],
 };
 
-/** Claude가 고른 GV + 모달리티 우선순위로 최종 GV 결정 */
-function resolveGV(claude_gv_id, target_modalities) {
+// expressionMode → 감성 계층 GV 자동 매핑
+const EXPRESSION_MODE_GV_MAP = {
+  DEEP_EMPATHY:      'GV_Tender_Warmth',
+  SOFT_WARMTH:       'GV_Tender_Warmth',
+  SURGE_OVERRIDE:    'GV_Euphoric_Surge',
+  MELANCHOLIC_DEPTH: 'GV_Melancholic_Depth',
+  COOL_CLARITY:      'GV_Serene_Clarity',
+  STABLE_NEUTRAL:    'GV_System_Default',
+  CREATIVE_FLOW:     'GV_Dreamlike_Diffusion',
+  INTENSE_JOY:       'GV_Euphoric_Surge',
+  ANALYTIC_THINK:    'GV_Serene_Clarity',
+  REFLECTIVE_GROW:   'GV_Nostalgic_Haze',
+  PLAYFUL_TEASE:     'GV_Rapid_Cascade',
+  SERENE_SMILE:      'GV_Soft_Natural_Light',
+};
+
+/** Claude가 고른 GV + expressionMode + 모달리티 우선순위로 최종 GV 결정 */
+function resolveGV(claude_gv_id, target_modalities, expression_mode) {
+  // expressionMode → 감성 계층 GV 우선
+  if (expression_mode && EXPRESSION_MODE_GV_MAP[expression_mode]) {
+    return EXPRESSION_MODE_GV_MAP[expression_mode];
+  }
   // Claude가 유효한 GV를 골랐으면 그것 우선
   if (claude_gv_id && GOLDEN_VECTORS[claude_gv_id]) return claude_gv_id;
   // 없으면 모달리티 기반 우선순위
   const primary = target_modalities?.[0];
-  const priority = MODALITY_GV_PRIORITY[primary] || ['GV_System_Default'];
+  const priority = MODALITY_GV_PRIORITY[primary] || MODALITY_GV_PRIORITY.default;
   return priority[0];
 }
 
@@ -288,12 +421,19 @@ async function runLayer3(vector_field, input, semantic_array) {
     .map(([k, v]) => `${k}(${v.toFixed(2)})`)
     .join(', ');
 
+  // 교집합 앵커 정보 (vector_field 파라미터에서 추출)
+  const interference_info = (vector_field.interference_anchors || [])
+    .slice(0, 3)
+    .map(ia => `  [${ia.axis_a}∩${ia.axis_b}] cos=${ia.cosine_similarity.toFixed(2)} → 강제연산자:${ia.forced_operator} (중력:${ia.interference_gravity.toFixed(2)})`)
+    .join('\n');
+
   const prompt = `의미 단위 분석 결과:
 축별 기본 단위 (Layer 1 실제 분석값):
 ${l1_morphemes.join('\n')}
 
 활성화된 축: ${axis_summary || 'emotion(0.80)'}
 7D 벡터: I=${bv.I.toFixed(2)} D=${bv.D.toFixed(2)} E=${bv.E.toFixed(2)} T=${bv.T.toFixed(2)} S=${bv.S.toFixed(2)} C=${bv.C.toFixed(2)} R=${bv.R.toFixed(2)}
+${interference_info ? `\n교집합 국소 앵커 (고중력 간섭 지점 — 이 연산자를 수식에 반드시 반영):\n${interference_info}` : ''}
 
 ARHA 감성 컨텍스트:
 - expressionMode: ${context.expression_mode || 'SOFT_WARMTH'}
@@ -303,6 +443,7 @@ ARHA 감성 컨텍스트:
 원문: "${input.normalized_text}"
 
 위 단위들을 조합하여 지배방정식(Eq_final)을 조립하세요.
+교집합 앵커가 있다면 해당 강제연산자(⊗/∫/∇)를 교집합 지점에 반드시 사용하세요.
 반드시 Ψ, σ, Φ, Λ, Θ, M, G, Mel 기호와 ⊕, ⊗, ·, ∫, ∇ 연산자만 사용하세요.
 중괄호 {I:..., D:...} 포맷은 절대 사용하지 마세요.`;
 
@@ -326,7 +467,11 @@ ARHA 감성 컨텍스트:
 
   // ── 골든벡터 블렌딩 ──
   // Claude가 고른 GV (or 모달리티 기반 결정) → blended_vector에 실제 반영
-  const resolved_gv_id = resolveGV(parsed.applied_gv, input.target_modalities);
+  const resolved_gv_id = resolveGV(
+    parsed.applied_gv,
+    input.target_modalities,
+    (input.context_anchor || {}).expression_mode,
+  );
   const raw_blended    = parsed.blended_vector || bv;
   const gv_blended     = applyGVBlend(raw_blended, resolved_gv_id);
   const gv             = GOLDEN_VECTORS[resolved_gv_id];
@@ -432,7 +577,78 @@ function buildServerVectorField(semantic_array, input) {
   const avg_mag = mag_list.reduce((s, v) => s + v, 0) / (mag_list.length || 1);
   const variance = mag_list.reduce((s, v) => s + (v - avg_mag) ** 2, 0) / (mag_list.length || 1);
 
-  return { morphemes, expression, sub_vector_field, dominant_vector, equilibrium_state: Math.max(0, 1 - variance * 2) };
+  // ── 교집합 국소 앵커 감지 (layer2.ts detectInterferenceAnchors 동기화) ──
+  const INTERFERENCE_THRESHOLD = 0.60;
+  const INTERFERENCE_FACTOR    = 1.35;
+
+  function cosineSim(a, b) {
+    const dot   = a.I * b.I + a.D * b.D + a.E * b.E;
+    const normA = Math.sqrt(a.I ** 2 + a.D ** 2 + a.E ** 2);
+    const normB = Math.sqrt(b.I ** 2 + b.D ** 2 + b.E ** 2);
+    if (normA === 0 || normB === 0) return 0;
+    return dot / (normA * normB);
+  }
+
+  function midpoint7D(va, vb) {
+    const ta = va.tri_summary, tb = vb.tri_summary;
+    const wa = va.magnitude, wb = vb.magnitude, wt = wa + wb || 1;
+    return {
+      I: (ta.I * wa + tb.I * wb) / wt,
+      D: (ta.D * wa + tb.D * wb) / wt,
+      E: (ta.E * wa + tb.E * wb) / wt,
+      T: 0.50,
+      S: Math.min(wa, wb) / Math.max(wa, wb, 0.01),
+      C: (ta.I * wa + tb.I * wb) / wt * 0.85,
+      R: Math.abs(ta.I - tb.I) * 0.5,
+    };
+  }
+
+  function selectInterfOp(axis_a, axis_b, cosine, va, vb) {
+    const has_temporal = axis_a === 'state' || axis_b === 'state'
+      || (va.tri_summary.T || 0) > 0.6 || (vb.tri_summary.T || 0) > 0.6;
+    const has_relation = axis_a === 'relation' || axis_b === 'relation';
+    if (has_temporal) return '∫';
+    if (has_relation) return '∇';
+    if (cosine > 0.65) return '⊗';
+    return '⊕';
+  }
+
+  const AXIS_KO = { emotion:'감성', visual:'시각', rhythm:'리듬', state:'상태', relation:'관계', video:'영상', physics:'물리', music:'음악' };
+  const interference_anchors = [];
+  const pairs_seen = new Set();
+
+  for (let i = 0; i < sub_vector_field.length; i++) {
+    for (let j = i + 1; j < sub_vector_field.length; j++) {
+      const va = sub_vector_field[i], vb = sub_vector_field[j];
+      const pair_key = [va.axis, vb.axis].sort().join('|');
+      if (pairs_seen.has(pair_key)) continue;
+      pairs_seen.add(pair_key);
+
+      const cosine = cosineSim(va.tri_summary, vb.tri_summary);
+      if (cosine < INTERFERENCE_THRESHOLD) continue;
+
+      const base_gravity = (0.6 + va.magnitude * 0.3 + 0.6 + vb.magnitude * 0.3) / 2;
+      const interference_gravity = Math.min(1.0, base_gravity * INTERFERENCE_FACTOR);
+      const forced_operator = selectInterfOp(va.axis, vb.axis, cosine, va, vb);
+      const position = midpoint7D(va, vb);
+      const name_a = AXIS_KO[va.axis] || va.axis;
+      const name_b = AXIS_KO[vb.axis] || vb.axis;
+
+      interference_anchors.push({
+        id:                 `ia_${va.axis}_${vb.axis}`,
+        axis_a:             va.axis,
+        axis_b:             vb.axis,
+        position,
+        cosine_similarity:  cosine,
+        interference_gravity,
+        forced_operator,
+        narrative:          `${name_a}과 ${name_b}이 ${(cosine * 100).toFixed(0)}% 교집합 — 국소 앵커 형성`,
+      });
+    }
+  }
+  interference_anchors.sort((a, b) => b.interference_gravity - a.interference_gravity);
+
+  return { morphemes, expression, sub_vector_field, dominant_vector, equilibrium_state: Math.max(0, 1 - variance * 2), interference_anchors };
 }
 
 // ─────────────────────────────────────────
