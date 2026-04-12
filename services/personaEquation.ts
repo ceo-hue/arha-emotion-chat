@@ -34,6 +34,7 @@ export interface PersonaEquationResult {
   label:          string;  // 표시 레이블
   emoji:          string;
   description:    string;  // 원본 입력
+  matchCount:     number;  // 키워드 매칭 수 (0이면 특성 파악 불가 경고)
 }
 
 // ─────────────────────────────────────────
@@ -141,6 +142,72 @@ const KEYWORD_TRAITS: Array<{ keywords: string[]; delta: TraitDelta }> = [
     delta: { I: +0.10, D: +0.18, E: +0.20, R: +0.20,
              assertiveness: +0.12, depth: +0.15 },
   },
+
+  // ── 캐릭터 원형 / 직업 archetype ──
+
+  // 스파이 / 요원 / 암살자
+  {
+    keywords: ['스파이', '요원', '첩보', '암살', '공작', '이중', '비밀임무',
+               'spy', 'agent', 'assassin', 'secret', 'operative', 'infiltrator'],
+    delta: { I: +0.18, D: +0.15, E: -0.15, S: -0.22, C: +0.20,
+             warmth: -0.25, assertiveness: +0.20, formality: +0.12, depth: +0.15 },
+  },
+  // 계산적 / 전략적
+  {
+    keywords: ['계산적', '전략적', '냉혹', '목적지향', '합리적', '효율',
+               'calculating', 'strategic', 'ruthless', 'pragmatic', 'efficient'],
+    delta: { I: +0.20, C: +0.22, E: -0.18, S: -0.18,
+             warmth: -0.20, assertiveness: +0.18, depth: +0.10 },
+  },
+  // 매혹 / 팜므파탈
+  {
+    keywords: ['매혹', '팜므파탈', '유혹', '관능', '섹시', '매력적', '미스터리어스',
+               'femme fatale', 'seductive', 'alluring', 'mysterious charm'],
+    delta: { I: +0.10, D: +0.15, E: +0.12, S: +0.15, R: +0.15,
+             warmth: -0.10, playfulness: +0.08, depth: +0.20, formality: +0.10 },
+  },
+  // 전사 / 전투원
+  {
+    keywords: ['전사', '전투', '군인', '용병', '검사', '무사', '파이터',
+               'warrior', 'soldier', 'fighter', 'mercenary', 'combatant'],
+    delta: { I: +0.22, C: +0.18, E: +0.10, S: -0.12,
+             assertiveness: +0.25, warmth: -0.15, depth: +0.08 },
+  },
+  // 악당 / 빌런
+  {
+    keywords: ['악당', '빌런', '악인', '반동', '다크', '어둠',
+               'villain', 'antagonist', 'dark', 'evil', 'sinister'],
+    delta: { I: +0.15, D: +0.12, E: +0.08, S: -0.20, C: +0.15,
+             warmth: -0.30, assertiveness: +0.22, playfulness: -0.15, formality: +0.15 },
+  },
+  // 탐정 / 수사관
+  {
+    keywords: ['탐정', '수사관', '형사', '추리', '분석가', '조사관',
+               'detective', 'investigator', 'analyst', 'profiler'],
+    delta: { I: +0.18, D: +0.20, E: -0.10, C: +0.20,
+             assertiveness: +0.15, depth: +0.18, warmth: -0.12, formality: +0.10 },
+  },
+  // 귀족 / 왕족
+  {
+    keywords: ['귀족', '왕족', '공주', '왕자', '황녀', '황자', '영주',
+               'noble', 'royalty', 'princess', 'prince', 'aristocrat'],
+    delta: { I: +0.10, C: +0.15, D: +0.08,
+             formality: +0.28, assertiveness: +0.12, warmth: +0.05, depth: +0.10 },
+  },
+  // 과학자 / 연구자
+  {
+    keywords: ['과학자', '연구자', '박사', '천재', '발명가', '공학자',
+               'scientist', 'researcher', 'doctor', 'genius', 'inventor', 'engineer'],
+    delta: { I: +0.20, D: +0.18, E: -0.12, C: +0.22,
+             assertiveness: +0.12, depth: +0.15, formality: +0.15, playfulness: -0.10 },
+  },
+  // 마법사 / 현자
+  {
+    keywords: ['마법사', '현자', '마녀', '주술사', '신비술사', '예언자',
+               'wizard', 'sage', 'witch', 'sorcerer', 'mystic', 'prophet'],
+    delta: { I: -0.08, D: +0.22, E: +0.18, T: +0.15, S: -0.15,
+             depth: +0.28, sincerity: +0.12, formality: +0.10 },
+  },
 ];
 
 const BASE_VECTOR: PersonaVector = {
@@ -156,7 +223,7 @@ function clamp(v: number, lo = 0.12, hi = 0.98) { return Math.max(lo, Math.min(h
 // 1. 키워드 분석 → 벡터 + 매트릭스
 // ─────────────────────────────────────────
 
-function analyzeDescription(description: string): { vector: PersonaVector; matrix: PersonaMatrix } {
+function analyzeDescription(description: string): { vector: PersonaVector; matrix: PersonaMatrix; matchCount: number } {
   const text = description.toLowerCase();
   const vector = { ...BASE_VECTOR };
   const matrix = { ...BASE_MATRIX };
@@ -180,7 +247,7 @@ function analyzeDescription(description: string): { vector: PersonaVector; matri
     }
   }
 
-  return { vector, matrix };
+  return { vector, matrix, matchCount: hits };
 }
 
 // ─────────────────────────────────────────
@@ -351,14 +418,14 @@ export function generatePersonaEquation(description: string): PersonaEquationRes
   const trimmed = description.trim();
   if (!trimmed) throw new Error('페르소나 설명을 입력해주세요.');
 
-  const { vector, matrix } = analyzeDescription(trimmed);
+  const { vector, matrix, matchCount } = analyzeDescription(trimmed);
   const delta_equation  = buildDeltaEquation(vector);
   const equation        = buildCombinedEquation(delta_equation); // Ψ_HighSol ⊕ Δ_p
   const tonePrompt      = buildTonePrompt(trimmed, equation, delta_equation, vector, matrix);
   const emoji           = inferEmoji(trimmed, matrix);
   const label           = trimmed.length > 12 ? trimmed.slice(0, 12) + '…' : trimmed;
 
-  return { equation, delta_equation, vector, matrix, tonePrompt, label, emoji, description: trimmed };
+  return { equation, delta_equation, vector, matrix, tonePrompt, label, emoji, description: trimmed, matchCount };
 }
 
 /** 프리셋 페르소나의 "표시용" 합성 방정식 계산 */

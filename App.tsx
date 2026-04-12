@@ -2169,6 +2169,15 @@ const App: React.FC = () => {
                 {personaForgeError && (
                   <p className="text-[9px] text-red-400">{personaForgeError}</p>
                 )}
+                {personaEquationResult && personaEquationResult.matchCount === 0 && (
+                  <div className="rounded-xl bg-amber-500/10 border border-amber-400/25 px-2.5 py-2 space-y-1">
+                    <p className="text-[9px] text-amber-300 font-black">⚠ 캐릭터 이름만으로는 특성을 파악하기 어려워요</p>
+                    <p className="text-[8px] text-amber-200/60 leading-relaxed">
+                      성격·말투·태도를 묘사해주세요.<br />
+                      예) <span className="text-amber-300/80">"냉철하고 계산적인 스파이, 감정을 숨기는 신비로운"</span>
+                    </p>
+                  </div>
+                )}
                 <button
                   onClick={() => {
                     if (!personaForgeInput.trim()) return;
