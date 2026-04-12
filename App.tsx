@@ -5,7 +5,7 @@ import { chatWithClaudeStream } from './services/claudeService';
 import { analyzeForPro, resetProSession } from './src/pro';
 import { generateArhaVideo, generateArhaImage } from './services/geminiService';
 import { getPersonaValueChain, buildPersonaSystemPrompt, computeTriVector, getTriVectorPullLabel } from './services/personaRegistry';
-import { generatePersonaEquation, computePresetEquation, type PersonaEquationResult } from './services/personaEquation';
+import { generatePersonaEquation, buildFromAnalysis, computePresetEquation, type PersonaEquationResult, type CharacterAnalysis } from './services/personaEquation';
 import { buildAnchorConfig } from './services/anchorConfig';
 import { runFeedbackLoop, createInitialFeedbackState, analyzeFitTrend, type FeedbackState, type TurnFeedbackResult, type FitEvaluation } from './services/anchorFeedback';
 import { loadAnchorProfile, saveAnchorProfile, learnFromSession, getPersonalization, createInitialAnchorProfile, type UserAnchorProfile, type AnchorPersonalization } from './services/userAnchorProfile';
@@ -586,6 +586,7 @@ const App: React.FC = () => {
   const [personaForgeInput, setPersonaForgeInput] = useState('');
   const [personaEquationResult, setPersonaEquationResult] = useState<PersonaEquationResult | null>(null);
   const [personaForgeError, setPersonaForgeError] = useState<string | null>(null);
+  const [isAnalyzingPersona, setIsAnalyzingPersona] = useState(false);
 
   // Artifact / mode state (Pipeline v2: mode is auto-detected server-side)
   const [currentArtifact, setCurrentArtifact] = useState<ArtifactContent | null>(null);
@@ -974,6 +975,56 @@ const App: React.FC = () => {
     setPersonaForgeError(null);
     if (user) savePersona(user.uid, ARHA_DEFAULT);
   }, [user]);
+
+  // ── Persona Forge: 방정식 생성 + 적용 ──
+  const handlePersonaForge = useCallback(async (inputText?: string) => {
+    const text = (inputText ?? personaForgeInput).trim();
+    if (!text) return;
+    setPersonaForgeError(null);
+
+    // 1단계: 로컬 키워드 분석 시도
+    let result: PersonaEquationResult;
+    try {
+      result = generatePersonaEquation(text);
+    } catch (err: unknown) {
+      setPersonaForgeError(err instanceof Error ? err.message : '생성 실패');
+      return;
+    }
+
+    // 2단계: 키워드 매칭 부족하면 Claude API 캐릭터 분석 호출
+    if (result.matchCount < 2) {
+      setIsAnalyzingPersona(true);
+      try {
+        const res = await fetch('/api/persona-analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ description: text }),
+        });
+        if (!res.ok) throw new Error(`분석 실패 (${res.status})`);
+        const analysis: CharacterAnalysis = await res.json();
+        result = buildFromAnalysis(text, analysis);
+      } catch (err: unknown) {
+        // API 실패 시 로컬 결과 그대로 사용 (경고는 matchCount로 표시)
+        console.warn('[PersonaForge] API analysis failed, using local result', err);
+      } finally {
+        setIsAnalyzingPersona(false);
+      }
+    }
+
+    // 3단계: 적용
+    setPersonaEquationResult(result);
+    const newPersona = {
+      id: `custom_${Date.now()}`,
+      label: result.label,
+      emoji: result.emoji,
+      description: result.description,
+      tonePrompt: result.tonePrompt,
+    };
+    setPersonaConfig(newPersona);
+    if (user) savePersona(user.uid, newPersona);
+    setPersonaSaved(true);
+    setTimeout(() => setPersonaSaved(false), 2000);
+  }, [personaForgeInput, user]);
 
   // ── Value profile: build prompt injection for Claude ──
   const buildValuePrompt = useCallback((): string | null => {
@@ -2147,19 +2198,7 @@ const App: React.FC = () => {
                   onKeyDown={e => {
                     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
                       e.preventDefault();
-                      if (!personaForgeInput.trim()) return;
-                      try {
-                        const result = generatePersonaEquation(personaForgeInput);
-                        setPersonaEquationResult(result);
-                        const newPersona = { id: `custom_${Date.now()}`, label: result.label, emoji: result.emoji, description: result.description, tonePrompt: result.tonePrompt };
-                        setPersonaConfig(newPersona);
-                        if (user) savePersona(user.uid, newPersona);
-                        setPersonaSaved(true);
-                        setTimeout(() => setPersonaSaved(false), 2000);
-                        setPersonaForgeError(null);
-                      } catch (err: unknown) {
-                        setPersonaForgeError(err instanceof Error ? err.message : '생성 실패');
-                      }
+                      handlePersonaForge();
                     }
                   }}
                   placeholder="페르소나를 설명하세요&#10;예) 냉철하고 분석적이지만 내면에 따뜻함이 있는"
@@ -2169,7 +2208,7 @@ const App: React.FC = () => {
                 {personaForgeError && (
                   <p className="text-[9px] text-red-400">{personaForgeError}</p>
                 )}
-                {personaEquationResult && personaEquationResult.matchCount === 0 && (
+                {personaEquationResult && personaEquationResult.matchCount === 0 && !isAnalyzingPersona && (
                   <div className="rounded-xl bg-amber-500/10 border border-amber-400/25 px-2.5 py-2 space-y-1">
                     <p className="text-[9px] text-amber-300 font-black">⚠ 캐릭터 이름만으로는 특성을 파악하기 어려워요</p>
                     <p className="text-[8px] text-amber-200/60 leading-relaxed">
@@ -2179,25 +2218,11 @@ const App: React.FC = () => {
                   </div>
                 )}
                 <button
-                  onClick={() => {
-                    if (!personaForgeInput.trim()) return;
-                    try {
-                      const result = generatePersonaEquation(personaForgeInput);
-                      setPersonaEquationResult(result);
-                      const newPersona = { id: `custom_${Date.now()}`, label: result.label, emoji: result.emoji, description: result.description, tonePrompt: result.tonePrompt };
-                      setPersonaConfig(newPersona);
-                      if (user) savePersona(user.uid, newPersona);
-                      setPersonaSaved(true);
-                      setTimeout(() => setPersonaSaved(false), 2000);
-                      setPersonaForgeError(null);
-                    } catch (err: unknown) {
-                      setPersonaForgeError(err instanceof Error ? err.message : '생성 실패');
-                    }
-                  }}
-                  disabled={!personaForgeInput.trim()}
+                  onClick={() => handlePersonaForge()}
+                  disabled={!personaForgeInput.trim() || isAnalyzingPersona}
                   className="w-full py-2 rounded-xl bg-violet-500/20 hover:bg-violet-500/35 border border-violet-400/30 text-[10px] font-black text-violet-300 tracking-widest transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
                 >
-                  ⚡ 방정식 생성 · 적용
+                  {isAnalyzingPersona ? '🔍 캐릭터 분석 중…' : '⚡ 방정식 생성 · 적용'}
                 </button>
               </div>
             </div>
@@ -2302,16 +2327,7 @@ const App: React.FC = () => {
                     key={chip.id}
                     onClick={() => {
                       setPersonaForgeInput(chip.desc);
-                      // 자동으로 방정식 생성 + 적용
-                      try {
-                        const result = generatePersonaEquation(chip.desc);
-                        setPersonaEquationResult(result);
-                        const newPersona = { id: chip.id, label: `${chip.emoji} ${chip.label}`, emoji: chip.emoji, description: chip.desc, tonePrompt: result.tonePrompt };
-                        setPersonaConfig(newPersona);
-                        if (user) savePersona(user.uid, newPersona);
-                        setPersonaSaved(true);
-                        setTimeout(() => setPersonaSaved(false), 2000);
-                      } catch { /* ignore */ }
+                      handlePersonaForge(chip.desc);
                     }}
                     className={`flex items-center gap-1 px-2 py-1 rounded-full border text-[9px] font-black transition-all active:scale-95 ${personaConfig.id === chip.id ? 'border-violet-400/50 bg-violet-500/20 text-violet-300' : 'border-white/12 bg-white/5 text-white/40 hover:text-white/70 hover:border-white/25'}`}
                     title={chip.desc}
