@@ -5,6 +5,7 @@ import { chatWithClaudeStream } from './services/claudeService';
 import { analyzeForPro, resetProSession } from './src/pro';
 import { generateArhaVideo, generateArhaImage } from './services/geminiService';
 import { getPersonaValueChain, buildPersonaSystemPrompt, computeTriVector, getTriVectorPullLabel } from './services/personaRegistry';
+import { generatePersonaEquation, computePresetEquation, type PersonaEquationResult } from './services/personaEquation';
 import { buildAnchorConfig } from './services/anchorConfig';
 import { runFeedbackLoop, createInitialFeedbackState, analyzeFitTrend, type FeedbackState, type TurnFeedbackResult, type FitEvaluation } from './services/anchorFeedback';
 import { loadAnchorProfile, saveAnchorProfile, learnFromSession, getPersonalization, createInitialAnchorProfile, type UserAnchorProfile, type AnchorPersonalization } from './services/userAnchorProfile';
@@ -581,6 +582,10 @@ const App: React.FC = () => {
   const [personaConfig, setPersonaConfig] = useState(ARHA_DEFAULT);
   const [sidebarTab, setSidebarTab] = useState<'prism' | 'persona' | 'pipeline'>('prism');
   const [personaSaved, setPersonaSaved] = useState(false);
+  // Persona Forge — 자유 입력 방정식 생성기
+  const [personaForgeInput, setPersonaForgeInput] = useState('');
+  const [personaEquationResult, setPersonaEquationResult] = useState<PersonaEquationResult | null>(null);
+  const [personaForgeError, setPersonaForgeError] = useState<string | null>(null);
 
   // Artifact / mode state (Pipeline v2: mode is auto-detected server-side)
   const [currentArtifact, setCurrentArtifact] = useState<ArtifactContent | null>(null);
@@ -964,6 +969,9 @@ const App: React.FC = () => {
 
   const handlePersonaReset = useCallback(() => {
     setPersonaConfig(ARHA_DEFAULT);
+    setPersonaEquationResult(null);
+    setPersonaForgeInput('');
+    setPersonaForgeError(null);
     if (user) savePersona(user.uid, ARHA_DEFAULT);
   }, [user]);
 
@@ -2127,12 +2135,116 @@ const App: React.FC = () => {
 
         {/* ── Persona tab ── */}
         {sidebarTab === 'persona' && (
-          <div className="flex-1 overflow-y-auto px-3 pt-3 pb-3 space-y-2 scroll-hide">
-            {/* Persona preset grid */}
+          <div className="flex-1 overflow-y-auto px-3 pt-3 pb-3 space-y-3 scroll-hide">
+
+            {/* ── Persona Forge ── */}
             <div className="space-y-2">
-              <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-white/30 px-0.5">{t.personaPresetLabel}</p>
-              <div className="grid grid-cols-2 gap-2">
-                {PERSONA_PRESETS.map((preset) => {
+              <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-white/30 px-0.5">⚗️ Persona Forge</p>
+              <div className="rounded-2xl border border-violet-400/20 bg-violet-500/5 p-3 space-y-2">
+                <textarea
+                  value={personaForgeInput}
+                  onChange={e => { setPersonaForgeInput(e.target.value); setPersonaForgeError(null); }}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                      e.preventDefault();
+                      if (!personaForgeInput.trim()) return;
+                      try {
+                        const result = generatePersonaEquation(personaForgeInput);
+                        setPersonaEquationResult(result);
+                        const newPersona = { id: `custom_${Date.now()}`, label: result.label, emoji: result.emoji, description: result.description, tonePrompt: result.tonePrompt };
+                        setPersonaConfig(newPersona);
+                        if (user) savePersona(user.uid, newPersona);
+                        setPersonaSaved(true);
+                        setTimeout(() => setPersonaSaved(false), 2000);
+                        setPersonaForgeError(null);
+                      } catch (err: unknown) {
+                        setPersonaForgeError(err instanceof Error ? err.message : '생성 실패');
+                      }
+                    }
+                  }}
+                  placeholder="페르소나를 설명하세요&#10;예) 냉철하고 분석적이지만 내면에 따뜻함이 있는"
+                  rows={3}
+                  className="w-full resize-none text-[10px] bg-transparent text-slate-700 dark:text-white/80 placeholder:text-slate-400 dark:placeholder:text-white/20 outline-none leading-relaxed"
+                />
+                {personaForgeError && (
+                  <p className="text-[9px] text-red-400">{personaForgeError}</p>
+                )}
+                <button
+                  onClick={() => {
+                    if (!personaForgeInput.trim()) return;
+                    try {
+                      const result = generatePersonaEquation(personaForgeInput);
+                      setPersonaEquationResult(result);
+                      const newPersona = { id: `custom_${Date.now()}`, label: result.label, emoji: result.emoji, description: result.description, tonePrompt: result.tonePrompt };
+                      setPersonaConfig(newPersona);
+                      if (user) savePersona(user.uid, newPersona);
+                      setPersonaSaved(true);
+                      setTimeout(() => setPersonaSaved(false), 2000);
+                      setPersonaForgeError(null);
+                    } catch (err: unknown) {
+                      setPersonaForgeError(err instanceof Error ? err.message : '생성 실패');
+                    }
+                  }}
+                  disabled={!personaForgeInput.trim()}
+                  className="w-full py-2 rounded-xl bg-violet-500/20 hover:bg-violet-500/35 border border-violet-400/30 text-[10px] font-black text-violet-300 tracking-widest transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  ⚡ 방정식 생성 · 적용
+                </button>
+              </div>
+            </div>
+
+            {/* ── Active Equation Display ── */}
+            {(personaEquationResult || personaConfig.id !== 'arha') && (
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between px-0.5">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-white/30">Active Equation</p>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-base leading-none">{personaConfig.emoji}</span>
+                    <span className="text-[10px] font-black text-slate-700 dark:text-white/70">{personaConfig.label}</span>
+                    {personaSaved && <span className="text-[8px] text-violet-400 font-black">✓ 적용됨</span>}
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/3 px-3 py-2.5 space-y-2">
+                  {/* Equation string */}
+                  <div className="font-mono text-[9px] text-violet-300/80 leading-relaxed break-all">
+                    {personaEquationResult?.equation ?? computePresetEquation(personaConfig.description || personaConfig.label)}
+                  </div>
+                  {/* Vector bar */}
+                  {personaEquationResult && (
+                    <div className="space-y-1 pt-1 border-t border-white/8">
+                      {(['I','D','E','T','S','C','R'] as const).map(axis => {
+                        const val = personaEquationResult.vector[axis];
+                        return (
+                          <div key={axis} className="flex items-center gap-2">
+                            <span className="text-[7px] font-black w-3 shrink-0 text-violet-300/60">{axis}</span>
+                            <div className="flex-1 h-1 bg-white/8 rounded-full overflow-hidden">
+                              <div className="h-full rounded-full bg-gradient-to-r from-violet-400/60 to-pink-400/60 transition-all duration-700" style={{ width: `${val * 100}%` }} />
+                            </div>
+                            <span className="text-[7px] text-white/30 w-6 text-right">{val.toFixed(2)}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {/* Reset */}
+                  {personaConfig.id !== 'arha' && (
+                    <button
+                      onClick={handlePersonaReset}
+                      className="w-full text-[8px] font-black uppercase tracking-widest text-white/20 hover:text-red-400 transition-all py-1 rounded-lg hover:bg-red-500/10"
+                    >
+                      {t.personaReset}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ── 추천 페르소나 ── */}
+            <div className="space-y-2">
+              <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-white/30 px-0.5">추천 페르소나</p>
+              {/* B-mode presets */}
+              <div className="grid grid-cols-3 gap-1.5">
+                {PERSONA_PRESETS.filter(p => p.id !== 'arha').map((preset) => {
                   const isActive = personaConfig.id === preset.id;
                   return (
                     <button
@@ -2140,70 +2252,82 @@ const App: React.FC = () => {
                       onClick={() => {
                         const newPersona = { id: preset.id, label: preset.label, emoji: preset.emoji, description: preset.description, tonePrompt: preset.tonePrompt };
                         setPersonaConfig(newPersona);
+                        // 프리셋 선택 시 display equation 계산
+                        setPersonaEquationResult(null); // vector bar 숨김 (프리셋은 커스텀 식 없음)
+                        setPersonaForgeInput('');
                         if (user) savePersona(user.uid, newPersona);
                         setPersonaSaved(true);
                         setTimeout(() => setPersonaSaved(false), 2000);
                       }}
-                      className={`relative flex flex-col items-start gap-1 py-3 px-3 rounded-2xl border bg-gradient-to-br text-left transition-all active:scale-95 ${preset.color} ${isActive ? 'ring-1 ring-white/40 opacity-100' : 'opacity-60 hover:opacity-90'}`}
+                      className={`flex flex-col items-center gap-1 py-2 px-1.5 rounded-xl border bg-gradient-to-br text-center transition-all active:scale-95 ${preset.color} ${isActive ? 'ring-1 ring-white/40 opacity-100' : 'opacity-50 hover:opacity-85'}`}
                     >
-                      <div className="flex items-center gap-1.5 w-full">
-                        <span className="text-lg leading-none">{preset.emoji}</span>
-                        <span className="text-[11px] font-black tracking-wide flex-1">{personaLabel(t, preset.id)}</span>
-                        {isActive && <span className="w-1.5 h-1.5 rounded-full bg-white/70 shrink-0" />}
-                      </div>
-                      <span className="text-[9px] opacity-60 leading-tight">{personaDesc(t, preset.id)}</span>
+                      <span className="text-base leading-none">{preset.emoji}</span>
+                      <span className="text-[8px] font-black tracking-wide leading-tight">{preset.label}</span>
+                      {isActive && <span className="w-1 h-1 rounded-full bg-white/70" />}
                     </button>
                   );
                 })}
               </div>
-
-              {/* Active persona status */}
-              <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-white/5 border border-white/10">
-                <div className="flex items-center gap-2">
-                  <span className="text-base">{personaConfig.emoji}</span>
-                  <div>
-                    <p className="text-[10px] font-black text-slate-700 dark:text-white/70">{personaLabel(t, personaConfig.id) || personaConfig.label}</p>
-                    <p className="text-[9px] text-slate-400 dark:text-white/30">
-                      {personaSaved ? t.personaJustApplied : personaConfig.id === 'arha' ? t.personaDefault : t.personaActive}
-                    </p>
-                  </div>
-                </div>
-                {personaConfig.id !== 'arha' && (
+              {/* Anime-style quick chips (from PERSONA_PRESETS_UNUSED) */}
+              <div className="flex flex-wrap gap-1.5 pt-0.5">
+                {[
+                  { id: 'tsundere-chip', emoji: '😤', label: '츤데레', desc: '차갑지만 속은 따뜻한' },
+                  { id: 'cool-chip',     emoji: '❄️', label: '쿨 타입', desc: '결론 먼저, 감정 절제' },
+                  { id: 'airhead-chip',  emoji: '🌸', label: '에어헤드', desc: '천진난만하고 순수한' },
+                  { id: 'yandere-chip',  emoji: '🌹', label: '얀데레', desc: '달콤하고 집착적인' },
+                  { id: 'luxe-chip',     emoji: '👑', label: '우아함', desc: '고결하고 품위 있는' },
+                  { id: 'philo-chip',    emoji: '🔮', label: '철학자', desc: '깊은 사색과 본질 탐구' },
+                  { id: 'energy-chip',   emoji: '⚡', label: '에너지', desc: '열정적이고 활발한' },
+                  { id: 'mystery-chip',  emoji: '🌙', label: '신비로운', desc: '조용하고 내면이 깊은' },
+                ].map(chip => (
                   <button
-                    onClick={handlePersonaReset}
-                    className="text-[9px] font-black uppercase tracking-widest text-slate-300 dark:text-white/20 hover:text-red-400 transition-all px-2 py-1 rounded-lg hover:bg-red-500/10"
+                    key={chip.id}
+                    onClick={() => {
+                      setPersonaForgeInput(chip.desc);
+                      // 자동으로 방정식 생성 + 적용
+                      try {
+                        const result = generatePersonaEquation(chip.desc);
+                        setPersonaEquationResult(result);
+                        const newPersona = { id: chip.id, label: `${chip.emoji} ${chip.label}`, emoji: chip.emoji, description: chip.desc, tonePrompt: result.tonePrompt };
+                        setPersonaConfig(newPersona);
+                        if (user) savePersona(user.uid, newPersona);
+                        setPersonaSaved(true);
+                        setTimeout(() => setPersonaSaved(false), 2000);
+                      } catch { /* ignore */ }
+                    }}
+                    className={`flex items-center gap-1 px-2 py-1 rounded-full border text-[9px] font-black transition-all active:scale-95 ${personaConfig.id === chip.id ? 'border-violet-400/50 bg-violet-500/20 text-violet-300' : 'border-white/12 bg-white/5 text-white/40 hover:text-white/70 hover:border-white/25'}`}
+                    title={chip.desc}
                   >
-                    {t.personaReset}
+                    <span>{chip.emoji}</span>
+                    <span>{chip.label}</span>
                   </button>
-                )}
+                ))}
               </div>
             </div>
 
-            {/* Value chain section */}
-            <div className="space-y-2 pt-1">
+            {/* ── Value Chain (compact) ── */}
+            <div className="space-y-1.5">
               <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-white/30 px-0.5">Value Chain</p>
-              <div className="rounded-2xl border border-white/10 bg-white/3 px-3 py-2.5 space-y-1.5">
+              <div className="rounded-2xl border border-white/10 bg-white/3 px-3 py-2 space-y-1.5">
                 {(pipelineData?.r3.active_values ?? activeValueChain).map(v => (
                   <div key={v.id} className="flex items-center gap-2">
                     <span className={`text-[7px] font-black w-4 shrink-0 ${v.activated ? 'text-violet-400' : 'text-slate-300 dark:text-white/25'}`}>{v.id}</span>
-                    <div className="flex-1 h-1.5 bg-white/8 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all duration-500 ${v.activated ? 'bg-gradient-to-r from-violet-400 to-pink-400' : 'bg-white/15'}`}
-                        style={{ width: `${v.weight * 100}%` }}
-                      />
+                    <div className="flex-1 h-1 bg-white/8 rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full transition-all duration-500 ${v.activated ? 'bg-gradient-to-r from-violet-400 to-pink-400' : 'bg-white/15'}`} style={{ width: `${v.weight * 100}%` }} />
                     </div>
-                    <span className={`text-[8px] w-16 truncate ${v.activated ? 'text-slate-700 dark:text-white/70 font-black' : 'text-slate-300 dark:text-white/25'}`}>{v.name}</span>
+                    <span className={`text-[8px] w-14 truncate ${v.activated ? 'text-slate-700 dark:text-white/70 font-black' : 'text-slate-300 dark:text-white/25'}`}>{v.name}</span>
                     {v.activated && <span className="w-1 h-1 rounded-full bg-violet-400 shrink-0" />}
                   </div>
                 ))}
                 {pipelineData?.r3.chain_op && (
-                  <div className="flex items-center justify-between pt-1 border-t border-white/8 mt-1">
+                  <div className="flex items-center justify-between pt-1 border-t border-white/8 mt-0.5">
                     <span className="text-[8px] text-slate-400 dark:text-white/30">{t.r3ChainOp}</span>
                     <span className="text-[8px] font-black text-violet-300/70">{pipelineData.r3.chain_op}</span>
                   </div>
                 )}
               </div>
             </div>
+
           </div>
         )}
       </aside>
