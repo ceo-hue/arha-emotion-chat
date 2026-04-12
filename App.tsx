@@ -2206,8 +2206,17 @@ const App: React.FC = () => {
                 </div>
                 <div className="rounded-2xl border border-white/10 bg-white/3 px-3 py-2.5 space-y-2">
                   {/* Equation string */}
-                  <div className="font-mono text-[9px] text-violet-300/80 leading-relaxed break-all">
-                    {personaEquationResult?.equation ?? computePresetEquation(personaConfig.description || personaConfig.label)}
+                  <div className="space-y-1">
+                    <div className="font-mono text-[8px] text-white/30 leading-relaxed break-all">
+                      {personaEquationResult
+                        ? personaEquationResult.equation  // Ψ_HighSol ⊕ Δ_p
+                        : computePresetEquation(personaConfig.description || personaConfig.label)}
+                    </div>
+                    {personaEquationResult?.delta_equation && (
+                      <div className="font-mono text-[9px] text-violet-300/80 leading-relaxed break-all pl-2 border-l border-violet-400/30">
+                        {personaEquationResult.delta_equation}
+                      </div>
+                    )}
                   </div>
                   {/* Vector bar */}
                   {personaEquationResult && (
