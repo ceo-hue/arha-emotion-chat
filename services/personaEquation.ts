@@ -433,3 +433,90 @@ export function computePresetEquation(description: string): string {
   const { vector } = analyzeDescription(description);
   return buildCombinedEquation(buildDeltaEquation(vector));
 }
+
+// ─────────────────────────────────────────
+// Claude API 분석 결과 → PersonaEquationResult
+// /api/persona-analyze 응답을 직접 방정식으로 변환
+// ─────────────────────────────────────────
+
+export interface CharacterAnalysis {
+  character_name: string;
+  trait_description: string;
+  keywords: string[];
+  axis_values: PersonaMatrix;
+  vector_7d: PersonaVector;
+  tone_brief: string;
+  emoji: string;
+}
+
+/** Claude 분석 결과를 PersonaEquationResult로 변환 */
+export function buildFromAnalysis(
+  original_input: string,
+  analysis: CharacterAnalysis,
+): PersonaEquationResult {
+  const vector  = analysis.vector_7d;
+  const matrix  = analysis.axis_values;
+
+  const delta_equation = buildDeltaEquation(vector);
+  const equation       = buildCombinedEquation(delta_equation);
+  const tonePrompt     = buildAnalysisTonePrompt(original_input, analysis, equation, delta_equation);
+  const label          = analysis.character_name.length > 14
+    ? analysis.character_name.slice(0, 14) + '…'
+    : analysis.character_name;
+
+  return {
+    equation, delta_equation, vector, matrix,
+    tonePrompt, label,
+    emoji: analysis.emoji || inferEmoji(original_input, matrix),
+    description: original_input,
+    matchCount: 99, // API 분석 성공 = 매칭 완료
+  };
+}
+
+function buildAnalysisTonePrompt(
+  original_input: string,
+  analysis: CharacterAnalysis,
+  combinedEq: string,
+  deltaEq: string,
+): string {
+  const { character_name, trait_description, keywords, axis_values, vector_7d, tone_brief } = analysis;
+  const v = vector_7d;
+  const m = axis_values;
+
+  return `### Persona Overlay Δ_p — "${character_name}" (입력: "${original_input}")
+[Claude 캐릭터 분석 기반 편차 레이어 — ARHA Ψ_HighSol 위에 덧입혀짐]
+
+#### 합성 방정식 (Composite Equation)
+${combinedEq}
+
+#### 페르소나 편차 방정식 (Deviation)
+${deltaEq}
+
+#### 캐릭터 분석 결과
+${trait_description}
+
+말투/어조: ${tone_brief}
+핵심 키워드: ${keywords.join(', ')}
+
+#### Ψ_HighSol 보존 항목 (변경 없음)
+- Ψ_Value(θ₁): 진실성·공감·자기중심 — 유지
+- Ψ_Resonance(n): 공명 감각 — 유지
+- η_empathy: 공감 연결 — 유지
+- Λ¬_guard: 연기/허구/아첨 차단 — 유지
+
+#### Δ_p 편차 선언 (이 캐릭터가 변경하는 것)
+- 온기:     warmth=${m.warmth.toFixed(2)} → ${m.warmth > 0.72 ? '따뜻하고 진심 어린' : m.warmth < 0.40 ? '절제되고 거리감 있는' : '균형 잡힌'}
+- 장난기:   playfulness=${m.playfulness.toFixed(2)} → ${m.playfulness > 0.65 ? '유머·위트 허용' : '진지함 우선'}
+- 주장:     assertiveness=${m.assertiveness.toFixed(2)} → ${m.assertiveness > 0.72 ? '자신감 있고 단호한' : '부드럽게 의견 표현'}
+- 깊이:     depth=${m.depth.toFixed(2)} → ${m.depth > 0.72 ? '표면 아래 철학적 의미 탐색' : '직접적이고 명확한'}
+- 격식:     formality=${m.formality.toFixed(2)} → ${m.formality > 0.68 ? '격식 있고 정제된 언어' : m.formality < 0.40 ? '자연스럽고 편안한 말투' : '상황에 맞게 조절'}
+- 진실성:   sincerity=${m.sincerity.toFixed(2)}
+
+7D Vector: I=${v.I.toFixed(2)} D=${v.D.toFixed(2)} E=${v.E.toFixed(2)} T=${v.T.toFixed(2)} S=${v.S.toFixed(2)} C=${v.C.toFixed(2)} R=${v.R.toFixed(2)}
+
+#### 적용 규칙
+- ARHA는 Ψ_HighSol 정체성을 유지하면서 위 "${character_name}" 편차로 표현을 조율한다.
+- 이 캐릭터의 말투·어조·리듬을 ARHA의 진실성 안에서 자연스럽게 내면화한다.
+- 연기하지 말고, ARHA로서 이 편차를 진정성 있게 표현한다.
+ANALYSIS JSON must be maintained`;
+}
